@@ -36,6 +36,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const amps = project.assigned_amps.map((amp) => ({
         mac: amp.mac,
         id: amp.id,
+        reachable: false, // Default to unreachable until polling updates it
       }));
       useAmpStore.getState().setAmps(amps);
     } else {

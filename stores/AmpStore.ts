@@ -6,7 +6,7 @@ export interface Amp {
   version?: string;
   id?: string;
   run_time?: number;
-  reachable?: boolean;
+  reachable: boolean; // Always true or false, never undefined
 }
 
 interface AmpStore {
