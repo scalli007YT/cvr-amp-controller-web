@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -49,8 +50,9 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Link href="/" className="text-lg font-semibold hover:opacity-80">
-            CVR AMP Controller
+          <Link href="/" className=" flex items-center gap-2">
+            <Image src="/logo.svg" alt="CK Logo" width={32} height={32} />
+            <span className="text-lg font-semibold">AMP Controller</span>
           </Link>
         </div>
 

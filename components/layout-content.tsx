@@ -5,7 +5,8 @@ import { Header } from "@/components/header";
 import { useProjectStore } from "@/lib/store";
 
 export function LayoutContent({ children }: { children: ReactNode }) {
-  const { projects, loading, setProjects, setLoading, setSelectedProject } = useProjectStore();
+  const { projects, loading, setProjects, setLoading, setSelectedProject } =
+    useProjectStore();
 
   useEffect(() => {
     const fetchProjects = async () => {

@@ -25,11 +25,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   projects: [],
   selectedProject: null,
   loading: true,
-  
+
   setProjects: (projects) => set({ projects }),
   setSelectedProject: (project) => set({ selectedProject: project }),
   setLoading: (loading) => set({ loading }),
-  
+
   selectProjectById: (id) => {
     const project = get().projects.find((p) => p.id === id);
     if (project) {
