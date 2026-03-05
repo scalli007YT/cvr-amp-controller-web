@@ -36,7 +36,7 @@ export async function pollAllAmpsOnce(ampsToQuery: Amp[]): Promise<{
   const succeeded: Amp[] = [];
   const failed: string[] = [];
 
-  // Step 2: Query each assigned amp with HEARTBEAT
+  // Step 2: Query each assigned amp with BASIC_INFO
   for (const amp of amps) {
     try {
       // Look up IP from broadcast discovery
@@ -48,15 +48,17 @@ export async function pollAllAmpsOnce(ampsToQuery: Amp[]): Promise<{
         continue;
       }
 
-      // Query device with HEARTBEAT (lightweight, real-time status)
+      // Query device with BASIC_INFO to get metadata
       const device = new CvrAmpDevice(ip);
-      const heartbeat = await device.queryHeartbeat();
+      const info = await device.queryBasicInfo();
       device.close();
 
-      // Return updated amp with real-time status
+      // Return updated amp with device info
       const updatedAmp: Amp = {
         ...amp,
-        name: amp.name || "Unknown Amp",
+        name: info.name,
+        version: info.deviceVersion,
+        run_time: parseRuntimeMinutes(info.runtime),
         reachable: true,
       };
 
@@ -153,13 +155,16 @@ function parseRuntimeMinutes(runtime: string): number | undefined {
   try {
     // runtime comes as formatted string like "2696h-10min"
     // Parse it back to minutes
+    if (!runtime || typeof runtime !== "string") return undefined;
+    
     const match = runtime.match(/(\d+)h-(\d+)min/);
     if (match) {
-      const hours = parseInt(match[1]);
-      const minutes = parseInt(match[2]);
-      return hours * 60 + minutes;
+      const hours = parseInt(match[1], 10);
+      const minutes = parseInt(match[2], 10);
+      const totalMinutes = hours * 60 + minutes;
+      return totalMinutes;
     }
-  } catch {
+  } catch (err) {
     // Silent fail
   }
 
