@@ -78,9 +78,9 @@ export async function pollAllAmpsOnce(ampsToQuery: Amp[]): Promise<{
  * Resolve MAC address to IP via ARP table lookup
  * ARP table should already be populated from initial broadcast ping
  */
-async function resolveAmpIp(
+export async function resolveAmpIp(
   mac: string,
-  subnet: string,
+  subnet?: string,
 ): Promise<string | null> {
   try {
     // Get the raw ARP output to parse (ARP table already populated)

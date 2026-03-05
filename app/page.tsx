@@ -3,13 +3,24 @@
 import { useProjectStore } from "@/stores/ProjectStore";
 import { useAmpStore } from "@/stores/AmpStore";
 import { useAmpPoller } from "@/hooks/useAmpPoller";
+import { useAmpControl } from "@/hooks/useAmpControl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+function formatRuntime(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours}:${mins.toString().padStart(2, "0")} Hrs`;
+}
+
+const CHANNELS = ["A", "B", "C", "D"];
 
 export default function Page() {
   const { selectedProject } = useProjectStore();
   const { amps } = useAmpStore();
   const { isPolling, lastUpdated, errors } = useAmpPoller();
+  const { setChannelMute, isLoading } = useAmpControl();
 
   return (
     <div className="space-y-6">
@@ -37,7 +48,7 @@ export default function Page() {
                 {amps.map((amp) => (
                   <div
                     key={amp.mac}
-                    className="border rounded-lg p-4 space-y-2"
+                    className="border rounded-lg p-4 space-y-3"
                   >
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold text-sm">
@@ -69,11 +80,58 @@ export default function Page() {
                         <span className="text-gray-500">Runtime:</span>{" "}
                         <span>
                           {amp.run_time !== undefined
-                            ? `${amp.run_time} min`
+                            ? formatRuntime(amp.run_time)
                             : "—"}
                         </span>
                       </div>
                     </div>
+
+                    {/* Channel Controls */}
+                    {amp.reachable && (
+                      <div className="mt-4 pt-4 border-t">
+                        <p className="text-xs font-semibold text-gray-600 mb-2">
+                          Channel Controls
+                        </p>
+                        <div className="space-y-2">
+                          {CHANNELS.map((channel) => (
+                            <div
+                              key={`${amp.mac}-${channel}`}
+                              className="flex items-center gap-2"
+                            >
+                              <span className="text-xs font-medium w-6">
+                                {channel}
+                              </span>
+                              <Button
+                                onClick={() =>
+                                  setChannelMute(amp.mac, channel, false)
+                                }
+                                disabled={isLoading(amp.mac, channel, false)}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs flex-1"
+                              >
+                                {isLoading(amp.mac, channel, false)
+                                  ? "Unmuting..."
+                                  : "Unmute 🔊"}
+                              </Button>
+                              <Button
+                                onClick={() =>
+                                  setChannelMute(amp.mac, channel, true)
+                                }
+                                disabled={isLoading(amp.mac, channel, true)}
+                                variant="destructive"
+                                size="sm"
+                                className="text-xs flex-1"
+                              >
+                                {isLoading(amp.mac, channel, true)
+                                  ? "Muting..."
+                                  : "Mute 🔇"}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

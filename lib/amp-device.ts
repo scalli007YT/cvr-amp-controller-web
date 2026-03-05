@@ -131,49 +131,68 @@ export class CvrAmpDevice {
     this.ampIp = ampIp;
   }
 
-  private ensureSocket(): Promise<dgram.Socket> {
+  private ensureSocket(
+    retries: number = 3,
+    retryDelay: number = 100,
+  ): Promise<dgram.Socket> {
     return new Promise((resolve, reject) => {
       if (this.socket) {
         resolve(this.socket);
         return;
       }
 
-      this.socket = dgram.createSocket("udp4");
-      this.socket.setMaxListeners(10);
+      const attemptBind = (retriesLeft: number) => {
+        this.socket = dgram.createSocket("udp4");
+        this.socket.setMaxListeners(10);
 
-      const bindTimeout = setTimeout(() => {
-        if (this.socket) {
-          this.socket.close();
-          this.socket = null;
+        const bindTimeout = setTimeout(() => {
+          if (this.socket) {
+            this.socket.close();
+            this.socket = null;
+          }
+          reject(new Error("Socket bind timeout"));
+        }, 500);
+
+        const errorHandler = (err: Error) => {
+          clearTimeout(bindTimeout);
+          if (this.socket) {
+            this.socket.close();
+            this.socket = null;
+          }
+
+          // Retry on EADDRINUSE errors
+          if (
+            retriesLeft > 0 &&
+            (err.message.includes("EADDRINUSE") || err.message.includes("bind"))
+          ) {
+            setTimeout(() => attemptBind(retriesLeft - 1), retryDelay);
+          } else {
+            reject(err);
+          }
+        };
+
+        this.socket.on("error", errorHandler);
+
+        try {
+          this.socket.bind(
+            {
+              port: PC_RECV_PORT,
+              address: "0.0.0.0",
+              exclusive: false,
+            },
+            () => {
+              clearTimeout(bindTimeout);
+              this.socket!.removeListener("error", errorHandler);
+              resolve(this.socket!);
+            },
+          );
+        } catch (err) {
+          clearTimeout(bindTimeout);
+          errorHandler(err instanceof Error ? err : new Error(String(err)));
         }
-        reject(new Error("Socket bind timeout"));
-      }, 500);
+      };
 
-      this.socket.on("error", (err) => {
-        clearTimeout(bindTimeout);
-        if (this.socket) {
-          this.socket.close();
-          this.socket = null;
-        }
-        reject(err);
-      });
-
-      try {
-        this.socket.bind(
-          {
-            port: PC_RECV_PORT,
-            address: "0.0.0.0",
-            exclusive: false,
-          },
-          () => {
-            clearTimeout(bindTimeout);
-            resolve(this.socket!);
-          },
-        );
-      } catch (err) {
-        clearTimeout(bindTimeout);
-        reject(err);
-      }
+      attemptBind(retries);
     });
   }
 
@@ -472,6 +491,61 @@ export class CvrAmpDevice {
       // Silent fail
     }
     return "Unknown";
+  }
+
+  async setMute(
+    channel: string,
+    muted: boolean,
+    retries: number = 3,
+  ): Promise<void> {
+    const channelIndex = this.parseChannel(channel);
+
+    const header: StructHeader = {
+      head: 0x55,
+      functionCode: FuncCode.MUTE,
+      statusCode: 1,
+      chx: channelIndex,
+      link: 0,
+      inOutFlag: 0,
+      segment: 0,
+      r1: 0,
+      r2: 0,
+      r3: 1,
+    };
+
+    const body = Buffer.from([muted ? 0x00 : 0x01]);
+
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        await this.sendRaw(header, body);
+        return; // Success
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        // If this is the last attempt, throw the error
+        if (attempt === retries - 1) {
+          throw lastError;
+        }
+        // Wait before retrying
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    }
+  }
+
+  private parseChannel(ch: string): number {
+    const s = ch.trim().toUpperCase();
+    const mapping: { [key: string]: number } = {
+      A: 0,
+      B: 1,
+      C: 2,
+      D: 3,
+    };
+
+    const index = mapping[s];
+    if (index === undefined) {
+      throw new Error(`Invalid channel '${ch}'. Expected one of: A, B, C, D.`);
+    }
+    return index;
   }
 
   close(): void {
