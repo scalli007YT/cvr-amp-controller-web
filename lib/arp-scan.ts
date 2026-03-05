@@ -126,15 +126,22 @@ export async function broadcastDiscovery(): Promise<
             const packet = Buffer.concat([networkData, frame]);
 
             // Send broadcast discovery query
-            socket.send(packet, 0, packet.length, AMP_PORT, BROADCAST_ADDR, (err) => {
-              if (err) {
-                clearTimeout(timeoutHandle);
-                try {
-                  socket.close();
-                } catch {}
-                resolve([]);
-              }
-            });
+            socket.send(
+              packet,
+              0,
+              packet.length,
+              AMP_PORT,
+              BROADCAST_ADDR,
+              (err) => {
+                if (err) {
+                  clearTimeout(timeoutHandle);
+                  try {
+                    socket.close();
+                  } catch {}
+                  resolve([]);
+                }
+              },
+            );
           } catch (err) {
             console.error("[DISCOVERY] Failed to build or send packet:", err);
             clearTimeout(timeoutHandle);

@@ -14,7 +14,7 @@ export async function GET() {
     if (devices.length === 0) {
       return NextResponse.json(
         { success: false, error: "No AMP devices found", devices: [] },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -46,7 +46,7 @@ export async function GET() {
     const errorMsg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
       { success: false, error: `Discovery failed: ${errorMsg}`, devices: [] },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
