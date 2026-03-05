@@ -156,7 +156,7 @@ function parseRuntimeMinutes(runtime: string): number | undefined {
     // runtime comes as formatted string like "2696h-10min"
     // Parse it back to minutes
     if (!runtime || typeof runtime !== "string") return undefined;
-    
+
     const match = runtime.match(/(\d+)h-(\d+)min/);
     if (match) {
       const hours = parseInt(match[1], 10);

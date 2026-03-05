@@ -51,3 +51,41 @@ export async function GET() {
     );
   }
 }
+
+export async function PUT(request: Request) {
+  try {
+    const body = (await request.json()) as Project;
+
+    if (!body.id) {
+      return NextResponse.json(
+        { success: false, error: "Project ID is required" },
+        { status: 400 },
+      );
+    }
+
+    const projectsDir = path.join(process.cwd(), "storage", "projects");
+    const filePath = path.join(projectsDir, `${body.id}.json`);
+
+    // Update the updatedAt timestamp
+    const updatedProject: Project = {
+      ...body,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Write the updated project to file
+    await fs.writeFile(filePath, JSON.stringify(updatedProject, null, 2));
+
+    return NextResponse.json({
+      success: true,
+      project: updatedProject,
+    });
+  } catch (err) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: err instanceof Error ? err.message : "Failed to save project",
+      },
+      { status: 500 },
+    );
+  }
+}
