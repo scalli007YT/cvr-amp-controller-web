@@ -1,12 +1,15 @@
 ﻿import { CvrAmpDevice } from "@/lib/amp-device";
-import { broadcastDiscovery } from "@/lib/amp-scan";
+import { ampController } from "@/lib/amp-controller";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
     let devices;
     try {
-      devices = await broadcastDiscovery();
+      // Use the AmpController's already-bound socket so we don't create a
+      // second UDP socket on port 45454 (which would cause EADDRINUSE).
+      ampController.start();
+      devices = await ampController.triggerDiscovery(500);
     } catch (err) {
       throw err;
     }
@@ -14,7 +17,7 @@ export async function GET() {
     if (devices.length === 0) {
       return NextResponse.json(
         { success: false, error: "No AMP devices found", devices: [] },
-        { status: 404 },
+        { status: 200 },
       );
     }
 

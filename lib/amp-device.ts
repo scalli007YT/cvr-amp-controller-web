@@ -1,8 +1,12 @@
 import dgram from "dgram";
+import type { HeartbeatData } from "@/stores/AmpStore";
 
 const AMP_SEND_PORT = 45455;
-const PC_RECV_PORT = 45454;
-const NETWORK_DATA_FLAG = 0x0000d903;
+// CvrAmpDevice uses an ephemeral port (0) for short-lived unicast commands
+// so it never conflicts with the AmpController's persistent bind on 45454.
+// Amps reply to the source port of the incoming request, so this works fine.
+const PC_RECV_PORT = 0;
+const NETWORK_DATA_FLAG = 0x0194d903; // protocol identifier (bytes: 03 d9 94 01)
 
 export interface NetworkData {
   dataFlag: number;
@@ -237,13 +241,6 @@ export class CvrAmpDevice {
           clearTimeout(timeout);
           sock.removeListener("message", messageHandler);
           sock.removeListener("error", errorHandler);
-          console.log(
-            `[AmpDevice] Payload received from ${rinfo.address} — length: ${msg.length} bytes — data: [${Array.from(
-              msg,
-            )
-              .map((b) => `0x${b.toString(16).padStart(2, "0")}`)
-              .join(", ")}]`,
-          );
           resolve(msg);
         }
       };
@@ -337,10 +334,14 @@ export class CvrAmpDevice {
           (acc, cur) => (acc === null || cur.length > acc.length ? cur : acc),
           null,
         );
-        if (best && best.length >= 116) {
+        if (best && best.length >= 100) {
           resolve(best);
         } else {
-          reject(new Error("SN_TABLE response too short or missing"));
+          reject(
+            new Error(
+              `SN_TABLE response too short or missing (got ${best?.length ?? 0} bytes)`,
+            ),
+          );
         }
       }, 200);
     });
@@ -374,14 +375,15 @@ export class CvrAmpDevice {
   }
 
   async queryRuntime(): Promise<number | undefined> {
-    // Fetch SN_TABLE (FC=71) and parse runtime minutes from offset 94
+    // Fetch SN_TABLE (FC=71) and parse runtime minutes.
+    // Full-packet offset 94 = NetworkData(10) + StructHeader(10) + body[74].
     try {
       const snResponse = await this.querySNTable();
       if (snResponse.length >= 98) {
         return snResponse.readUInt32LE(94);
       }
-    } catch {
-      // Silent fail
+    } catch (err) {
+      console.warn("[CvrAmpDevice] queryRuntime failed:", err);
     }
     return undefined;
   }
@@ -497,10 +499,6 @@ export class CvrAmpDevice {
         const responseBody = assembledFrame.slice(
           10,
           assembledFrame.length - 3,
-        );
-
-        console.log(
-          `[queryPresets] Reassembled ${fragments.length} fragment(s) → frame ${assembledFrame.length} bytes, body ${responseBody.length} bytes`,
         );
 
         const SLOT_SIZE = 32;
@@ -676,4 +674,142 @@ export class CvrAmpDevice {
       }
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Heartbeat parser (FC=6 response)
+// ---------------------------------------------------------------------------
+//
+// Full packet layout:
+//   [0-9]    NetworkData   (10 bytes)  ← machineMode at [9]
+//   [10-19]  StructHeader  (10 bytes)
+//   [20-N]   Body                       (see variants below)
+//   [N+1..3] Checksum      (3 bytes)
+//
+// Body variants (selected by C# via Marshal.SizeOf match):
+//   Heart_Inf_Whole118  — 92 bytes — total packet 115 bytes (DSP-2004, etc.)
+//   Heart_Inf_118Plus   — 96 bytes — total packet 119 bytes (has extra FanV)
+//
+// Body offsets relative to bodyStart (byte 20), same for both variants:
+//   [  0- 19] Ts[5]        5 × float32 LE  — temperatures (CH1–4 + PSU)
+//   [ 20- 35] Vs[4]        4 × float32 LE  — output voltages
+//   [ 36- 51] As[4]        4 × float32 LE  — output currents
+//   [ 52- 55] States[4]    4 × uint8        — output channel states
+//   [ 56- 71] Vs_In[4]     4 × float32 LE  — input voltages
+//   [ 72- 87] limiters[4]  4 × float32 LE  — limiter thresholds (negate for dB display)
+//   [ 88- 91] InStates[4]  4 × int8         — input states (0=signal, >0=absent, <0=fault)
+//   [ 92- 95] FanV         1 × float32 LE  — fan % (118Plus only)
+
+// Re-export for server-side callers that already import from this module.
+export { maxDbFromDeviceName } from "./amp-model";
+
+export function parseHeartbeat(buf: Buffer): HeartbeatData | null {
+  // Packet layout: NetworkData(10) + StructHeader(10) + body + checksum(3)
+  // Whole118 body = 92 bytes → total = 115 bytes  (DSP-2004 and similar)
+  // 118Plus  body = 96 bytes → total = 119 bytes  (has extra FanV float)
+  // Accept ≥ 105 (smallest valid: 10+10+82+3) to be safe.
+  if (buf.length < 105) return null;
+
+  // Validate head byte at StructHeader offset
+  if (buf[10] !== 0x55) return null;
+  // Validate function code = FC=6 (HEARTBEAT)
+  if (buf[11] !== FuncCode.HEARTBEAT) return null;
+
+  const machineMode = buf[9];
+  const bodyStart = 20; // after NetworkData(10) + StructHeader(10)
+  // body ends before the 3 checksum bytes
+  const bodyLen = buf.length - bodyStart - 3;
+  const bodyEnd = bodyStart + bodyLen; // exclusive, checksum starts here
+
+  const readFloats = (offset: number, count: number): number[] => {
+    const out: number[] = [];
+    for (let i = 0; i < count; i++) {
+      const abs = bodyStart + offset + i * 4;
+      if (abs + 4 > bodyEnd) {
+        out.push(0);
+        continue;
+      }
+      out.push(buf.readFloatLE(abs));
+    }
+    return out;
+  };
+
+  const readBytes = (offset: number, count: number): number[] => {
+    const out: number[] = [];
+    for (let i = 0; i < count; i++) {
+      const abs = bodyStart + offset + i;
+      out.push(abs < bodyEnd ? buf[abs] : 0);
+    }
+    return out;
+  };
+
+  const readSBytes = (offset: number, count: number): number[] => {
+    const out: number[] = [];
+    for (let i = 0; i < count; i++) {
+      const abs = bodyStart + offset + i;
+      if (abs >= bodyEnd) {
+        out.push(0);
+        continue;
+      }
+      // Interpret as signed byte
+      const v = buf[abs];
+      out.push(v > 127 ? v - 256 : v);
+    }
+    return out;
+  };
+
+  // Offsets relative to bodyStart — identical for Whole118 and 118Plus:
+  // Ts[5]       @ 0   (20 bytes)
+  // Vs[4]       @ 20  (16 bytes)
+  // As[4]       @ 36  (16 bytes)
+  // States[4]   @ 52  ( 4 bytes)
+  // Vs_In[4]    @ 56  (16 bytes)
+  // limiters[4] @ 72  (16 bytes)
+  // InStates[4] @ 88  ( 4 bytes) — total 92 bytes (Whole118 ends here)
+  // FanV        @ 92  ( 4 bytes) — only present in 118Plus (96 bytes body)
+  const temperatures = readFloats(0, 5);
+  const outputVoltages = readFloats(20, 4);
+  const outputCurrents = readFloats(36, 4);
+  const outputStates = readBytes(52, 4);
+  const inputVoltages = readFloats(56, 4);
+  const limiters = readFloats(72, 4);
+  const inputStates = readSBytes(88, 4);
+
+  // FanV only exists in 118Plus (bodyLen=96); Whole118 (bodyLen=92) has no FanV
+  const fanAbs = bodyStart + 92;
+  const fanVoltage =
+    bodyLen >= 96 && fanAbs + 4 <= bodyEnd ? buf.readFloatLE(fanAbs) : 0;
+
+  // Derived fields — mirrors C# RD_44.setHeart_Inf118 calculations
+  // Output impedance: CHZ = round(Vs[i] / As[i]) — 0 when idle
+  const outputImpedance = outputVoltages.map((v, i) => {
+    const a = outputCurrents[i];
+    return a > 0 ? Math.round(v / a) : 0;
+  });
+
+  // Output dBu is intentionally left as floor values here.
+  // The real computation happens in MedianSmoother.smooth() using the
+  // already-smoothed outputVoltages, so spike samples never reach the VU targets.
+  const outputDbu = outputVoltages.map(() => -100);
+
+  // Input dBFS: 20 * log10(Vs_In[i]) — null when no signal (0 V)
+  const inputDbfs: (number | null)[] = inputVoltages.map((v) =>
+    v > 0 ? Math.round(Math.log10(v) * 20 * 10) / 10 : null,
+  );
+
+  return {
+    temperatures,
+    outputVoltages,
+    outputCurrents,
+    outputImpedance,
+    outputDbu,
+    outputStates,
+    inputVoltages,
+    inputDbfs,
+    limiters,
+    inputStates,
+    fanVoltage,
+    machineMode,
+    receivedAt: Date.now(),
+  };
 }

@@ -125,7 +125,7 @@ export async function broadcastDiscovery(): Promise<
 
             // Build NetworkData wrapper (10 bytes)
             const networkData = Buffer.alloc(10);
-            networkData.writeUInt32LE(0x0000d903, 0); // data_flag
+            networkData.writeUInt32LE(0x0194d903, 0); // data_flag: protocol identifier
             networkData[4] = 1; // packets_count
             networkData.writeUInt16LE(frame.length, 5); // packets_lastlenth
             networkData[7] = 1; // packets_stepcount

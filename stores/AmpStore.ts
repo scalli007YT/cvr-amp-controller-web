@@ -13,6 +13,48 @@ export interface AmpConfig {
   customName?: string;
 }
 
+/**
+ * Parsed payload from FC=6 HEARTBEAT response (Heart_Inf_Whole118 / 118Plus variant).
+ * Updated every ~140 ms by the server-side queryT_V_A loop.
+ */
+export interface HeartbeatData {
+  /** 5 temperature sensor readings (°C) — [0-3] = channels, [4] = PSU */
+  temperatures: number[];
+  /** 4 output channel voltages (V) */
+  outputVoltages: number[];
+  /** 4 output channel currents (A) */
+  outputCurrents: number[];
+  /**
+   * 4 output channel impedance (Ω) = Vs[i] / As[i].
+   * 0 when current is zero (amp idle).
+   */
+  outputImpedance: number[];
+  /**
+   * 4 output channel levels in dBu = 20 * log10(Vs[i] / 0.775).
+   * -Infinity floor (stored as -100) when voltage is 0 (amp idle).
+   */
+  outputDbu: number[];
+  /** 4 output channel state bytes (fromat_machineState: 0=Normal, 8=Run, …) */
+  outputStates: number[];
+  /** 4 input channel voltages (V) */
+  inputVoltages: number[];
+  /**
+   * 4 input dBFS values = 20 * log10(Vs_In[i]).
+   * null when Vs_In is 0 (no signal).
+   */
+  inputDbfs: (number | null)[];
+  /** 4 limiter reduction values (raw float, negate for display dB) */
+  limiters: number[];
+  /** 4 input state bytes (signed) — 0 = signal present */
+  inputStates: number[];
+  /** Fan speed percentage (0–100) */
+  fanVoltage: number;
+  /** Raw machine_mode byte from NetworkData header */
+  machineMode: number;
+  /** Unix timestamp (ms) when this heartbeat was received */
+  receivedAt: number;
+}
+
 /** Live status: written exclusively by the polling layer. */
 export interface AmpStatus {
   reachable: boolean;
@@ -26,6 +68,13 @@ export interface AmpStatus {
   version?: string;
   /** Total runtime in minutes (from SN_TABLE, fetched once). */
   run_time?: number;
+  /**
+   * Rated output RMS voltage (V) looked up from the device name.
+   * e.g. DSP-2004 → 126.5 V. Set on first heartbeat.
+   */
+  ratedRmsV?: number;
+  /** Latest heartbeat sensor data (FC=6). undefined until first heartbeat. */
+  heartbeat?: HeartbeatData;
 }
 
 /** On-demand preset list: written exclusively by the presets hook. */
@@ -68,6 +117,8 @@ interface AmpStore {
   // — Status (from polling layer) —
   /** Merge live status fields into an existing amp. */
   updateAmpStatus: (mac: string, status: Partial<AmpStatus>) => void;
+  /** Write the latest heartbeat sensor payload for an amp. */
+  updateHeartbeat: (mac: string, heartbeat: HeartbeatData) => void;
 
   // — Presets (from presets hook) —
   /** Set the fetched preset list for an amp. */
@@ -120,6 +171,13 @@ export const useAmpStore = create<AmpStore>((set) => ({
     set((state) => ({
       amps: state.amps.map((amp) =>
         amp.mac === mac ? { ...amp, presets } : amp,
+      ),
+    })),
+
+  updateHeartbeat: (mac, heartbeat) =>
+    set((state) => ({
+      amps: state.amps.map((amp) =>
+        amp.mac === mac ? { ...amp, heartbeat } : amp,
       ),
     })),
 

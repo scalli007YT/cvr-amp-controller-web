@@ -2,9 +2,48 @@
 
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { pollAllAmpsOnce } from "@/lib/amp-polling-controller";
 import { usePollingStore } from "@/stores/PollingStore";
 import { useAmpStore } from "@/stores/AmpStore";
+import type { HeartbeatData } from "@/stores/AmpStore";
+import { smoothHeartbeat, resetSmootherForMac } from "@/lib/heartbeat-smoother";
+import { maxDbFromDeviceName, ratedRmsVFromDeviceName } from "@/lib/amp-model";
+
+// ---------------------------------------------------------------------------
+// SSE event shapes (mirroring what /api/amp-events sends)
+// ---------------------------------------------------------------------------
+interface DiscoverySseEvent {
+  type: "discovery";
+  ip: string;
+  mac: string;
+  name: string;
+  version: string;
+}
+
+interface HeartbeatSseEvent {
+  type: "heartbeat";
+  ip: string;
+  mac: string;
+  name: string;
+  version: string;
+  heartbeat: HeartbeatData;
+}
+
+interface OfflineSseEvent {
+  type: "offline";
+  mac: string;
+}
+
+interface PingEvent {
+  type: "ping";
+}
+
+type AmpSseEvent =
+  | DiscoverySseEvent
+  | HeartbeatSseEvent
+  | OfflineSseEvent
+  | PingEvent;
+
+// ---------------------------------------------------------------------------
 
 interface UseAmpPollerReturn {
   isPolling: boolean;
@@ -12,135 +51,193 @@ interface UseAmpPollerReturn {
   errors: Record<string, string>;
 }
 
+/** Find an amp by MAC (case-insensitive). */
+function findAmp(
+  amps: ReturnType<typeof useAmpStore.getState>["amps"],
+  mac: string,
+) {
+  return amps.find((a) => a.mac.toUpperCase() === mac.toUpperCase());
+}
+
+/** Fetch & store run-time minutes for an amp — non-critical, silent on failure. */
+function fetchRuntime(mac: string): void {
+  fetch(`/api/amp-runtime/${encodeURIComponent(mac)}`)
+    .then((r) => r.json())
+    .then((data: { success: boolean; minutes: number }) => {
+      if (data.success && typeof data.minutes === "number") {
+        useAmpStore.getState().updateAmpStatus(mac, { run_time: data.minutes });
+      }
+    })
+    .catch(() => {
+      /* non-critical */
+    });
+}
+
 /**
- * React hook for polling amps from AmpStore
- * - Starts polling automatically on mount
- * - Stops and cleans up on unmount
- * - Calls server action to fetch device info
- * - Updates AmpStore with results
- * - Returns current polling state
+ * useAmpPoller — SSE-based poller
  *
- * Usage:
- * const { isPolling, lastUpdated, errors } = useAmpPoller();
+ * Connects to /api/amp-events (Server-Sent Events).
+ * The server side owns:
+ *   • A persistent UDP socket (Receive_Thread equivalent, always listening)
+ *   • 140 ms FC=6 HEARTBEAT broadcast loop  (queryT_V_A equivalent)
+ *   • 4 000 ms FC=0 BASIC_INFO broadcast timer (refrash equivalent)
+ *
+ * This hook subscribes to the event stream and writes into the stores.
  */
 export function useAmpPoller(): UseAmpPollerReturn {
   const pollingStore = usePollingStore();
-  const ampStore = useAmpStore();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const interruptTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const esRef = useRef<EventSource | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Stable ref — always holds the latest amps without being an effect dep.
-  // Assigned synchronously on every render so pollFunction always sees fresh data.
-  const ampsRef = useRef(ampStore.amps);
-  ampsRef.current = ampStore.amps;
+  // Stable ref so event callbacks always see the latest amps without
+  // being a useEffect dependency.
+  const ampsRef = useRef(useAmpStore.getState().amps);
+  useEffect(() => {
+    const unsub = useAmpStore.subscribe((state) => {
+      ampsRef.current = state.amps;
+    });
+    return unsub;
+  }, []);
 
   useEffect(() => {
-    const pollFunction = async () => {
-      const currentAmps = ampsRef.current;
+    let active = true;
 
-      // Don't poll if no amps
-      if (!currentAmps || currentAmps.length === 0) {
-        usePollingStore.getState().setIsPolling(false);
-        return;
-      }
+    const connect = () => {
+      if (!active) return;
 
-      usePollingStore.getState().setIsPolling(true);
+      const es = new EventSource("/api/amp-events");
+      esRef.current = es;
 
-      try {
-        // Call server action to poll amps
-        const { succeeded, failed } = await pollAllAmpsOnce(currentAmps);
+      es.onopen = () => {
+        usePollingStore.getState().setIsPolling(true);
+        usePollingStore.getState().clearErrors();
+      };
 
-        let reachabilityChanged = false;
-
-        // Update AmpStore with succeeded results only if values changed
-        succeeded.forEach((amp) => {
-          const existing = ampsRef.current.find((a) => a.mac === amp.mac);
-
-          // Check if reachability changed
-          const wasUnreachable = existing?.reachable === false;
-          const isNowReachable = amp.reachable === true;
-
-          if (
-            !existing ||
-            existing.name !== amp.name ||
-            existing.version !== amp.version ||
-            existing.id !== amp.id ||
-            existing.run_time !== amp.run_time ||
-            existing.reachable !== amp.reachable
-          ) {
-            useAmpStore.getState().updateAmpStatus(amp.mac, {
-              ip: amp.ip,
-              name: amp.name,
-              version: amp.version,
-              run_time: amp.run_time,
-              reachable: true,
-            });
-            usePollingStore.getState().setLastUpdated(amp.mac, Date.now());
-
-            // Notify if reachability changed
-            if (wasUnreachable && isNowReachable) {
-              toast.success(`${amp.name || amp.mac} is now reachable`);
-              reachabilityChanged = true;
-            }
-          }
-          usePollingStore.getState().setError(amp.mac, null);
-        });
-
-        // Mark failed amps as unreachable only if not already marked
-        failed.forEach((mac) => {
-          const existing = ampsRef.current.find((a) => a.mac === mac);
-          if (existing && existing.reachable !== false) {
-            useAmpStore.getState().updateAmpStatus(mac, { reachable: false });
-
-            // Notify that amp became unreachable
-            toast.error(`${existing.name || mac} is now unreachable`);
-            reachabilityChanged = true;
-          }
-          usePollingStore.getState().setError(mac, "Failed to poll");
-        });
-
-        // Trigger interrupt if reachability changed (quick re-poll in 50ms)
-        if (reachabilityChanged) {
-          usePollingStore.getState().triggerInterrupt();
-          if (interruptTimeoutRef.current) {
-            clearTimeout(interruptTimeoutRef.current);
-          }
-          interruptTimeoutRef.current = setTimeout(() => {
-            void pollFunction();
-            usePollingStore.getState().clearInterrupt();
-          }, 50);
+      es.onmessage = (raw) => {
+        if (!active) return;
+        let event: AmpSseEvent;
+        try {
+          event = JSON.parse(raw.data as string) as AmpSseEvent;
+        } catch {
+          return;
         }
-      } catch {
-        // Silent fail - don't log errors to console
-        ampsRef.current.forEach((amp) => {
-          usePollingStore.getState().setError(amp.mac, "Polling failed");
-        });
-      }
+
+        switch (event.type) {
+          // ----------------------------------------------------------------
+          // discovery — device replied to FC=0 broadcast
+          // ----------------------------------------------------------------
+          case "discovery": {
+            const { ip, mac, name, version } = event;
+            const amp = findAmp(ampsRef.current, mac);
+            if (!amp) return;
+
+            const wasUnreachable = amp.reachable === false;
+            // Derive rated RMS voltage from version string (e.g. "42404B06-006118-DSP-2004")
+            // which always contains the model — more reliable than the name field.
+            const ratedRmsV = ratedRmsVFromDeviceName(version ?? name ?? "");
+            useAmpStore
+              .getState()
+              .updateAmpStatus(amp.mac, {
+                ip,
+                name,
+                version,
+                reachable: true,
+                ratedRmsV,
+              });
+            usePollingStore.getState().setLastUpdated(amp.mac, Date.now());
+            usePollingStore.getState().setError(amp.mac, null);
+
+            if (wasUnreachable) {
+              resetSmootherForMac(amp.mac);
+              toast.success(`${name || mac} is now reachable`);
+              fetchRuntime(amp.mac);
+            }
+            break;
+          }
+
+          // ----------------------------------------------------------------
+          // heartbeat — device replied to FC=6 broadcast (live sensor data)
+          // ----------------------------------------------------------------
+          case "heartbeat": {
+            const { mac, name, version, heartbeat } = event;
+            const amp = findAmp(ampsRef.current, mac);
+            if (!amp) return;
+
+            // Use name/version from the event itself — always fresh from the server's
+            // knownMacs table, never stale due to client-side store race on startup.
+            const deviceName =
+              name ||
+              version ||
+              (amp.name ?? amp.lastKnownName ?? amp.version ?? "");
+            const maxDb = maxDbFromDeviceName(deviceName);
+
+            // Store the rated RMS voltage once (avoids store churn on every heartbeat).
+            // Also retries if a 0 was stored previously due to a name/version race on startup.
+            if (!amp.ratedRmsV) {
+              useAmpStore.getState().updateAmpStatus(amp.mac, {
+                ratedRmsV: ratedRmsVFromDeviceName(deviceName),
+              });
+            }
+
+            useAmpStore
+              .getState()
+              .updateHeartbeat(
+                amp.mac,
+                smoothHeartbeat(amp.mac, heartbeat, maxDb),
+              );
+            usePollingStore.getState().setLastUpdated(amp.mac, Date.now());
+            break;
+          }
+
+          // ----------------------------------------------------------------
+          // offline — device stopped responding to discovery broadcasts
+          // ----------------------------------------------------------------
+          case "offline": {
+            const { mac } = event;
+            const amp = findAmp(ampsRef.current, mac);
+            if (!amp || amp.reachable === false) return;
+
+            useAmpStore
+              .getState()
+              .updateAmpStatus(amp.mac, { reachable: false });
+            usePollingStore.getState().setError(amp.mac, "Offline");
+            toast.error(
+              `${amp.name ?? amp.lastKnownName ?? mac} is now unreachable`,
+            );
+            break;
+          }
+
+          case "ping":
+          default:
+            break;
+        }
+      };
+
+      es.onerror = () => {
+        if (!active) return;
+        usePollingStore.getState().setIsPolling(false);
+        es.close();
+        esRef.current = null;
+
+        // Reconnect after 2 s
+        reconnectTimerRef.current = setTimeout(() => {
+          if (active) connect();
+        }, 2_000);
+      };
     };
 
-    // Run first poll immediately
-    void pollFunction();
+    connect();
 
-    // Then set up interval for subsequent polls
-    intervalRef.current = setInterval(
-      pollFunction,
-      pollingStore.updateInterval,
-    );
-
-    // Cleanup on unmount or when interval duration changes
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (interruptTimeoutRef.current) {
-        clearTimeout(interruptTimeoutRef.current);
-        interruptTimeoutRef.current = null;
+      active = false;
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      if (esRef.current) {
+        esRef.current.close();
+        esRef.current = null;
       }
       usePollingStore.getState().setIsPolling(false);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pollingStore.updateInterval]);
+  }, []); // Run once — the SSE connection is long-lived
 
   return {
     isPolling: pollingStore.isPolling,
