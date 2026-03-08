@@ -143,38 +143,6 @@ function CopyJsonButton({ data }: { data: unknown }) {
 
 const CH_LABELS = ["A", "B", "C", "D"];
 
-// Maps States byte value to label (from fromat_machineState.cs)
-function machineStateLabel(s: number): string {
-  switch (s) {
-    case 0:
-      return "Normal";
-    case 1:
-      return "Standby";
-    case 2:
-      return "Fault";
-    case 3:
-      return "Open";
-    case 4:
-      return "Overload";
-    case 5:
-      return "Clip";
-    case 6:
-      return "Dcp";
-    case 7:
-      return "PowerEr";
-    case 8:
-      return "Run";
-    case 9:
-      return "Temp";
-    case 10:
-      return "Limit";
-    case 11:
-      return "Sleep";
-    default:
-      return "Normal";
-  }
-}
-
 // ---------------------------------------------------------------------------
 // VU Meter bar — just the bar, no scale. Scale is rendered separately.
 // ---------------------------------------------------------------------------
@@ -188,8 +156,8 @@ function outDbScale(): { top: number; bot: number; ticks: number[] } {
 
 // Input: 0 dBFS (top) → -80 dBFS (bottom)
 const IN_DB_TOP = 0;
-const IN_DB_BOT = -80;
-const IN_SCALE = [0, -12, -24, -36, -48, -60, -80];
+const IN_DB_BOT = -60;
+const IN_SCALE = [0, -12, -24, -36, -48, -60];
 
 function MeterBar({
   value, // current value in dB
@@ -251,49 +219,6 @@ function ScaleColumn({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Status LED strip — right side of output section
-// ---------------------------------------------------------------------------
-
-const OUTPUT_FLAGS = [
-  "Fault",
-  "Load",
-  "Open",
-  "Temp",
-  "Clip",
-  "Standby",
-  "Hi Z",
-  "Bridged",
-] as const;
-
-function StatusLeds({ states }: { states: number[] }) {
-  // A flag is lit if ANY channel has that state
-  const active: Record<string, boolean> = {
-    Fault: states.some((s) => s === 2),
-    Load: states.some((s) => s === 4),
-    Open: states.some((s) => s === 3),
-    Temp: states.some((s) => s === 9),
-    Clip: states.some((s) => s === 5),
-    Standby: states.some((s) => s === 1),
-    "Hi Z": false,
-    Bridged: false,
-  };
-  return (
-    <div className="flex flex-col gap-[3px]">
-      {OUTPUT_FLAGS.map((flag) => (
-        <div key={flag} className="flex items-center gap-1">
-          <div
-            className={`w-2.5 h-2.5 rounded-sm border flex-shrink-0 ${active[flag] ? "bg-green-400 border-green-500" : "bg-muted/40 border-border/60"}`}
-          />
-          <span className="text-[9px] text-muted-foreground leading-none whitespace-nowrap">
-            {flag}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function HeartbeatDashboard({
   hb,
   mac,
@@ -308,7 +233,7 @@ function HeartbeatDashboard({
   const f1 = (n: number) => n.toFixed(1);
   const f0 = (n: number) => n.toFixed(0);
   const fDbfs = (v: number | null) =>
-    v === null || v <= -100 ? "---" : v.toFixed(1);
+    v === null || v <= -100 ? "---" : v.toFixed(0);
 
   // 60fps animated VU values — falls back to hb values until first rAF tick
   const vu = useVuMeters(mac);
@@ -385,6 +310,21 @@ function HeartbeatDashboard({
                   </div>
                   {/* Volume readouts */}
                   <div className="flex flex-col items-stretch gap-1.5 mt-3 w-full">
+                    {/* dBFS */}
+                    <div
+                      className={`flex flex-col items-center rounded border px-1.5 py-1 ${
+                        hasSignal
+                          ? "border-green-500/40 bg-green-500/10"
+                          : "border-border/40 bg-muted/20 opacity-60"
+                      }`}
+                    >
+                      <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
+                        {fDbfs(dbfsVal)}
+                      </span>
+                      <span className="text-[9px] text-muted-foreground mt-0.5">
+                        dBFS
+                      </span>
+                    </div>
                     {/* Volume */}
                     <div className="flex flex-col items-center rounded border border-border/60 bg-muted/30 px-1.5 py-1">
                       <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
@@ -401,21 +341,6 @@ function HeartbeatDashboard({
                       </span>
                       <span className="text-[9px] text-muted-foreground mt-0.5">
                         Gain dB
-                      </span>
-                    </div>
-                    {/* dBFS */}
-                    <div
-                      className={`flex flex-col items-center rounded border px-1.5 py-1 ${
-                        hasSignal
-                          ? "border-green-500/40 bg-green-500/10"
-                          : "border-border/40 bg-muted/20 opacity-60"
-                      }`}
-                    >
-                      <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
-                        {fDbfs(dbfsVal)}
-                      </span>
-                      <span className="text-[9px] text-muted-foreground mt-0.5">
-                        dBFS
                       </span>
                     </div>
                     {/* Mute In */}
@@ -580,16 +505,27 @@ function HeartbeatDashboard({
                       </div>
                     );
                   })()}
+                  {/* Noise Gate */}
+                  {(() => {
+                    const ng = channelParams?.channels[i]?.noiseGateOut;
+                    return (
+                      <div
+                        className={`rounded border px-1.5 py-1 text-center text-[11px] font-semibold w-full transition-colors ${
+                          ng === true
+                            ? "border-sky-500/60 bg-sky-500/20 text-sky-400"
+                            : ng === false
+                              ? "border-border/40 bg-muted/20 text-muted-foreground/50"
+                              : "border-border/30 bg-muted/10 text-muted-foreground/30"
+                        }`}
+                      >
+                        {ng === true ? "GATE ON" : "Gate"}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             );
           })}
-
-          {/* Status LEDs — bar top-aligned (spacer = label height + mb-1) */}
-          <div className="flex flex-col pl-3 ml-1 border-l border-border/40 flex-shrink-0">
-            <div style={{ height: LABEL_H + 4 }} />
-            <StatusLeds states={hb.outputStates} />
-          </div>
         </div>
 
         {/* Bottom row */}
@@ -607,6 +543,152 @@ function HeartbeatDashboard({
             {new Date(hb.receivedAt).toLocaleTimeString()}
           </span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Limiter panel — RMS + Peak settings per channel with live GR meter
+// ---------------------------------------------------------------------------
+
+function LimiterGrBar({
+  gainReduction,
+  height = 48,
+}: {
+  gainReduction: number; // negative dB from heartbeat (e.g. -6 = 6 dB GR)
+  height?: number;
+}) {
+  // gainReduction is ≤ 0; 0 = no reduction, -∞ = full clamp
+  // Show GR depth: 0 dB (no GR) at top, -20 dB at bottom
+  const GR_MAX = 20; // dB scale
+  const depth = Math.min(GR_MAX, Math.max(0, -gainReduction));
+  const fill = depth / GR_MAX;
+  const active = depth > 0.1;
+  return (
+    <div
+      className="relative rounded-sm overflow-hidden bg-muted/30 border border-border/60 w-3 flex-shrink-0"
+      style={{ height }}
+      title={`GR: ${gainReduction.toFixed(1)} dB`}
+    >
+      <div
+        className={`absolute top-0 left-0 right-0 transition-all duration-75 ${active ? "bg-amber-400" : "bg-muted/20"}`}
+        style={{ height: `${fill * 100}%` }}
+      />
+    </div>
+  );
+}
+
+function LimiterBlock({
+  label,
+  channels,
+  limiters,
+}: {
+  label: string;
+  channels: ChannelParams["channels"];
+  limiters: number[]; // live GR per channel from heartbeat
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <div className="flex gap-3">
+        {channels.map((ch, i) => {
+          const isRms = label.startsWith("RMS");
+          const lim = isRms ? ch.rmsLimiter : ch.peakLimiter;
+          const gr = limiters[i] ?? 0;
+          const enabled = lim.enabled;
+
+          return (
+            <div
+              key={i}
+              className={`flex flex-col rounded-lg border px-3 py-2 gap-2 transition-colors ${
+                enabled
+                  ? "border-border bg-card"
+                  : "border-border/30 bg-muted/20 opacity-50"
+              }`}
+              style={{ minWidth: 108 }}
+            >
+              {/* Header row: channel label + bypass pill + GR bar */}
+              <div className="flex items-center gap-2 justify-between">
+                <span className="text-[11px] font-bold text-foreground">
+                  Out{CH_LABELS[i]}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`text-[9px] font-semibold rounded px-1.5 py-0.5 ${
+                      enabled
+                        ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                        : "bg-muted/40 text-muted-foreground border border-border/40"
+                    }`}
+                  >
+                    {enabled ? "ON" : "BYP"}
+                  </span>
+                  <LimiterGrBar gainReduction={gr} height={16} />
+                </div>
+              </div>
+
+              {/* Threshold */}
+              <div className="flex flex-col items-start gap-0.5">
+                <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
+                  Threshold
+                </span>
+                <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
+                  {"thresholdVrms" in lim
+                    ? `${lim.thresholdVrms.toFixed(2)} V`
+                    : `${(lim as typeof ch.peakLimiter).thresholdVp.toFixed(2)} V`}
+                </span>
+                <span className="text-[9px] text-muted-foreground">
+                  {"thresholdVrms" in lim ? "Vrms" : "Vpeak"}
+                </span>
+              </div>
+
+              {/* Timing fields */}
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                {"attackMs" in lim ? (
+                  <>
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-muted-foreground">
+                        Atk
+                      </span>
+                      <span className="font-mono text-[11px] font-semibold tabular-nums">
+                        {lim.attackMs} ms
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-muted-foreground">
+                        Rel
+                      </span>
+                      <span className="font-mono text-[11px] font-semibold tabular-nums">
+                        ×{lim.releaseMultiplier}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-muted-foreground">
+                        Hold
+                      </span>
+                      <span className="font-mono text-[11px] font-semibold tabular-nums">
+                        {(lim as typeof ch.peakLimiter).holdMs} ms
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-muted-foreground">
+                        Rel
+                      </span>
+                      <span className="font-mono text-[11px] font-semibold tabular-nums">
+                        {(lim as typeof ch.peakLimiter).releaseMs} ms
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -755,7 +837,7 @@ export function AmpTabs() {
               </TabsTrigger>
               <TabsTrigger value="matrix">
                 <GridIcon />
-                Matrix
+                Matrix / Limiter
               </TabsTrigger>
               <TabsTrigger value="preferences">
                 <SlidersHorizontalIcon />
@@ -788,7 +870,29 @@ export function AmpTabs() {
                   Waiting for data…
                 </p>
               ) : (
-                <MatrixGrid channels={selectedAmp.channelParams.channels} />
+                <div className="flex flex-col gap-6">
+                  {/* Matrix */}
+                  <div className="flex flex-col gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Crosspoint Matrix
+                    </span>
+                    <MatrixGrid channels={selectedAmp.channelParams.channels} />
+                  </div>
+
+                  {/* Limiters */}
+                  <div className="border-t border-border/40 pt-6 flex flex-col gap-5">
+                    <LimiterBlock
+                      label="RMS Limiter"
+                      channels={selectedAmp.channelParams.channels}
+                      limiters={selectedAmp.heartbeat?.limiters ?? [0, 0, 0, 0]}
+                    />
+                    <LimiterBlock
+                      label="Peak Limiter"
+                      channels={selectedAmp.channelParams.channels}
+                      limiters={selectedAmp.heartbeat?.limiters ?? [0, 0, 0, 0]}
+                    />
+                  </div>
+                </div>
               )}
             </TabsContent>
 

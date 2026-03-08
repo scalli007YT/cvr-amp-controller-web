@@ -70,8 +70,31 @@ export interface ChannelData {
   delayIn: number; // ms  (float32 @ 86)
   trimOut: number; // dB  (float32 @ 80) — output trim
   muteOut: boolean; // true = muted  (wire: 0=muted, 1=unmuted @ 84)
+  noiseGateOut: boolean; // true = noise gate enabled  (wire: 0=on, 1=off @ 409)
   delayOut: number; // ms  (float32 @ 90)
   invertedOut: boolean; // true = polarity flipped  (uint8 @ 94)
+  /** RMS limiter settings */
+  rmsLimiter: {
+    /** false = bypassed (wire: byte @102, 1=bypassed, 0=active) */
+    enabled: boolean;
+    /** Vrms threshold — float32 LE @ 98 */
+    thresholdVrms: number;
+    /** ms (uint16LE @ 95) */
+    attackMs: number;
+    /** n × Attack (uint8 @ 97) */
+    releaseMultiplier: number;
+  };
+  /** Peak limiter settings */
+  peakLimiter: {
+    /** false = bypassed (wire: byte @116, 1=bypassed, 0=active) */
+    enabled: boolean;
+    /** Vp threshold (float32 @ 112) */
+    thresholdVp: number;
+    /** ms (uint16LE @ 108) */
+    holdMs: number;
+    /** ms (uint16LE @ 110) */
+    releaseMs: number;
+  };
   /** 4 matrix crosspoint entries — one per input source (offsets 60, 65, 70, 75) */
   matrix: MatrixSource[];
   /** 10-band input EQ (HP + EQ1–8 + LP), starting at offset 121 */
@@ -99,6 +122,7 @@ const CHANNEL_FIELDS = [
   { field: "delayIn", type: "float32", offset: 86 },
   { field: "trimOut", type: "float32", offset: 80 },
   { field: "muteOut", type: "uint8", offset: 84 }, // 0 = muted, 1 = unmuted
+  { field: "noiseGateOut", type: "uint8", offset: 409 }, // 0 = enabled, 1 = disabled
   { field: "delayOut", type: "float32", offset: 90 },
   { field: "invertedOut", type: "uint8", offset: 94 },
   { field: "volumeIn", type: "float32", offset: 405 },
@@ -209,6 +233,29 @@ function parseChannelFromBuffer(
     const eqIn = parseEqBlock(121);
     const eqOut = parseEqBlock(262);
 
+    // Limiter fields (mixed types — parsed directly, not via CHANNEL_FIELDS)
+    //
+    // RMS threshold: standard float32 LE at offset 98.
+    // RMS bypass flag: uint8 at offset 102 (1=bypassed, 0=active) — separate byte,
+    //   not part of the float. During bypass the device happens to set byte 102=1
+    //   which corrupted earlier reads when offset 100 was (wrongly) assumed as the start.
+    const rmsLimiter = {
+      enabled: buffer.readUInt8(base + 102) === 0,
+      thresholdVrms: round2(buffer.readFloatLE(base + 98)),
+      attackMs: buffer.readUInt16LE(base + 95),
+      releaseMultiplier: buffer.readUInt8(base + 97),
+    };
+
+    // Peak bypass flag: byte @ offset 116 (1=bypassed, 0=active).
+    //   Standalone byte — 4 bytes past the peak threshold float @ 112–115.
+    //   The peak threshold float IS stored as normal float32 LE.
+    const peakLimiter = {
+      enabled: buffer.readUInt8(base + 116) === 0,
+      thresholdVp: round2(buffer.readFloatLE(base + 112)),
+      holdMs: buffer.readUInt16LE(base + 108),
+      releaseMs: buffer.readUInt16LE(base + 110),
+    };
+
     return {
       channel: channelNum,
       inputName: raw.inputName as string,
@@ -219,8 +266,11 @@ function parseChannelFromBuffer(
       delayIn: round2(raw.delayIn as number),
       trimOut: raw.trimOut as number,
       muteOut: (raw.muteOut as number) === 0,
+      noiseGateOut: (raw.noiseGateOut as number) === 0, // 0=enabled, 1=disabled
       delayOut: round2(raw.delayOut as number),
       invertedOut: (raw.invertedOut as number) !== 0,
+      rmsLimiter,
+      peakLimiter,
       matrix,
       eqIn,
       eqOut,

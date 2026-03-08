@@ -83,8 +83,21 @@ export interface ChannelParam {
   delayIn: number; // ms (float32)
   trimOut: number; // dB (float32)
   muteOut: boolean; // true = muted
+  noiseGateOut: boolean; // true = noise gate enabled
   delayOut: number; // ms (float32)
   invertedOut: boolean; // true = polarity flipped
+  rmsLimiter: {
+    enabled: boolean;
+    thresholdVrms: number;
+    attackMs: number;
+    releaseMultiplier: number; // n × Attack
+  };
+  peakLimiter: {
+    enabled: boolean;
+    thresholdVp: number;
+    holdMs: number;
+    releaseMs: number;
+  };
   matrix: MatrixSource[];
   eqIn: EqBand[]; // 10 bands: HP + EQ1–8 + LP
   eqOut: EqBand[]; // 10 bands: HP + EQ1–8 + LP
@@ -242,8 +255,11 @@ export const useAmpStore = create<AmpStore>((set) => ({
               delayIn: ch.delayIn,
               trimOut: ch.trimOut,
               muteOut: ch.muteOut,
+              noiseGateOut: ch.noiseGateOut,
               delayOut: ch.delayOut,
               invertedOut: ch.invertedOut,
+              rmsLimiter: ch.rmsLimiter,
+              peakLimiter: ch.peakLimiter,
               matrix: ch.matrix,
               eqIn: ch.eqIn,
               eqOut: ch.eqOut,
