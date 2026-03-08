@@ -218,9 +218,6 @@ class AmpController extends EventEmitter {
   // Fix #5 — per-amp last-heartbeat timestamp for judgeOnline watchdog
   private lastHeartbeatAt = new Map<string, number>(); // mac → ms timestamp
 
-  // Fix #4 — heartbeat loop cycles through known IPs one per tick
-  private heartbeatIpIndex = 0;
-
   /** isRefresh gate (mirrors UDP.isRefresh = false during send()) */
   private isRefresh = true;
 
@@ -283,6 +280,90 @@ class AmpController extends EventEmitter {
       if (m.toUpperCase() === mac.toUpperCase()) return entry.ip;
     }
     return null;
+  }
+
+  /**
+   * Request FC=27 (Synchronous_data) from a specific amp/channel.
+   * Handles multi-frame responses by accumulating all fragments.
+   * Returns the complete body buffer (may be >437 bytes).
+   * Times out after 5 seconds if no response.
+   */
+  public async requestFC27(mac: string, channel: number): Promise<Buffer> {
+    await this._socketReady;
+
+    const ip = this.getIpForMac(mac);
+    if (!ip) {
+      throw new Error(`Amp ${mac} not found or not yet discovered`);
+    }
+
+    if (!this.socket) {
+      throw new Error("Socket not initialized");
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`FC=27 request for ${mac}:${channel} timed out`));
+      }, 5000);
+
+      // Accumulator for multi-frame responses
+      const frames: Buffer[] = [];
+
+      // Build a one-time handler to capture the FC=27 response for this channel
+      const originalDispatch = this._dispatchFC.bind(this);
+      let captured = false;
+
+      const tempDispatch = (
+        fc: number,
+        body: Buffer,
+        srcIp: string,
+        machineMode: number,
+        rawAssembled: Buffer,
+      ) => {
+        // Only intercept FC=27 responses from the target IP
+        if (fc === 27 && srcIp === ip && !captured) {
+          // Accept the response regardless of channel — the amp sends all channel data
+          // in a single multi-packet response
+          frames.push(Buffer.from(body));
+
+          // Mark as captured and start the final wait window
+          if (!captured) {
+            captured = true;
+            setTimeout(() => {
+              clearTimeout(timeout);
+              (this as any)._dispatchFC = originalDispatch;
+
+              // Concatenate all frames
+              const complete = Buffer.concat(frames);
+              resolve(complete);
+            }, 100); // Wait 100ms for any remaining fragments
+          }
+          return;
+        }
+
+        // Pass through to normal dispatch
+        originalDispatch(fc, body, srcIp, machineMode, rawAssembled);
+      };
+
+      // Temporarily replace dispatch handler
+      (this as any)._dispatchFC = tempDispatch;
+
+      // Build and send the FC=27 request
+      try {
+        const sock = this.socket;
+        if (!sock) throw new Error("Socket lost");
+
+        const header = buildStructHeader(27, 2, channel);
+        const inner = Buffer.concat([header]);
+        const frame = Buffer.concat([inner, calcCheckCode(inner)]);
+        const packet = Buffer.concat([buildNetworkData(frame.length), frame]);
+
+        sock.send(packet, 0, packet.length, AMP_PORT, ip);
+      } catch (err) {
+        clearTimeout(timeout);
+        (this as any)._dispatchFC = originalDispatch;
+        reject(err);
+      }
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -505,54 +586,30 @@ class AmpController extends EventEmitter {
   // -------------------------------------------------------------------------
   // Refresh_Thread — queryT_V_A() equivalent
   //
-  // Fix #4 — multi-amp unicast: instead of one broadcast per tick, we cycle
-  // through each known amp IP and send a unicast heartbeat to it.
-  // This mirrors how the original works when connected to a specific amp
-  // (SEND_IP = that amp's IP), extended to N amps by rotating.
-  // When no amps are known yet, falls back to broadcast so new devices reply.
+  // Broadcast a single FC=6 heartbeat packet every 140ms.
+  // All discovered amps reply simultaneously — poll rate is always 140ms
+  // regardless of how many amps are on the network (2–20+).
   // -------------------------------------------------------------------------
   private _startHeartbeatLoop(): void {
     if (this.heartbeatTimer) return;
 
     this.heartbeatTimer = setInterval(() => {
       if (!this.socket || !this.isRefresh) {
-        // mirrors: num = 0; Thread.Sleep(120) when isRefresh is false
         this.heartbeatCount = 0;
         return;
       }
 
-      const knownIps = Array.from(this.knownMacs.values()).map((e) => e.ip);
-
-      if (knownIps.length === 0) {
-        // No amps discovered yet — broadcast so any device can reply
-        try {
-          this.socket.send(
-            this.heartbeatPacket,
-            0,
-            this.heartbeatPacket.length,
-            AMP_PORT,
-            BROADCAST_ADDR,
-          );
-        } catch {
-          /* ignore */
-        }
-      } else {
-        // Unicast to the next amp in the rotation (one per tick)
-        // This distributes the 140 ms budget evenly across all amps.
-        // With N amps each amp is polled every N × 140 ms.
-        const ip = knownIps[this.heartbeatIpIndex % knownIps.length];
-        this.heartbeatIpIndex++;
-        try {
-          this.socket.send(
-            this.heartbeatPacket,
-            0,
-            this.heartbeatPacket.length,
-            AMP_PORT,
-            ip,
-          );
-        } catch {
-          /* ignore */
-        }
+      // Broadcast — every amp on the network replies independently.
+      try {
+        this.socket.send(
+          this.heartbeatPacket,
+          0,
+          this.heartbeatPacket.length,
+          AMP_PORT,
+          BROADCAST_ADDR,
+        );
+      } catch {
+        /* ignore */
       }
 
       this.heartbeatCount++;

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ChannelData } from "@/lib/parse-fc27";
 
 // ---------------------------------------------------------------------------
 // Types — three clearly separated concerns
@@ -55,6 +56,29 @@ export interface HeartbeatData {
   receivedAt: number;
 }
 
+/**
+ * Per-channel parameters for all 4 channels, parsed from FC=27 SYNC_DATA response.
+ * Updated every ~1 second from the raw binary payload.
+ *
+ * Each channel contains:
+ * - Input name and gain/volume parameters
+ * - Output name
+ * - Input sensitivity (calculated from gain)
+ */
+export interface ChannelParam {
+  channel: number;
+  inputName: string; // e.g., "AIn1", "AIn2", "AIn3", "AIn4"
+  outputName: string; // e.g., "OutA", "OutB", "OutC", "OutD"
+  gainIn: number; // dB (sbyte range)
+  volumeIn: number; // dB (float32)
+  sensitivity: number; // V (calculated from gainIn)
+}
+
+export interface ChannelParams {
+  /** All 4 channels. */
+  channels: ChannelParam[];
+}
+
 /** Live status: written exclusively by the polling layer. */
 export interface AmpStatus {
   reachable: boolean;
@@ -73,8 +97,14 @@ export interface AmpStatus {
    * e.g. DSP-2004 → 126.5 V. Set on first heartbeat.
    */
   ratedRmsV?: number;
+  /** Per-channel input parameters (VOL + GAIN). Fetched once after discovery. */
+  channelParams?: ChannelParams;
   /** Latest heartbeat sensor data (FC=6). undefined until first heartbeat. */
   heartbeat?: HeartbeatData;
+  /** Raw channel data (FC=27) hex bytes. Updated every ~1 second. */
+  channelDataHex?: string;
+  /** Parsed channel data (FC=27) for all 4 channels. Updated every ~1 second. */
+  parsedChannels?: ChannelData[];
 }
 
 /** On-demand preset list: written exclusively by the presets hook. */
@@ -119,6 +149,12 @@ interface AmpStore {
   updateAmpStatus: (mac: string, status: Partial<AmpStatus>) => void;
   /** Write the latest heartbeat sensor payload for an amp. */
   updateHeartbeat: (mac: string, heartbeat: HeartbeatData) => void;
+  /** Update the raw channel data (FC=27) hex for an amp. */
+  updateChannelData: (mac: string, hex: string) => void;
+  /** Update the parsed channel data (FC=27) for an amp. */
+  updateParsedChannels: (mac: string, channels: ChannelData[]) => void;
+  /** Sync parsed channel data into ChannelParams for structured access. */
+  syncChannelParams: (mac: string, channels: ChannelData[]) => void;
 
   // — Presets (from presets hook) —
   /** Set the fetched preset list for an amp. */
@@ -179,6 +215,40 @@ export const useAmpStore = create<AmpStore>((set) => ({
       amps: state.amps.map((amp) =>
         amp.mac === mac ? { ...amp, heartbeat } : amp,
       ),
+    })),
+
+  updateChannelData: (mac, hex) =>
+    set((state) => ({
+      amps: state.amps.map((amp) =>
+        amp.mac === mac ? { ...amp, channelDataHex: hex } : amp,
+      ),
+    })),
+
+  updateParsedChannels: (mac, channels) =>
+    set((state) => ({
+      amps: state.amps.map((amp) =>
+        amp.mac === mac ? { ...amp, parsedChannels: channels } : amp,
+      ),
+    })),
+
+  syncChannelParams: (mac, channels) =>
+    set((state) => ({
+      amps: state.amps.map((amp) => {
+        if (amp.mac !== mac) return amp;
+        return {
+          ...amp,
+          channelParams: {
+            channels: channels.map((ch) => ({
+              channel: ch.channel,
+              inputName: ch.inputName,
+              outputName: ch.outputName,
+              gainIn: ch.gainIn,
+              volumeIn: ch.volumeIn,
+              sensitivity: ch.sensitivity,
+            })),
+          },
+        };
+      }),
     })),
 
   getDisplayName: (amp) =>

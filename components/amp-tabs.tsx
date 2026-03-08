@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAmpStore } from "@/stores/AmpStore";
-import type { HeartbeatData } from "@/stores/AmpStore";
+import type { HeartbeatData, ChannelParams } from "@/stores/AmpStore";
 import { useAmpPresets } from "@/hooks/useAmpPresets";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useVuMeters } from "@/hooks/useVuMeters";
@@ -173,10 +173,12 @@ function HeartbeatDashboard({
   hb,
   mac,
   ratedRmsV,
+  channelParams,
 }: {
   hb: HeartbeatData;
   mac: string;
   ratedRmsV?: number;
+  channelParams?: ChannelParams;
 }) {
   const f1 = (n: number) => n.toFixed(1);
   const f0 = (n: number) => n.toFixed(0);
@@ -259,16 +261,16 @@ function HeartbeatDashboard({
                   {/* Volume readouts */}
                   <div className="flex flex-col items-center gap-[3px] mt-2 w-full">
                     <div className="rounded border border-border/60 bg-muted/30 px-1 py-0.5 text-center font-mono text-[11px] w-full leading-tight">
-                      -20{" "}
+                      {channelParams?.channels[i]?.volumeIn.toFixed(1) ?? "~"}{" "}
                       <span className="text-[9px] text-muted-foreground">
                         dB
                       </span>
                     </div>
                     <span className="text-[9px] text-muted-foreground">
-                      Gain
+                      Volume
                     </span>
                     <div className="rounded border border-border/60 bg-muted/30 px-1 py-0.5 text-center font-mono text-[11px] w-full leading-tight">
-                      24{" "}
+                      {channelParams?.channels[i]?.gainIn ?? "~"}{" "}
                       <span className="text-[9px] text-muted-foreground">
                         dB
                       </span>
@@ -277,7 +279,8 @@ function HeartbeatDashboard({
                       SEN
                     </span>
                     <div className="rounded border border-border/60 bg-muted/30 px-1 py-0.5 text-center font-mono text-[11px] w-full leading-tight">
-                      7.94{" "}
+                      {channelParams?.channels[i]?.sensitivity.toFixed(2) ??
+                        "~"}{" "}
                       <span className="text-[9px] text-muted-foreground">
                         V
                       </span>
@@ -530,6 +533,7 @@ export function AmpTabs() {
                   hb={selectedAmp.heartbeat}
                   mac={selectedAmp.mac}
                   ratedRmsV={selectedAmp.ratedRmsV}
+                  channelParams={selectedAmp.channelParams}
                 />
               )}
             </TabsContent>
@@ -633,6 +637,65 @@ export function AmpTabs() {
                       </li>
                     ))}
                   </ul>
+                )}
+              </div>
+
+              {/* Channel Data section */}
+              <div className="mt-6 border-t pt-6">
+                <h3 className="text-sm font-semibold mb-3">
+                  Channel Data (FC=27)
+                </h3>
+                {selectedAmp.parsedChannels &&
+                selectedAmp.parsedChannels.length > 0 ? (
+                  <div className="space-y-4">
+                    {selectedAmp.parsedChannels.map((ch) => (
+                      <div
+                        key={ch.channel}
+                        className="border rounded-lg p-4 bg-muted/30"
+                      >
+                        <div className="mb-3 font-mono font-semibold text-sm">
+                          {ch.inputName} → {ch.outputName}
+                        </div>
+
+                        {/* Input Section */}
+                        <div className="mb-3 pb-3 border-b">
+                          <div className="text-xs font-semibold text-muted-foreground mb-2">
+                            INPUT ({ch.inputName})
+                          </div>
+                          <div className="grid grid-cols-3 gap-3 text-xs">
+                            <div>
+                              <dt className="font-semibold text-muted-foreground">
+                                Gain
+                              </dt>
+                              <dd className="text-foreground font-mono">
+                                {ch.gainIn} dB
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="font-semibold text-muted-foreground">
+                                Volume
+                              </dt>
+                              <dd className="text-foreground font-mono">
+                                {ch.volumeIn.toFixed(2)} dB
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="font-semibold text-muted-foreground">
+                                Sensitivity
+                              </dt>
+                              <dd className="text-foreground font-mono">
+                                {ch.sensitivity.toFixed(2)} V
+                              </dd>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Waiting for channel data...
+                  </p>
                 )}
               </div>
             </TabsContent>
