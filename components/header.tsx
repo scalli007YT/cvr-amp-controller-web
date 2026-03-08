@@ -30,7 +30,6 @@ interface HeaderProps {
 const NAV_LINKS = [
   { label: "Main", href: "/" },
   { label: "Monitor", href: "/monitor" },
-  { label: "Settings", href: "/settings" },
 ];
 
 export function Header({ projects = [], loading = false }: HeaderProps) {
