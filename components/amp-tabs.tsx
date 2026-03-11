@@ -335,11 +335,11 @@ function MeterBar({
 
   return (
     <div
-      className="relative rounded-sm overflow-hidden bg-muted/30 border border-border/60 flex-shrink-0"
+      className="relative rounded-[min(var(--radius),8px)] overflow-hidden bg-muted/30 border border-border/60 flex-shrink-0"
       style={{ width, height }}
     >
       <div
-        className={`absolute bottom-0 left-0 right-0 ${clip ? "bg-red-500" : "bg-green-500"}`}
+        className={`absolute bottom-0 left-0 right-0 ${clip ? "bg-destructive" : "bg-primary"}`}
         style={{ height: `${fill * 100}%` }}
       />
       {thresholdLines?.map(({ dbu, color, label }, idx) => {
@@ -438,7 +438,7 @@ function HeartbeatDashboard({
 
   // 60fps animated VU values — falls back to hb values until first rAF tick
   const vu = useVuMeters(mac);
-  const { muteIn, muteOut } = useAmpActions();
+  const { muteIn, muteOut, invertPolarityOut, noiseGateOut } = useAmpActions();
   const vuOutputDbu = vu?.outputDbu ?? hb.outputDbu.map(() => null);
   const vuInputDbfs = vu?.inputDbfs ?? hb.inputDbfs;
 
@@ -770,18 +770,55 @@ function HeartbeatDashboard({
                     {/* Noise Gate */}
                     {(() => {
                       const ng = channelParams?.channels[i]?.noiseGateOut;
+                      const canClick = ng !== undefined;
                       return (
-                        <div
-                          className={`rounded border px-1.5 py-1 text-center text-[11px] font-semibold w-full transition-colors ${
+                        <Button
+                          disabled={!canClick}
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            canClick &&
+                            void noiseGateOut(mac, i as 0 | 1 | 2 | 3, !ng)
+                          }
+                          className={`w-full h-auto py-1 text-[11px] font-semibold transition-colors ${
                             ng === true
                               ? "border-sky-500/60 bg-sky-500/20 text-sky-400"
                               : ng === false
-                                ? "border-border/40 bg-muted/20 text-muted-foreground/50"
+                                ? "border-border/40 bg-muted/20 text-muted-foreground/50 hover:border-sky-500/40 hover:text-sky-400/70"
                                 : "border-border/30 bg-muted/10 text-muted-foreground/30"
                           }`}
                         >
                           {ng === true ? "GATE ON" : "Gate"}
-                        </div>
+                        </Button>
+                      );
+                    })()}
+                    {/* Polarity */}
+                    {(() => {
+                      const inverted = channelParams?.channels[i]?.invertedOut;
+                      const canClick = inverted !== undefined;
+                      return (
+                        <Button
+                          disabled={!canClick}
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            canClick &&
+                            void invertPolarityOut(
+                              mac,
+                              i as 0 | 1 | 2 | 3,
+                              !inverted,
+                            )
+                          }
+                          className={`w-full h-auto py-1 text-[11px] font-semibold transition-colors ${
+                            inverted === true
+                              ? "border-primary/60 bg-primary/20 text-primary hover:bg-primary/25"
+                              : inverted === false
+                                ? "border-border/40 bg-muted/20 text-muted-foreground/50 hover:border-primary/40 hover:text-primary/80"
+                                : "border-border/30 bg-muted/10 text-muted-foreground/30"
+                          }`}
+                        >
+                          {inverted === true ? "INVERTED" : "Polarity"}
+                        </Button>
                       );
                     })()}
                     {/* EQ Out */}

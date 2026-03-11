@@ -24,6 +24,28 @@ interface AmpActionsHook {
    * Reverts and toasts on error.
    */
   muteOut: (mac: string, channel: Channel, muted: boolean) => Promise<void>;
+
+  /**
+   * Invert or restore output polarity.
+   * Optimistically updates the store immediately, then sends the UDP command.
+   * Reverts and toasts on error.
+   */
+  invertPolarityOut: (
+    mac: string,
+    channel: Channel,
+    inverted: boolean,
+  ) => Promise<void>;
+
+  /**
+   * Enable or disable the output noise gate.
+   * Optimistically updates the store immediately, then sends the UDP command.
+   * Reverts and toasts on error.
+   */
+  noiseGateOut: (
+    mac: string,
+    channel: Channel,
+    enabled: boolean,
+  ) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -37,7 +59,7 @@ export function useAmpActions(): AmpActionsHook {
   const send = useCallback(
     async (
       mac: string,
-      action: "muteIn" | "muteOut",
+      action: "muteIn" | "muteOut" | "invertPolarityOut" | "noiseGateOut",
       channel: Channel,
       value: boolean,
       revert: () => void,
@@ -76,6 +98,8 @@ export function useAmpActions(): AmpActionsHook {
       patch: Partial<{
         muteIn: boolean;
         muteOut: boolean;
+        invertedOut: boolean;
+        noiseGateOut: boolean;
       }>,
     ) => {
       const amp = amps.find((a) => a.mac.toUpperCase() === mac.toUpperCase());
@@ -123,5 +147,33 @@ export function useAmpActions(): AmpActionsHook {
     [patchChannelParams, send],
   );
 
-  return { muteIn, muteOut };
+  // ---------------------------------------------------------------------------
+  // invertPolarityOut
+  // ---------------------------------------------------------------------------
+  const invertPolarityOut = useCallback(
+    async (mac: string, channel: Channel, inverted: boolean) => {
+      patchChannelParams(mac, channel, { invertedOut: inverted });
+
+      await send(mac, "invertPolarityOut", channel, inverted, () => {
+        patchChannelParams(mac, channel, { invertedOut: !inverted });
+      });
+    },
+    [patchChannelParams, send],
+  );
+
+  // ---------------------------------------------------------------------------
+  // noiseGateOut
+  // ---------------------------------------------------------------------------
+  const noiseGateOut = useCallback(
+    async (mac: string, channel: Channel, enabled: boolean) => {
+      patchChannelParams(mac, channel, { noiseGateOut: enabled });
+
+      await send(mac, "noiseGateOut", channel, enabled, () => {
+        patchChannelParams(mac, channel, { noiseGateOut: !enabled });
+      });
+    },
+    [patchChannelParams, send],
+  );
+
+  return { muteIn, muteOut, invertPolarityOut, noiseGateOut };
 }

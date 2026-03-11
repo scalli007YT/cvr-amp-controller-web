@@ -30,6 +30,8 @@
  *
  *   "muteIn"  — FC=10 MUTE, in_out_flag=0 (input)
  *   "muteOut" — FC=10 MUTE, in_out_flag=1 (Output)
+ *   "invertPolarityOut" — FC=18 INVERTED, in_out_flag=1 (Output)
+ *   "noiseGateOut" — FC=69 NOISE_GATE, in_out_flag=1 (Output)
  *     value: true=mute, false=unmute
  *     Wire body: 0x00=muted, 0x01=unmuted  (confirmed from C# source)
  *     C# source: Channels.cs    → SendStruct(MUTE, ch, in_out_flag.input,  link, mute_data)
@@ -45,7 +47,7 @@ export const dynamic = "force-dynamic";
 // Types
 // ---------------------------------------------------------------------------
 
-type AmpAction = "muteIn" | "muteOut";
+type AmpAction = "muteIn" | "muteOut" | "invertPolarityOut" | "noiseGateOut";
 
 interface AmpActionRequest {
   mac: string;
@@ -121,6 +123,39 @@ export async function POST(request: Request): Promise<Response> {
         const payload = Buffer.from([value ? 0x00 : 0x01]);
         await device.sendControl(
           FuncCode.MUTE,
+          channel,
+          payload,
+          1 /* Output */,
+        );
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Output polarity invert — FC=18, in_out_flag=1 (Output)
+      // Wire body: 0x00 = normal polarity, 0x01 = inverted polarity
+      // Readback parser confirms non-zero means polarity flipped.
+      // -----------------------------------------------------------------------
+      case "invertPolarityOut": {
+        const payload = Buffer.from([value ? 0x01 : 0x00]);
+        await device.sendControl(
+          FuncCode.PHASE,
+          channel,
+          payload,
+          1 /* Output */,
+        );
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Noise gate output — FC=69, in_out_flag=1 (Output)
+      // Wire body follows the same convention observed in sync data:
+      //   0x00 = enabled/on
+      //   0x01 = disabled/off
+      // -----------------------------------------------------------------------
+      case "noiseGateOut": {
+        const payload = Buffer.from([value ? 0x00 : 0x01]);
+        await device.sendControl(
+          FuncCode.NOISE_GATE,
           channel,
           payload,
           1 /* Output */,
