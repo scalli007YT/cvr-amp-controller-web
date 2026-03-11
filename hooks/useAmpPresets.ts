@@ -1,14 +1,19 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { toast } from "sonner";
 import { useAmpStore } from "@/stores/AmpStore";
 import type { AmpPreset } from "@/stores/AmpStore";
 
 interface UseAmpPresetsReturn {
   /** Fetch preset names from the device and write them into AmpStore. */
   fetchPresets: (mac: string) => Promise<void>;
+  /** Recall a preset slot on the device. */
+  recallPreset: (mac: string, slot: number, name?: string) => Promise<boolean>;
   /** True while a fetch is in flight. */
   fetching: boolean;
+  /** Slot currently being recalled, or null if none. */
+  recallingSlot: number | null;
   /** Last error message, or null if none. */
   error: string | null;
   /** Clear the last error. */
@@ -31,6 +36,7 @@ interface UseAmpPresetsReturn {
 export function useAmpPresets(): UseAmpPresetsReturn {
   const { amps, setPresets } = useAmpStore();
   const [fetching, setFetching] = useState(false);
+  const [recallingSlot, setRecallingSlot] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchPresets = useCallback(
@@ -76,5 +82,51 @@ export function useAmpPresets(): UseAmpPresetsReturn {
 
   const clearError = useCallback(() => setError(null), []);
 
-  return { fetchPresets, fetching, error, clearError };
+  const recallPreset = useCallback(
+    async (mac: string, slot: number, name?: string) => {
+      const amp = amps.find((a) => a.mac === mac);
+
+      if (!amp?.ip) {
+        const message = "No IP address known for this amp yet. Wait for a poll cycle.";
+        setError(message);
+        toast.error(message);
+        return false;
+      }
+
+      setRecallingSlot(slot);
+      setError(null);
+
+      try {
+        const res = await fetch("/api/amp-presets/recall", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ip: amp.ip, mac, slot }),
+        });
+
+        const data = (await res.json()) as {
+          success: boolean;
+          error?: string;
+        };
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error ?? `HTTP ${res.status}`);
+        }
+
+        toast.success(
+          name ? `Recalled preset ${slot}: ${name}` : `Recalled preset ${slot}`,
+        );
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Recall failed";
+        setError(message);
+        toast.error(message);
+        return false;
+      } finally {
+        setRecallingSlot(null);
+      }
+    },
+    [amps],
+  );
+
+  return { fetchPresets, recallPreset, fetching, recallingSlot, error, clearError };
 }

@@ -557,6 +557,32 @@ export class CvrAmpDevice {
   }
 
   /**
+   * Recall a preset slot from device memory.
+   *
+   * Confirmed from original C# source:
+   *   Save_Recall_data { mode = 2, ch_x = slotIndex, buffers = [32x0] }
+   *   UDP.SendStruct(Save_Recall_data_code, 0, save_Recall_data)
+   *
+   * Slot numbering in the UI is 1-based. Wire ch_x is 0-based.
+   */
+  async recallPreset(slot: number): Promise<void> {
+    if (!Number.isInteger(slot) || slot < 1 || slot > 40) {
+      throw new Error(`Invalid preset slot: ${slot}`);
+    }
+
+    const body = Buffer.alloc(34, 0);
+    body.writeUInt8(2, 0); // mode = 2 (recall)
+    body.writeUInt8(slot - 1, 1); // ch_x = zero-based slot index
+
+    await this.sendControl(
+      FuncCode.SAVE_RECALL,
+      0,
+      body,
+      0 /* input/default */,
+    );
+  }
+
+  /**
    * Send a fire-and-forget control command via an ephemeral UDP socket.
    *
    * Wire format derived from real packet captures (Python reverse-engineering)

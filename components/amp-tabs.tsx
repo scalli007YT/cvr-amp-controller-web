@@ -2,7 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useAmpStore } from "@/stores/AmpStore";
-import type { HeartbeatData, ChannelParams, EqBand } from "@/stores/AmpStore";
+import type {
+  HeartbeatData,
+  ChannelParams,
+  EqBand,
+  AmpPreset,
+} from "@/stores/AmpStore";
 import { useAmpPresets } from "@/hooks/useAmpPresets";
 import { useAmpActions } from "@/hooks/useAmpActions";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -13,6 +18,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -1087,11 +1094,18 @@ function MatrixCell({ gain, active }: { gain: number; active: boolean }) {
 export function AmpTabs() {
   type AmpSection = "main" | "matrix" | "preferences";
   const { amps, getDisplayName } = useAmpStore();
-  const { fetchPresets, fetching, error: presetsError } = useAmpPresets();
+  const {
+    fetchPresets,
+    recallPreset,
+    fetching,
+    recallingSlot,
+    error: presetsError,
+  } = useAmpPresets();
   const [selectedMac, setSelectedMac] = useState<string | null>(
     amps.length > 0 ? amps[0].mac : null,
   );
   const [activeSection, setActiveSection] = useState<AmpSection>("main");
+  const [presetToRecall, setPresetToRecall] = useState<AmpPreset | null>(null);
 
   const selectedAmp = amps.find((a) => a.mac === selectedMac);
 
@@ -1264,6 +1278,52 @@ export function AmpTabs() {
 
               {/* Presets section */}
               <div>
+                <Dialog
+                  open={presetToRecall !== null}
+                  onOpenChange={(open) => {
+                    if (!open) setPresetToRecall(null);
+                  }}
+                >
+                  <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                      <DialogTitle>Recall Preset</DialogTitle>
+                      <DialogDescription>
+                        {presetToRecall
+                          ? `Recall preset ${presetToRecall.slot}: ${presetToRecall.name}?`
+                          : "Recall this preset?"}
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setPresetToRecall(null)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        disabled={
+                          !selectedAmp?.reachable ||
+                          presetToRecall === null ||
+                          recallingSlot !== null
+                        }
+                        onClick={async () => {
+                          if (!selectedAmp || !presetToRecall) return;
+                          const ok = await recallPreset(
+                            selectedAmp.mac,
+                            presetToRecall.slot,
+                            presetToRecall.name,
+                          );
+                          if (ok) setPresetToRecall(null);
+                        }}
+                      >
+                        {recallingSlot === presetToRecall?.slot
+                          ? "Recalling..."
+                          : "Recall"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
                 <div className="flex items-center gap-2 mb-3">
                   <h3 className="text-sm font-semibold">Presets</h3>
                   {fetching && (
@@ -1301,14 +1361,18 @@ export function AmpTabs() {
                 {selectedAmp.presets && selectedAmp.presets.length > 0 && (
                   <ul className="space-y-1">
                     {selectedAmp.presets.map((preset) => (
-                      <li
-                        key={preset.slot}
-                        className="flex items-center gap-3 rounded-md border px-3 py-1.5 text-sm"
-                      >
-                        <span className="w-6 text-center text-xs font-mono text-muted-foreground">
-                          {preset.slot}
-                        </span>
-                        <span className="font-medium">{preset.name}</span>
+                      <li key={preset.slot} className="list-none">
+                        <button
+                          type="button"
+                          disabled={!selectedAmp.reachable}
+                          onClick={() => setPresetToRecall(preset)}
+                          className="flex w-full items-center gap-3 rounded-md border px-3 py-1.5 text-sm text-left transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+                        >
+                          <span className="w-6 text-center text-xs font-mono text-muted-foreground">
+                            {preset.slot}
+                          </span>
+                          <span className="font-medium">{preset.name}</span>
+                        </button>
                       </li>
                     ))}
                   </ul>
