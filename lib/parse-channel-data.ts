@@ -41,11 +41,34 @@ export const EQ_FILTER_TYPE_NAMES: Record<number, string> = {
   0: "Peak",
   1: "LowShelf",
   2: "HighShelf",
-  3: "BW-12",
-  4: "BW-24",
-  253: "HighShelf",
-  255: "Bypass",
 };
+
+/**
+ * HP/LP rolloff filter types — indices match the C# HPorLP_InttoString array.
+ * Used by band 0 (HP) and band 9 (LP).
+ */
+export const HPLP_FILTER_TYPE_NAMES: Record<number, string> = {
+  0: "BW-12",
+  1: "BE-12",
+  2: "LR-12",
+  3: "BW-18",
+  4: "BW-24",
+  5: "BE-24",
+  6: "LR-24",
+  7: "BW-36",
+  8: "BW-48",
+  9: "BE-48",
+  10: "LR-48",
+};
+
+/** Resolve a filter type code to its display name, considering band position. */
+export function getFilterTypeName(type: number, bandIndex: number): string {
+  // Band 0 (HP) and band 9 (LP) use the HP/LP rolloff lookup
+  if (bandIndex === 0 || bandIndex === 9) {
+    return HPLP_FILTER_TYPE_NAMES[type] ?? EQ_FILTER_TYPE_NAMES[type] ?? String(type);
+  }
+  return EQ_FILTER_TYPE_NAMES[type] ?? String(type);
+}
 
 export interface EqBand {
   /** Filter type code. 255 = band bypassed. See EQ_FILTER_TYPE_NAMES. */
@@ -243,21 +266,30 @@ function parseChannelFromBuffer(
     });
 
     // EQ bands: 10 bands × 14-byte struct per band
-    //   byte(type) | float32(gain dB) | float32(freq Hz) | float32(Q) | byte(bypass)
-    //   type=255 → band is bypassed
+    //   sbyte(type) | float32(gain dB) | float32(freq Hz) | float32(Q) | byte(bypass)
+    //
+    // Bypass is encoded in the sign of the type byte (C# sbyte convention):
+    //   rawType >= 128  → band is bypassed; actual filter type = 255 - rawType
+    //   e.g. 253 (0xFD = sbyte -3) = bypassed HighShelf (type 2)
+    //        254 (0xFE = sbyte -2) = bypassed LowShelf  (type 1)
+    //        255 (0xFF = sbyte -1) = bypassed Peak       (type 0)
+    // The 14th byte is a secondary bypass flag; either condition means bypass.
     const EQ_BAND_STRIDE = 14;
     const EQ_BANDS = 10;
 
     const parseEqBlock = (blockOffset: number): EqBand[] =>
       Array.from({ length: EQ_BANDS }, (_, i) => {
         const off = base + blockOffset + i * EQ_BAND_STRIDE;
-        const type = buffer.readUInt8(off);
+        const rawType = buffer.readUInt8(off);
+        const isBypassEncoded = rawType >= 128; // negative sbyte = band bypassed
+        const type = isBypassEncoded ? (255 - rawType) : rawType;
+        const bypass = isBypassEncoded || buffer.readUInt8(off + 13) !== 0;
         return {
           type,
           gain: round2(buffer.readFloatLE(off + 1)),
           freq: round2(buffer.readFloatLE(off + 5)),
           q: round2(buffer.readFloatLE(off + 9)),
-          bypass: type === 255 || buffer.readUInt8(off + 13) !== 0,
+          bypass,
         };
       });
 

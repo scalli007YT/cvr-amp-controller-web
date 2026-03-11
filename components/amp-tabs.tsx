@@ -25,6 +25,12 @@ import {
 } from "@/components/ui/tooltip";
 import { useVuMeters } from "@/hooks/useVuMeters";
 import { thresholdVToDbu, formatRuntime, formatDbfs } from "@/lib/generic";
+import { getFilterTypeName } from "@/lib/parse-channel-data";
+import {
+  EQ_BAND_LABELS,
+  formatFreqFull,
+} from "@/lib/eq";
+import { EqCurveChart } from "@/components/eq-curve-chart";
 import {
   LayoutDashboardIcon,
   GridIcon,
@@ -162,85 +168,79 @@ function CopyJsonButton({ data }: { data: unknown }) {
 // EQ band display
 // ---------------------------------------------------------------------------
 
-const EQ_TYPE_NAMES: Record<number, string> = {
-  0: "Peak",
-  1: "LowShelf",
-  2: "HighShelf",
-  3: "BW-12",
-  4: "BW-24",
-  253: "HighShelf",
-  255: "Bypass",
-};
-
-const EQ_BAND_LABELS = [
-  "HP",
-  "EQ1",
-  "EQ2",
-  "EQ3",
-  "EQ4",
-  "EQ5",
-  "EQ6",
-  "EQ7",
-  "EQ8",
-  "LP",
-];
-
-function EqBandTable({ bands }: { bands: EqBand[] }) {
+function EqParamStrip({ bands }: { bands: EqBand[] }) {
   return (
-    <table className="w-full text-xs font-mono border-separate border-spacing-y-0.5">
-      <thead>
-        <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
-          <th className="text-left pb-2 pr-3 font-semibold">Band</th>
-          <th className="text-left pb-2 pr-3 font-semibold">Type</th>
-          <th className="text-right pb-2 pr-3 font-semibold">Freq</th>
-          <th className="text-right pb-2 pr-3 font-semibold">Gain</th>
-          <th className="text-right pb-2 pr-3 font-semibold">Q</th>
-          <th className="text-center pb-2 font-semibold">Bypass</th>
-        </tr>
-      </thead>
-      <tbody>
-        {bands.map((band, idx) => (
-          <tr
+    <div
+      className="grid gap-px border-t border-border/40"
+      style={{
+        gridTemplateColumns: `repeat(${bands.length}, minmax(64px, 1fr))`,
+        minWidth: `${bands.length * 72}px`,
+      }}
+    >
+      {bands.map((band, idx) => {
+        const isHpLp = idx === 0 || idx === 9;
+        const bypassed = band.bypass;
+        return (
+          <div
             key={idx}
-            className={`leading-6 ${band.bypass ? "opacity-40" : ""}`}
+            className={`flex flex-col items-center text-center py-2 px-1 ${
+              bypassed ? "opacity-40" : ""
+            }`}
           >
-            <td className="pr-3 text-muted-foreground">
-              {EQ_BAND_LABELS[idx] ?? String(idx)}
-            </td>
-            <td className="pr-3">
-              {EQ_TYPE_NAMES[band.type] ?? String(band.type)}
-            </td>
-            <td className="pr-3 text-right tabular-nums text-sky-400">
-              {band.freq.toFixed(1)} Hz
-            </td>
-            <td className="pr-3 text-right tabular-nums">
-              <span
-                className={
+            {/* Band label */}
+            <div className="text-[11px] font-bold mb-1.5 w-full py-0.5 rounded-sm bg-muted text-foreground">
+              {EQ_BAND_LABELS[idx]}
+            </div>
+
+            {/* Filter type */}
+            <div className="text-[10px] font-medium mb-1 text-muted-foreground">
+              {getFilterTypeName(band.type, idx)}
+            </div>
+
+            {/* Frequency */}
+            <div className="text-[11px] tabular-nums text-foreground">
+              {formatFreqFull(band.freq)}{" "}
+              <span className="text-[9px] text-muted-foreground">Hz</span>
+            </div>
+
+            {/* Gain (not for HP/LP) */}
+            {!isHpLp && (
+              <div
+                className={`text-[11px] tabular-nums mt-0.5 ${
                   band.gain > 0
-                    ? "text-green-400"
+                    ? "text-green-500 dark:text-green-400"
                     : band.gain < 0
-                      ? "text-red-400"
+                      ? "text-red-500 dark:text-red-400"
                       : "text-muted-foreground"
-                }
+                }`}
               >
                 {band.gain > 0 ? "+" : ""}
-                {band.gain.toFixed(2)} dB
-              </span>
-            </td>
-            <td className="pr-3 text-right tabular-nums text-amber-300">
-              {band.q.toFixed(3)}
-            </td>
-            <td className="text-center">
-              {band.bypass ? (
-                <span className="text-orange-400">BYP</span>
-              ) : (
-                <span className="text-muted-foreground/30">—</span>
-              )}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+                {band.gain.toFixed(1)}{" "}
+                <span className="text-[9px] text-muted-foreground">dB</span>
+              </div>
+            )}
+
+            {/* Q (not for HP/LP) */}
+            {!isHpLp && (
+              <div className="text-[10px] tabular-nums mt-0.5 text-muted-foreground">
+                Q: {band.q.toFixed(1)}
+              </div>
+            )}
+
+            {/* Bypass indicator */}
+            <div
+              className={`text-[9px] font-bold mt-1.5 w-full py-0.5 rounded-sm ${
+                bypassed
+                  ? "bg-destructive/10 text-destructive"
+                  : "bg-muted/60 text-muted-foreground/50"
+              }`}
+            >
+              {bypassed ? "Bypass" : isHpLp ? "ON" : "Bypass"}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -269,11 +269,22 @@ function EqBandDialog({
           {triggerLabel}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+      <DialogContent className="w-[min(64rem,95vw)] max-w-none sm:max-w-none p-0 gap-0 max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="px-4 pt-4 pb-2">
+          <DialogTitle className="text-sm font-semibold">
+            {title}
+          </DialogTitle>
         </DialogHeader>
-        {bands && <EqBandTable bands={bands} />}
+        {bands && (
+          <>
+            <div className="px-3">
+              <EqCurveChart bands={bands} />
+            </div>
+            <div className="overflow-x-auto px-3 pb-3">
+              <EqParamStrip bands={bands} />
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
