@@ -70,18 +70,6 @@
     <div class="title">AMP Controller</div>
     <div class="spinner"></div>
     <script>
-      const params = new URLSearchParams(window.location.search);
-      const root = document.documentElement;
-      const bg = params.get("bg");
-      const text = params.get("text");
-      const border = params.get("border");
-      const borderTop = params.get("borderTop");
-
-      if (bg) root.style.setProperty("--color-window-bg", bg);
-      if (text) root.style.setProperty("--color-splash-text", text);
-      if (border) root.style.setProperty("--color-splash-border", border);
-      if (borderTop) root.style.setProperty("--color-splash-border-top", borderTop);
-
       window.startFadeOut = () => {
         const durationMs = 220;
         document.body.classList.add("fading-out");

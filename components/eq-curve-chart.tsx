@@ -139,14 +139,14 @@ export function EqCurveChart({ bands }: { bands: EqBand[] }) {
       {/* Filled area under/above 0 dB */}
       <path
         d={fillPath}
-        className="fill-foreground/5"
+        className="fill-primary/12"
         clipPath={`url(#${clipId})`}
       />
       {/* Curve line */}
       <path
         d={linePath}
         fill="none"
-        className="stroke-foreground/70"
+        className="stroke-primary"
         strokeWidth={2}
         strokeLinejoin="round"
         clipPath={`url(#${clipId})`}
@@ -163,7 +163,7 @@ export function EqCurveChart({ bands }: { bands: EqBand[] }) {
               cx={cx}
               cy={cy}
               r={7.5}
-              className="fill-background stroke-foreground/50"
+              className="fill-background stroke-primary/70"
               strokeWidth={1}
             />
             <text

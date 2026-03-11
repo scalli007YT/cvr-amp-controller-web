@@ -1,5 +1,4 @@
 const { app, BrowserWindow } = require("electron");
-const { fork } = require("child_process");
 const path = require("path");
 const http = require("http");
 
@@ -7,7 +6,19 @@ const PORT = 3000;
 const isDev = !!process.env.ELECTRON_DEV;
 
 let mainWindow;
-let serverProcess;
+let server;
+
+// Prevent multiple app instances.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+}
+
+app.on("second-instance", () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.focus();
+});
 
 // --- Server ---------------------------------------------------------------
 
@@ -26,51 +37,47 @@ function waitForDevServer() {
   });
 }
 
-/** Prod: fork server.js — Next.js boots in a child process (non-blocking). */
-function startServer() {
-  return new Promise((resolve, reject) => {
-    serverProcess = fork(path.join(__dirname, "server.js"));
+/** Prod: start Next.js server in-process (packaged-safe, no child fork). */
+async function startServer() {
+  const appRoot = path.join(__dirname, "..");
+  process.env.APP_USER_DATA = app.getPath("userData");
 
-    serverProcess.on("message", (msg) => {
-      if (msg.type === "ready") resolve();
-      if (msg.type === "error") reject(new Error(msg.message));
-    });
+  // Resolve from packaged app dependencies.
+  const next = require("next");
+  const nextApp = next({
+    dev: false,
+    dir: appRoot,
+    port: PORT,
+    hostname: "127.0.0.1",
+  });
+  const handle = nextApp.getRequestHandler();
 
-    serverProcess.on("exit", (code) => {
-      if (code && code !== 0) reject(new Error(`Server exited (${code})`));
-    });
+  await nextApp.prepare();
 
-    serverProcess.send({
-      type: "start",
-      appRoot: path.join(__dirname, ".."),
-      port: PORT,
-      userData: app.getPath("userData"),
-    });
+  await new Promise((resolve, reject) => {
+    server = http
+      .createServer((req, res) => handle(req, res))
+      .listen(PORT, "127.0.0.1", (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
   });
 }
 
 // --- Window ---------------------------------------------------------------
 
 function createWindow() {
-  const { COLORS } = require('../lib/colors.js');
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
-    backgroundColor: COLORS.WINDOW_BG,
+    backgroundColor: "#121212",
     show: true,
     title: "CVR AMP Controller",
     autoHideMenuBar: true,
     webPreferences: { nodeIntegration: false, contextIsolation: true },
   });
 
-  mainWindow.loadFile(path.join(__dirname, "splash.html"), {
-    query: {
-      bg: COLORS.SPLASH_BG,
-      text: COLORS.SPLASH_TEXT,
-      border: COLORS.SPLASH_BORDER,
-      borderTop: COLORS.SPLASH_BORDER_TOP,
-    },
-  });
+  mainWindow.loadFile(path.join(__dirname, "splash.html"));
 }
 
 // --- Lifecycle ------------------------------------------------------------
@@ -99,10 +106,13 @@ app.whenReady().then(() => {
       // If JS execution fails, fall back to immediate navigation.
       if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(url);
     }
+  }).catch((err) => {
+    console.error("Failed to start app server:", err);
+    app.quit();
   });
 });
 
 app.on("window-all-closed", () => {
-  if (serverProcess) serverProcess.kill();
+  if (server) server.close();
   app.quit();
 });
