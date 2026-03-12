@@ -70,9 +70,6 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuItem asChild>
-                  <Link href="/">Home</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
                   <Link href="/monitor">Monitor</Link>
                 </DropdownMenuItem>
                 <Separator />
@@ -82,7 +79,7 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Link href="/" className="flex items-center gap-2 min-w-0">
+            <Link href="/monitor" className="flex items-center gap-2 min-w-0">
               <Image
                 src="/logo.ico"
                 alt="CK Logo"
