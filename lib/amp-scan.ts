@@ -9,9 +9,9 @@ const DISCOVERY_TIMEOUT = 200; // 200ms — amps respond in <50ms on LAN/WiFi
  * (e.g. 192.168.1.255, 10.0.0.255). Sending to each ensures discovery works
  * even when the machine has multiple adapters on different subnets.
  */
-function getDirectedBroadcasts(): string[] {
+async function getDirectedBroadcasts(): Promise<string[]> {
   const broadcasts: string[] = [];
-  for (const iface of Object.values(getNetworkInterfaces())) {
+  for (const iface of Object.values(await getNetworkInterfaces())) {
     if (!iface) continue;
     for (const addr of iface) {
       if (addr.family !== "IPv4" || addr.internal) continue;
@@ -110,7 +110,7 @@ export async function broadcastDiscovery(): Promise<
       // Bind socket to receive port BEFORE sending
       socket.bind(
         { port: PC_RECV_PORT, address: "0.0.0.0", exclusive: false },
-        () => {
+        async () => {
           try {
             // Now that socket is bound, enable broadcast mode
             socket.setBroadcast(true);
@@ -156,7 +156,7 @@ export async function broadcastDiscovery(): Promise<
 
             // Send directed broadcast on every active network interface so amps
             // are discovered regardless of which subnet/adapter they're on.
-            const broadcastAddrs = getDirectedBroadcasts();
+            const broadcastAddrs = await getDirectedBroadcasts();
             for (const addr of broadcastAddrs) {
               socket.send(packet, 0, packet.length, AMP_PORT, addr, (err) => {
                 if (err) {
@@ -169,7 +169,8 @@ export async function broadcastDiscovery(): Promise<
             clearTimeout(timeoutHandle);
             try {
               socket.close();
-            } catch {}
+            } catch {
+            }
             resolve([]);
           }
         },
