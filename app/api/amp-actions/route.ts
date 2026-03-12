@@ -40,48 +40,39 @@
 
 import { ampController } from "@/lib/amp-controller";
 import { CvrAmpDevice, FuncCode } from "@/lib/amp-device";
+import {
+  ampActionRequestSchema,
+  type AmpActionRequest,
+} from "@/lib/validation/amp-actions";
 
 export const dynamic = "force-dynamic";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-type AmpAction = "muteIn" | "muteOut" | "invertPolarityOut" | "noiseGateOut";
-
-interface AmpActionRequest {
-  mac: string;
-  action: AmpAction;
-  channel: 0 | 1 | 2 | 3;
-  /** true/false for mute actions */
-  value: boolean;
-}
 
 // ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
 
 export async function POST(request: Request): Promise<Response> {
-  let body: AmpActionRequest;
+  let rawBody: unknown;
 
   try {
-    body = (await request.json()) as AmpActionRequest;
+    rawBody = await request.json();
   } catch {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { mac, action, channel, value } = body;
-
-  if (!mac || !action || channel === undefined || value === undefined) {
+  const parsed = ampActionRequestSchema.safeParse(rawBody);
+  if (!parsed.success) {
     return Response.json(
-      { error: "Missing required fields: mac, action, channel, value" },
+      {
+        error: parsed.error.issues[0]?.message ?? "Invalid request payload",
+        issues: parsed.error.issues,
+      },
       { status: 400 },
     );
   }
 
-  if (channel < 0 || channel > 3) {
-    return Response.json({ error: "channel must be 0–3" }, { status: 400 });
-  }
+  const body: AmpActionRequest = parsed.data;
+  const { mac, action, channel, value } = body;
 
   // Ensure controller is started
   ampController.start();
@@ -159,6 +150,47 @@ export async function POST(request: Request): Promise<Response> {
           channel,
           payload,
           1 /* Output */,
+        );
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Matrix crosspoint gain — FC=12 ROUTING
+      // Body: [float32 gain_dB LE][uint8 active_flag]
+      // chx = output channel (0-3), segment = source input index (0-3)
+      // -----------------------------------------------------------------------
+      case "matrixGain": {
+        const payload = Buffer.alloc(5);
+        payload.writeFloatLE(value, 0);
+        payload.writeUInt8(1, 4); // keep active when changing gain
+        await device.sendControl(
+          FuncCode.ROUTING,
+          channel,
+          payload,
+          1 /* Output */,
+          0,
+          body.source,
+        );
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Matrix crosspoint active toggle — FC=12 ROUTING
+      // Body: [float32 gain_dB LE][uint8 active_flag]
+      // When deactivating, send current gain with active=0.
+      // When activating, send 0 dB gain with active=1.
+      // -----------------------------------------------------------------------
+      case "matrixActive": {
+        const payload = Buffer.alloc(5);
+        payload.writeFloatLE(0, 0); // gain=0 dB (caller can set gain separately)
+        payload.writeUInt8(value ? 1 : 0, 4);
+        await device.sendControl(
+          FuncCode.ROUTING,
+          channel,
+          payload,
+          1 /* Output */,
+          0,
+          body.source,
         );
         break;
       }

@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { useAmpStore } from "@/stores/AmpStore";
+import { MATRIX_GAIN_MAX_DB, MATRIX_GAIN_MIN_DB } from "@/lib/constants";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -11,40 +12,31 @@ import { useAmpStore } from "@/stores/AmpStore";
 type Channel = 0 | 1 | 2 | 3;
 
 interface AmpActionsHook {
-  /**
-   * Mute or unmute an input channel.
-   * Optimistically updates the store immediately, then sends the UDP command.
-   * Reverts and toasts on error.
-   */
   muteIn: (mac: string, channel: Channel, muted: boolean) => Promise<void>;
-
-  /**
-   * Mute or unmute an output channel.
-   * Optimistically updates the store immediately, then sends the UDP command.
-   * Reverts and toasts on error.
-   */
   muteOut: (mac: string, channel: Channel, muted: boolean) => Promise<void>;
-
-  /**
-   * Invert or restore output polarity.
-   * Optimistically updates the store immediately, then sends the UDP command.
-   * Reverts and toasts on error.
-   */
   invertPolarityOut: (
     mac: string,
     channel: Channel,
     inverted: boolean,
   ) => Promise<void>;
-
-  /**
-   * Enable or disable the output noise gate.
-   * Optimistically updates the store immediately, then sends the UDP command.
-   * Reverts and toasts on error.
-   */
   noiseGateOut: (
     mac: string,
     channel: Channel,
     enabled: boolean,
+  ) => Promise<void>;
+  /** Set crosspoint gain (dB) for a matrix cell. */
+  setMatrixGain: (
+    mac: string,
+    channel: Channel,
+    source: Channel,
+    gainDb: number,
+  ) => Promise<void>;
+  /** Toggle a matrix crosspoint on/off. */
+  setMatrixActive: (
+    mac: string,
+    channel: Channel,
+    source: Channel,
+    active: boolean,
   ) => Promise<void>;
 }
 
@@ -59,16 +51,17 @@ export function useAmpActions(): AmpActionsHook {
   const send = useCallback(
     async (
       mac: string,
-      action: "muteIn" | "muteOut" | "invertPolarityOut" | "noiseGateOut",
+      action: string,
       channel: Channel,
-      value: boolean,
+      value: boolean | number,
       revert: () => void,
+      extra?: Record<string, unknown>,
     ) => {
       try {
         const res = await fetch("/api/amp-actions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mac, action, channel, value }),
+          body: JSON.stringify({ mac, action, channel, value, ...extra }),
         });
 
         if (!res.ok) {
@@ -175,5 +168,87 @@ export function useAmpActions(): AmpActionsHook {
     [patchChannelParams, send],
   );
 
-  return { muteIn, muteOut, invertPolarityOut, noiseGateOut };
+  // ---------------------------------------------------------------------------
+  // setMatrixGain
+  // ---------------------------------------------------------------------------
+  const patchMatrix = useCallback(
+    (
+      mac: string,
+      channel: Channel,
+      source: Channel,
+      patch: Partial<{ gain: number; active: boolean }>,
+    ) => {
+      const amp = amps.find((a) => a.mac.toUpperCase() === mac.toUpperCase());
+      if (!amp?.channelParams) return;
+
+      const patched = amp.channelParams.channels.map((ch, i) => {
+        if (i !== channel) return ch;
+        return {
+          ...ch,
+          matrix: ch.matrix.map((cell) =>
+            cell.source === source ? { ...cell, ...patch } : cell,
+          ),
+        };
+      });
+
+      syncChannelParams(mac, patched);
+    },
+    [amps, syncChannelParams],
+  );
+
+  const setMatrixGain = useCallback(
+    async (mac: string, channel: Channel, source: Channel, gainDb: number) => {
+      const clampedGainDb = Math.max(
+        MATRIX_GAIN_MIN_DB,
+        Math.min(MATRIX_GAIN_MAX_DB, gainDb),
+      );
+      const amp = amps.find((a) => a.mac.toUpperCase() === mac.toUpperCase());
+      const oldGain =
+        amp?.channelParams?.channels[channel]?.matrix[source]?.gain ?? 0;
+
+      patchMatrix(mac, channel, source, { gain: clampedGainDb });
+
+      await send(
+        mac,
+        "matrixGain",
+        channel,
+        clampedGainDb,
+        () => {
+          patchMatrix(mac, channel, source, { gain: oldGain });
+        },
+        { source },
+      );
+    },
+    [amps, patchMatrix, send],
+  );
+
+  // ---------------------------------------------------------------------------
+  // setMatrixActive
+  // ---------------------------------------------------------------------------
+  const setMatrixActive = useCallback(
+    async (mac: string, channel: Channel, source: Channel, active: boolean) => {
+      patchMatrix(mac, channel, source, { active });
+
+      await send(
+        mac,
+        "matrixActive",
+        channel,
+        active,
+        () => {
+          patchMatrix(mac, channel, source, { active: !active });
+        },
+        { source },
+      );
+    },
+    [patchMatrix, send],
+  );
+
+  return {
+    muteIn,
+    muteOut,
+    invertPolarityOut,
+    noiseGateOut,
+    setMatrixGain,
+    setMatrixActive,
+  };
 }

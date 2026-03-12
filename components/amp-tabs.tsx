@@ -17,6 +17,11 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -35,6 +40,7 @@ import { useVuMeters } from "@/hooks/useVuMeters";
 import { thresholdVToDbu, formatRuntime, formatDbfs } from "@/lib/generic";
 import { getFilterTypeName } from "@/lib/parse-channel-data";
 import { EQ_BAND_LABELS, formatFreqFull } from "@/lib/eq";
+import { MATRIX_GAIN_MAX_DB, MATRIX_GAIN_MIN_DB } from "@/lib/constants";
 import { EqCurveChart } from "@/components/eq-curve-chart";
 import { COLORS } from "@/lib/colors";
 import {
@@ -1070,7 +1076,15 @@ function LimiterBlock({
 
 const INPUT_LABELS = ["AIn1", "AIn2", "AIn3", "AIn4"];
 
-function MatrixGrid({ channels }: { channels: ChannelParams["channels"] }) {
+function MatrixGrid({
+  channels,
+  mac,
+}: {
+  channels: ChannelParams["channels"];
+  mac: string;
+}) {
+  const { setMatrixGain, setMatrixActive } = useAmpActions();
+
   return (
     <div className="overflow-auto">
       <table className="border-separate border-spacing-1 text-sm">
@@ -1081,7 +1095,7 @@ function MatrixGrid({ channels }: { channels: ChannelParams["channels"] }) {
             {INPUT_LABELS.map((label) => (
               <th
                 key={label}
-                className="text-center text-xs font-semibold text-muted-foreground pb-1 w-20"
+                className="text-center text-xs font-semibold text-muted-foreground pb-1 w-24"
               >
                 {label}
               </th>
@@ -1097,7 +1111,26 @@ function MatrixGrid({ channels }: { channels: ChannelParams["channels"] }) {
               </td>
               {ch.matrix.map((cell) => (
                 <td key={cell.source} className="align-middle">
-                  <MatrixCell gain={cell.gain} active={cell.active} />
+                  <MatrixCell
+                    gain={cell.gain}
+                    active={cell.active}
+                    onToggleActive={() =>
+                      setMatrixActive(
+                        mac,
+                        ch.channel as 0 | 1 | 2 | 3,
+                        cell.source as 0 | 1 | 2 | 3,
+                        !cell.active,
+                      )
+                    }
+                    onGainChange={(db) =>
+                      setMatrixGain(
+                        mac,
+                        ch.channel as 0 | 1 | 2 | 3,
+                        cell.source as 0 | 1 | 2 | 3,
+                        db,
+                      )
+                    }
+                  />
                 </td>
               ))}
             </tr>
@@ -1108,27 +1141,105 @@ function MatrixGrid({ channels }: { channels: ChannelParams["channels"] }) {
   );
 }
 
-function MatrixCell({ gain, active }: { gain: number; active: boolean }) {
+function MatrixCell({
+  gain,
+  active,
+  onToggleActive,
+  onGainChange,
+}: {
+  gain: number;
+  active: boolean;
+  onToggleActive: () => void;
+  onGainChange: (db: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(String(gain));
+
+  useEffect(() => {
+    setDraft(String(gain));
+  }, [gain]);
+
   const label = active
     ? gain === 0
       ? "0 dB"
       : `${gain > 0 ? "+" : ""}${gain} dB`
     : "Mute";
 
+  const clampGain = (value: number) =>
+    Math.max(MATRIX_GAIN_MIN_DB, Math.min(MATRIX_GAIN_MAX_DB, value));
+
+  const handleCommit = (close = false) => {
+    const parsed = Number.parseFloat(draft);
+    if (!isNaN(parsed)) {
+      const clamped = clampGain(parsed);
+      setDraft(String(clamped));
+      onGainChange(clamped);
+    } else {
+      setDraft(String(gain));
+    }
+    if (close) setOpen(false);
+  };
+
   return (
-    <div
-      className={`
-        flex items-center justify-center rounded-md px-2 py-2 w-20 h-10
-        text-xs font-medium border
-        ${
-          active
-            ? "bg-card border-border text-foreground"
-            : "bg-muted/40 border-transparent text-muted-foreground italic"
-        }
-      `}
-    >
-      {label}
-    </div>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={`
+            flex flex-col items-center justify-center rounded-md w-24 h-14
+            text-xs font-medium border gap-0.5 select-none cursor-pointer transition-colors
+            ${
+              active
+                ? "bg-card border-primary text-foreground"
+                : "bg-card border-border text-muted-foreground"
+            }
+          `}
+        >
+          <span>{label}</span>
+          <span
+            className={`text-[9px] ${active ? "text-primary" : "text-muted-foreground"}`}
+          >
+            {active ? "Active" : "Bypassed"}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-52 p-3 space-y-2" sideOffset={8}>
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Matrix Gain
+        </div>
+        <Input
+          type="number"
+          step="0.5"
+          min={String(MATRIX_GAIN_MIN_DB)}
+          max={String(MATRIX_GAIN_MAX_DB)}
+          disabled={!active}
+          className="h-8 text-center text-xs tabular-nums"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => handleCommit(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleCommit(true);
+            if (e.key === "Escape") {
+              setDraft(String(gain));
+              setOpen(false);
+            }
+          }}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={onToggleActive}
+        >
+          {active ? "Bypass" : "Enable"}
+        </Button>
+        <div className="text-[10px] text-muted-foreground text-center">
+          Range: {MATRIX_GAIN_MIN_DB.toFixed(1)} to +
+          {MATRIX_GAIN_MAX_DB.toFixed(1)} dB
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -1262,7 +1373,10 @@ export function AmpTabs() {
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                       Crosspoint Matrix
                     </span>
-                    <MatrixGrid channels={selectedAmp.channelParams.channels} />
+                    <MatrixGrid
+                      channels={selectedAmp.channelParams.channels}
+                      mac={selectedAmp.mac}
+                    />
                   </div>
 
                   {/* Limiters — side by side */}
