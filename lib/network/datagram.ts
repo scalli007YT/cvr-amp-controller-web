@@ -1,7 +1,7 @@
 import dgram, {BindOptions, RemoteInfo} from "dgram";
 import os, {NetworkInterfaceInfo} from "os";
 
-export const udpAdapterType: "udp" | "udpOverWebsocket" = "udp";
+export const udpAdapterType: "udp" | "udpOverWebsocket" = "udpOverWebsocket";
 
 export type DatagramSocket = {
     setBroadcast(b: boolean): void;
@@ -35,7 +35,7 @@ let requestCounter = 0;
 const requests = new Map<number, (...args: any) => void>();
 let websocket: WebSocket | null = null;
 
-setInterval(() => {
+function reconnectToWSServer() {
     if (udpAdapterType !== "udpOverWebsocket") return;
     if (websocket) return;
 
@@ -56,13 +56,19 @@ setInterval(() => {
     websocket.addEventListener("close", () => websocket = null);
 
     console.log("created new ws");
-}, 500);
+}
+
+setInterval(() => reconnectToWSServer(), 500);
 
 
 class UdpOverWSSocket implements DatagramSocket {
 
     private static idCounter = 0;
     private id = UdpOverWSSocket.idCounter++;
+
+    constructor() {
+        sendWebsocketInvoke("constructor", [this.id]);
+    }
 
     bind(options: BindOptions, callback?: () => void): this {
         sendWebsocketRequest("bind", [this.id, options]).then((...args: any) => callback?.());
@@ -104,12 +110,11 @@ class UdpOverWSSocket implements DatagramSocket {
 }
 
 function sendWebsocketData(msg: string) {
-    if (!websocket) {
-        console.error("could not send over websocket");
-        return;
-    }
-
-    websocket.send(msg);
+    new Promise(async (resolve) => {
+        while(!websocket || websocket.readyState != websocket.OPEN)
+            await new Promise((res) => setTimeout(res, 10));
+        resolve();
+    }).then(() => websocket!.send(msg))
 }
 
 function sendWebsocketInvoke(method: string, args: any[]) {
