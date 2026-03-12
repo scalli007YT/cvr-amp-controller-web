@@ -98,7 +98,8 @@ function parametricGainAt(band: EqBand, freq: number): number {
       return 10 * Math.log10(num / den);
     }
     case 2: // HighShelf — matches C# Tone_high_Shelf
-    case 253: { // HighShelf variant (byte 253 = same shelf, different encoding)
+    case 253: {
+      // HighShelf variant (byte 253 = same shelf, different encoding)
       // dB = 10·log10(((1-A·ω²)²+A·(ω/num5)²)/((1-ω²/A)²+(ω/num5)²/A))
       const A = Math.pow(10, G / 40);
       const w2 = w * w;

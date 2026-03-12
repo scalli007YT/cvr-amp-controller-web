@@ -10,6 +10,10 @@ import {
   DELAY_OUT_MAX_MS,
   CROSSOVER_FREQ_MIN_HZ,
   CROSSOVER_FREQ_MAX_HZ,
+  EQ_BAND_GAIN_MIN_DB,
+  EQ_BAND_GAIN_MAX_DB,
+  EQ_BAND_Q_MIN,
+  EQ_BAND_Q_MAX,
 } from "@/lib/constants";
 
 // ---------------------------------------------------------------------------
@@ -39,6 +43,35 @@ interface AmpActionsHook {
     target: CrossoverTarget,
     kind: CrossoverKind,
     hz: number,
+  ) => Promise<void>;
+  setEqBandType: (
+    mac: string,
+    channel: Channel,
+    target: CrossoverTarget,
+    band: number,
+    type: number,
+    bypass: boolean,
+  ) => Promise<void>;
+  setEqBandFreq: (
+    mac: string,
+    channel: Channel,
+    target: CrossoverTarget,
+    band: number,
+    hz: number,
+  ) => Promise<void>;
+  setEqBandGain: (
+    mac: string,
+    channel: Channel,
+    target: CrossoverTarget,
+    band: number,
+    db: number,
+  ) => Promise<void>;
+  setEqBandQ: (
+    mac: string,
+    channel: Channel,
+    target: CrossoverTarget,
+    band: number,
+    q: number,
   ) => Promise<void>;
   invertPolarityOut: (
     mac: string,
@@ -219,6 +252,68 @@ export function useAmpActions(): AmpActionsHook {
     [send],
   );
 
+  const setEqBandType = useCallback(
+    async (
+      mac: string,
+      channel: Channel,
+      target: CrossoverTarget,
+      band: number,
+      type: number,
+      bypass: boolean,
+    ) => {
+      await send(mac, "eqBandType", channel, type, { target, band, bypass });
+    },
+    [send],
+  );
+
+  const setEqBandFreq = useCallback(
+    async (
+      mac: string,
+      channel: Channel,
+      target: CrossoverTarget,
+      band: number,
+      hz: number,
+    ) => {
+      const clamped = Math.max(
+        CROSSOVER_FREQ_MIN_HZ,
+        Math.min(CROSSOVER_FREQ_MAX_HZ, hz),
+      );
+      await send(mac, "eqBandFreq", channel, clamped, { target, band });
+    },
+    [send],
+  );
+
+  const setEqBandGain = useCallback(
+    async (
+      mac: string,
+      channel: Channel,
+      target: CrossoverTarget,
+      band: number,
+      db: number,
+    ) => {
+      const clamped = Math.max(
+        EQ_BAND_GAIN_MIN_DB,
+        Math.min(EQ_BAND_GAIN_MAX_DB, db),
+      );
+      await send(mac, "eqBandGain", channel, clamped, { target, band });
+    },
+    [send],
+  );
+
+  const setEqBandQ = useCallback(
+    async (
+      mac: string,
+      channel: Channel,
+      target: CrossoverTarget,
+      band: number,
+      q: number,
+    ) => {
+      const clamped = Math.max(EQ_BAND_Q_MIN, Math.min(EQ_BAND_Q_MAX, q));
+      await send(mac, "eqBandQ", channel, clamped, { target, band });
+    },
+    [send],
+  );
+
   return {
     muteIn,
     muteOut,
@@ -230,5 +325,9 @@ export function useAmpActions(): AmpActionsHook {
     setDelayOut,
     setCrossoverEnabled,
     setCrossoverFreq,
+    setEqBandType,
+    setEqBandFreq,
+    setEqBandGain,
+    setEqBandQ,
   };
 }

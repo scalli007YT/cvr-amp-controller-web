@@ -135,15 +135,13 @@ export function useAmpPoller(): UseAmpPollerReturn {
             // Derive rated RMS voltage from version string (e.g. "42404B06-006118-DSP-2004")
             // which always contains the model — more reliable than the name field.
             const ratedRmsV = ratedRmsVFromDeviceName(version ?? name ?? "");
-            useAmpStore
-              .getState()
-              .updateAmpStatus(amp.mac, {
-                ip,
-                name,
-                version,
-                reachable: true,
-                ratedRmsV,
-              });
+            useAmpStore.getState().updateAmpStatus(amp.mac, {
+              ip,
+              name,
+              version,
+              reachable: true,
+              ratedRmsV,
+            });
             usePollingStore.getState().setLastUpdated(amp.mac, Date.now());
             usePollingStore.getState().setError(amp.mac, null);
 

@@ -153,7 +153,8 @@ export function useAmpPresets(): UseAmpPresetsReturn {
       const trimmedName = name.trim();
       const nameValidation = presetNameSchema.safeParse(trimmedName);
       if (!nameValidation.success) {
-        const message = nameValidation.error.issues[0]?.message ?? "Invalid preset name";
+        const message =
+          nameValidation.error.issues[0]?.message ?? "Invalid preset name";
         setError(message);
         toast.error(message);
         return false;
@@ -172,7 +173,8 @@ export function useAmpPresets(): UseAmpPresetsReturn {
 
         if (!payloadValidation.success) {
           throw new Error(
-            payloadValidation.error.issues[0]?.message ?? "Invalid store request",
+            payloadValidation.error.issues[0]?.message ??
+              "Invalid store request",
           );
         }
 

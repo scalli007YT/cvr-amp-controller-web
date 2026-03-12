@@ -28,7 +28,8 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
-, "lib/colors.js"  ],
+    "**/*.mts",
+    "lib/colors.js"
+  ],
   "exclude": ["node_modules"]
 }

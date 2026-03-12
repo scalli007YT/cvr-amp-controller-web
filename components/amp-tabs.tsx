@@ -46,6 +46,7 @@ import { thresholdVToDbu, formatRuntime, formatDbfs } from "@/lib/generic";
 import {
   getFilterTypeName,
   HPLP_FILTER_TYPE_NAMES,
+  EQ_FILTER_TYPE_NAMES,
 } from "@/lib/parse-channel-data";
 import { EQ_BAND_LABELS, formatFreqFull } from "@/lib/eq";
 import {
@@ -53,6 +54,10 @@ import {
   MATRIX_GAIN_MIN_DB,
   CROSSOVER_FREQ_MIN_HZ,
   CROSSOVER_FREQ_MAX_HZ,
+  EQ_BAND_GAIN_MIN_DB,
+  EQ_BAND_GAIN_MAX_DB,
+  EQ_BAND_Q_MIN,
+  EQ_BAND_Q_MAX,
 } from "@/lib/constants";
 import { EqCurveChart } from "@/components/eq-curve-chart";
 import { COLORS } from "@/lib/colors";
@@ -258,7 +263,7 @@ function EqParamStrip({
       {bands.map((band, idx) => {
         const isHpLp = idx === 0 || idx === 9;
         const bypassed = band.bypass;
-        const interactive = isHpLp && hasInteractive;
+        const interactive = hasInteractive;
         return (
           <div
             key={idx}
@@ -272,13 +277,23 @@ function EqParamStrip({
             </div>
 
             {interactive ? (
-              <CrossoverBandCell
-                idx={idx}
-                band={band}
-                mac={mac}
-                channel={channel}
-                target={target}
-              />
+              isHpLp ? (
+                <CrossoverBandCell
+                  idx={idx}
+                  band={band}
+                  mac={mac}
+                  channel={channel}
+                  target={target}
+                />
+              ) : (
+                <EqBandCell
+                  idx={idx}
+                  band={band}
+                  mac={mac}
+                  channel={channel}
+                  target={target}
+                />
+              )
             ) : (
               <>
                 {/* Filter type */}
@@ -344,6 +359,10 @@ const CROSSOVER_DEFAULT_TYPES: Record<CrossoverKind, number> = {
 };
 
 const HPLP_TYPE_OPTIONS = Object.entries(HPLP_FILTER_TYPE_NAMES)
+  .map(([key, label]) => ({ value: Number(key), label }))
+  .sort((a, b) => a.value - b.value);
+
+const EQ_TYPE_OPTIONS = Object.entries(EQ_FILTER_TYPE_NAMES)
   .map(([key, label]) => ({ value: Number(key), label }))
   .sort((a, b) => a.value - b.value);
 
@@ -475,6 +494,212 @@ function CrossoverBandCell({
         }`}
       >
         {pending ? "…" : enabled ? "Bypass" : "Enable"}
+      </button>
+    </>
+  );
+}
+
+function EqBandCell({
+  idx,
+  band,
+  mac,
+  channel,
+  target,
+}: {
+  idx: number;
+  band: EqBand;
+  mac: string;
+  channel: 0 | 1 | 2 | 3;
+  target: CrossoverTarget;
+}) {
+  const { setEqBandType, setEqBandFreq, setEqBandGain, setEqBandQ } =
+    useAmpActions();
+  const [freqDraft, setFreqDraft] = useState(() =>
+    formatCrossoverDraft(band.freq),
+  );
+  const [gainDraft, setGainDraft] = useState(() =>
+    String(Math.round(band.gain * 10) / 10),
+  );
+  const [qDraft, setQDraft] = useState(() => band.q.toFixed(2));
+  const [freqDirty, setFreqDirty] = useState(false);
+  const [gainDirty, setGainDirty] = useState(false);
+  const [qDirty, setQDirty] = useState(false);
+  const [pending, setPending] = useState(false);
+  const pendingRef = useRef(false);
+
+  useEffect(() => {
+    if (pendingRef.current) {
+      pendingRef.current = false;
+      setPending(false);
+    }
+  }, [band]);
+
+  const markPending = () => {
+    pendingRef.current = true;
+    setPending(true);
+  };
+
+  const freqValue = freqDirty ? freqDraft : formatCrossoverDraft(band.freq);
+  const gainValue = gainDirty
+    ? gainDraft
+    : String(Math.round(band.gain * 10) / 10);
+  const qValue = qDirty ? qDraft : band.q.toFixed(2);
+
+  const commitFreq = () => {
+    const parsed = parseCrossoverDraft(freqValue);
+    if (!Number.isFinite(parsed)) {
+      setFreqDraft(formatCrossoverDraft(band.freq));
+      setFreqDirty(false);
+      return;
+    }
+    const clamped = Math.max(
+      CROSSOVER_FREQ_MIN_HZ,
+      Math.min(CROSSOVER_FREQ_MAX_HZ, parsed),
+    );
+    setFreqDraft(formatCrossoverDraft(clamped));
+    setFreqDirty(false);
+    markPending();
+    void setEqBandFreq(mac, channel, target, idx, clamped);
+  };
+
+  const commitGain = () => {
+    const parsed = parseCrossoverDraft(gainValue);
+    if (!Number.isFinite(parsed)) {
+      setGainDraft(String(Math.round(band.gain * 10) / 10));
+      setGainDirty(false);
+      return;
+    }
+    const clamped = Math.max(
+      EQ_BAND_GAIN_MIN_DB,
+      Math.min(EQ_BAND_GAIN_MAX_DB, parsed),
+    );
+    setGainDraft(String(Math.round(clamped * 10) / 10));
+    setGainDirty(false);
+    markPending();
+    void setEqBandGain(mac, channel, target, idx, clamped);
+  };
+
+  const commitQ = () => {
+    const parsed = parseCrossoverDraft(qValue);
+    if (!Number.isFinite(parsed)) {
+      setQDraft(band.q.toFixed(2));
+      setQDirty(false);
+      return;
+    }
+    const clamped = Math.max(EQ_BAND_Q_MIN, Math.min(EQ_BAND_Q_MAX, parsed));
+    setQDraft(clamped.toFixed(2));
+    setQDirty(false);
+    markPending();
+    void setEqBandQ(mac, channel, target, idx, clamped);
+  };
+
+  const handleTypeChange = (nextType: number) => {
+    if (!Number.isInteger(nextType) || nextType < 0 || nextType > 2) return;
+    markPending();
+    void setEqBandType(mac, channel, target, idx, nextType, band.bypass);
+  };
+
+  const toggleBypass = () => {
+    markPending();
+    void setEqBandType(mac, channel, target, idx, band.type, !band.bypass);
+  };
+
+  return (
+    <>
+      <select
+        value={band.type}
+        disabled={pending}
+        onChange={(e) => handleTypeChange(Number.parseInt(e.target.value, 10))}
+        className="mb-1 w-full rounded border border-input bg-background px-1 py-0.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {EQ_TYPE_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <div className="mb-0.5 flex items-center gap-0.5">
+        <Input
+          type="number"
+          min={String(CROSSOVER_FREQ_MIN_HZ)}
+          max={String(CROSSOVER_FREQ_MAX_HZ)}
+          step="1"
+          value={freqValue}
+          disabled={pending}
+          onChange={(e) => {
+            setFreqDraft(e.target.value);
+            setFreqDirty(true);
+          }}
+          onBlur={commitFreq}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitFreq();
+            if (e.key === "Escape") {
+              setFreqDraft(formatCrossoverDraft(band.freq));
+              setFreqDirty(false);
+            }
+          }}
+          className="h-6 w-full px-1 font-mono text-[10px] tabular-nums"
+        />
+        <span className="shrink-0 text-[9px] text-muted-foreground">Hz</span>
+      </div>
+      <div className="mb-0.5 flex items-center gap-0.5">
+        <Input
+          type="number"
+          min={String(EQ_BAND_GAIN_MIN_DB)}
+          max={String(EQ_BAND_GAIN_MAX_DB)}
+          step="0.1"
+          value={gainValue}
+          disabled={pending}
+          onChange={(e) => {
+            setGainDraft(e.target.value);
+            setGainDirty(true);
+          }}
+          onBlur={commitGain}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitGain();
+            if (e.key === "Escape") {
+              setGainDraft(String(Math.round(band.gain * 10) / 10));
+              setGainDirty(false);
+            }
+          }}
+          className="h-6 w-full px-1 font-mono text-[10px] tabular-nums"
+        />
+        <span className="shrink-0 text-[9px] text-muted-foreground">dB</span>
+      </div>
+      <div className="mb-0.5 flex items-center gap-0.5">
+        <Input
+          type="number"
+          min={String(EQ_BAND_Q_MIN)}
+          max={String(EQ_BAND_Q_MAX)}
+          step="0.01"
+          value={qValue}
+          disabled={pending}
+          onChange={(e) => {
+            setQDraft(e.target.value);
+            setQDirty(true);
+          }}
+          onBlur={commitQ}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitQ();
+            if (e.key === "Escape") {
+              setQDraft(band.q.toFixed(2));
+              setQDirty(false);
+            }
+          }}
+          className="h-6 w-full px-1 font-mono text-[10px] tabular-nums"
+        />
+        <span className="shrink-0 text-[9px] text-muted-foreground">Q</span>
+      </div>
+      <button
+        disabled={pending}
+        onClick={toggleBypass}
+        className={`mt-0.5 w-full rounded-sm py-0.5 text-[9px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+          band.bypass
+            ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
+            : "bg-muted/60 text-muted-foreground/50 hover:bg-destructive/10 hover:text-destructive"
+        }`}
+      >
+        {pending ? "…" : band.bypass ? "Enable" : "Bypass"}
       </button>
     </>
   );

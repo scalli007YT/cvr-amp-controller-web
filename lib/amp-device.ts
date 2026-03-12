@@ -67,6 +67,7 @@ export class FuncCode {
   static CHECK_VERSION = 28;
   static FW_STEP_RESULT = 29;
   static FILTER_TYPE = 30;
+  static FILTER_GAIN = 31;
   static FILTER_FREQ = 32;
   static FILTER_FREQ_BOOST = 33;
   static FILTER_Q = 34;

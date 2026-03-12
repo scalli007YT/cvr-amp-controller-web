@@ -7,6 +7,10 @@ import {
   DELAY_OUT_MAX_MS,
   CROSSOVER_FREQ_MIN_HZ,
   CROSSOVER_FREQ_MAX_HZ,
+  EQ_BAND_GAIN_MIN_DB,
+  EQ_BAND_GAIN_MAX_DB,
+  EQ_BAND_Q_MIN,
+  EQ_BAND_Q_MAX,
 } from "@/lib/constants";
 
 const channelSchema = z
@@ -103,6 +107,61 @@ const crossoverFreqSchema = baseSchema.extend({
   kind: crossoverKindSchema,
 });
 
+const eqTargetSchema = z.enum(["input", "output"]);
+const eqBandIndexSchema = z
+  .number()
+  .int("band must be an integer")
+  .min(1, "band must be between 1 and 8")
+  .max(8, "band must be between 1 and 8");
+
+const eqBandTypeSchema = baseSchema.extend({
+  action: z.literal("eqBandType"),
+  /** 0=Peak 1=LowShelf 2=HighShelf */
+  value: z.number().int().min(0).max(2),
+  target: eqTargetSchema,
+  band: eqBandIndexSchema,
+  bypass: z.boolean(),
+});
+
+const eqBandFreqSchema = baseSchema.extend({
+  action: z.literal("eqBandFreq"),
+  value: z
+    .number()
+    .min(
+      CROSSOVER_FREQ_MIN_HZ,
+      `eqBandFreq must be >= ${CROSSOVER_FREQ_MIN_HZ} Hz`,
+    )
+    .max(
+      CROSSOVER_FREQ_MAX_HZ,
+      `eqBandFreq must be <= ${CROSSOVER_FREQ_MAX_HZ} Hz`,
+    ),
+  target: eqTargetSchema,
+  band: eqBandIndexSchema,
+});
+
+const eqBandGainSchema = baseSchema.extend({
+  action: z.literal("eqBandGain"),
+  value: z
+    .number()
+    .min(EQ_BAND_GAIN_MIN_DB, `eqBandGain must be >= ${EQ_BAND_GAIN_MIN_DB} dB`)
+    .max(
+      EQ_BAND_GAIN_MAX_DB,
+      `eqBandGain must be <= +${EQ_BAND_GAIN_MAX_DB} dB`,
+    ),
+  target: eqTargetSchema,
+  band: eqBandIndexSchema,
+});
+
+const eqBandQSchema = baseSchema.extend({
+  action: z.literal("eqBandQ"),
+  value: z
+    .number()
+    .min(EQ_BAND_Q_MIN, `eqBandQ must be >= ${EQ_BAND_Q_MIN}`)
+    .max(EQ_BAND_Q_MAX, `eqBandQ must be <= ${EQ_BAND_Q_MAX}`),
+  target: eqTargetSchema,
+  band: eqBandIndexSchema,
+});
+
 export const ampActionRequestSchema = z.union([
   muteInSchema,
   muteOutSchema,
@@ -114,6 +173,10 @@ export const ampActionRequestSchema = z.union([
   delayOutSchema,
   crossoverEnabledSchema,
   crossoverFreqSchema,
+  eqBandTypeSchema,
+  eqBandFreqSchema,
+  eqBandGainSchema,
+  eqBandQSchema,
 ]);
 
 export type AmpActionRequest = z.infer<typeof ampActionRequestSchema>;

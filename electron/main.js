@@ -87,29 +87,35 @@ app.whenReady().then(() => {
 
   createWindow();
 
-  serverReady.then(async () => {
-    const url = isDev
-      ? `http://localhost:${PORT}`
-      : `http://127.0.0.1:${PORT}`;
+  serverReady
+    .then(async () => {
+      const url = isDev
+        ? `http://localhost:${PORT}`
+        : `http://127.0.0.1:${PORT}`;
 
-    if (!mainWindow || mainWindow.isDestroyed()) return;
+      if (!mainWindow || mainWindow.isDestroyed()) return;
 
-    try {
-      // Ask splash page to fade out before navigation.
-      const fadeMs = await mainWindow.webContents.executeJavaScript(
-        "window.startFadeOut ? window.startFadeOut() : 0",
-      );
-      setTimeout(() => {
+      try {
+        // Ask splash page to fade out before navigation.
+        const fadeMs = await mainWindow.webContents.executeJavaScript(
+          "window.startFadeOut ? window.startFadeOut() : 0",
+        );
+        setTimeout(
+          () => {
+            if (mainWindow && !mainWindow.isDestroyed())
+              mainWindow.loadURL(url);
+          },
+          Number(fadeMs) || 0,
+        );
+      } catch {
+        // If JS execution fails, fall back to immediate navigation.
         if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(url);
-      }, Number(fadeMs) || 0);
-    } catch {
-      // If JS execution fails, fall back to immediate navigation.
-      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(url);
-    }
-  }).catch((err) => {
-    console.error("Failed to start app server:", err);
-    app.quit();
-  });
+      }
+    })
+    .catch((err) => {
+      console.error("Failed to start app server:", err);
+      app.quit();
+    });
 });
 
 app.on("window-all-closed", () => {

@@ -304,6 +304,81 @@ export async function POST(request: Request): Promise<Response> {
         break;
       }
 
+      // -----------------------------------------------------------------------
+      // Parametric EQ band type / bypass — FC=30 FILTER_TYPE
+      // segment = band index (1-8).
+      // Bypass encoding mirrors parse: enabled → type as-is; bypassed → 255 - type.
+      // -----------------------------------------------------------------------
+      case "eqBandType": {
+        const typeByte = body.bypass ? 255 - body.value : body.value;
+        const payload = Buffer.from([typeByte]);
+        await device.sendControl(
+          FuncCode.FILTER_TYPE,
+          channel,
+          payload,
+          body.target === "input" ? 0 : 1,
+          0,
+          body.band,
+        );
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Parametric EQ band frequency — FC=32 FILTER_FREQ
+      // segment = band index (1-8). Body: float32 LE (Hz).
+      // -----------------------------------------------------------------------
+      case "eqBandFreq": {
+        const payload = Buffer.alloc(4);
+        payload.writeFloatLE(value, 0);
+        await device.sendControl(
+          FuncCode.FILTER_FREQ,
+          channel,
+          payload,
+          body.target === "input" ? 0 : 1,
+          0,
+          body.band,
+        );
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Parametric EQ band gain (boost) — FC=31 FILTER_GAIN
+      // segment = band index (1-8). Body: float32 LE (dB).
+      // FC=31 maps to the gain field (offset 1) of the EQ band struct.
+      // FC=33 (FILTER_FREQ_BOOST) is a different command and must NOT be used here.
+      // -----------------------------------------------------------------------
+      case "eqBandGain": {
+        const payload = Buffer.alloc(4);
+        payload.writeFloatLE(value, 0);
+        await device.sendControl(
+          FuncCode.FILTER_GAIN,
+          channel,
+          payload,
+          body.target === "input" ? 0 : 1,
+          0,
+          body.band,
+        );
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Parametric EQ band Q factor — FC=34 FILTER_Q
+      // segment = band index (1-8). Body: float32 LE (Q value).
+      // -----------------------------------------------------------------------
+      case "eqBandQ": {
+        const payload = Buffer.alloc(4);
+        payload.writeFloatLE(value, 0);
+        await device.sendControl(
+          FuncCode.FILTER_Q,
+          channel,
+          payload,
+          body.target === "input" ? 0 : 1,
+          0,
+          body.band,
+        );
+        break;
+      }
+
       default:
         return Response.json(
           { error: `Unknown action: ${action as string}` },
