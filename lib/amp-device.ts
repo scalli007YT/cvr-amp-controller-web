@@ -11,6 +11,7 @@ const PC_RECV_PORT = 0;
 //   WRITE packets (control commands):  0x0000d903  (bytes: 03 d9 00 00)
 const NETWORK_DATA_FLAG = 0x0194d903; // for queries / heartbeat
 const NETWORK_DATA_FLAG_WRITE = 0x0000d903; // for control commands (statusCode=1)
+const CROSSOVER_COMMIT_PACKET = Buffer.from("03d99401015c0001015a", "hex");
 
 export interface NetworkData {
   dataFlag: number;
@@ -612,6 +613,44 @@ export class CvrAmpDevice {
       body,
       0 /* input/default */,
     );
+  }
+
+  /**
+   * Commit staged crossover changes.
+   *
+   * Reverse-engineered from the CVR desktop app and the attached Python helper:
+   * after HP/LP writes (FC=30 / FC=32), the device expects this fixed 10-byte
+   * follow-up packet before the changes become active.
+   */
+  async commitCrossover(): Promise<void> {
+    const sock = dgram.createSocket("udp4");
+    await new Promise<void>((resolve, reject) => {
+      sock.bind({ port: 0, address: "0.0.0.0" }, (err?: Error) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      sock.send(
+        CROSSOVER_COMMIT_PACKET,
+        0,
+        CROSSOVER_COMMIT_PACKET.length,
+        AMP_SEND_PORT,
+        this.ampIp,
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        },
+      );
+    });
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 10));
+    try {
+      sock.close();
+    } catch {
+      // ignore close errors
+    }
   }
 
   /**

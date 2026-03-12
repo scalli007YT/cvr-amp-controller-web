@@ -5,6 +5,8 @@ import {
   DELAY_MIN_MS,
   DELAY_IN_MAX_MS,
   DELAY_OUT_MAX_MS,
+  CROSSOVER_FREQ_MIN_HZ,
+  CROSSOVER_FREQ_MAX_HZ,
 } from "@/lib/constants";
 
 const channelSchema = z
@@ -17,6 +19,14 @@ const baseSchema = z.object({
   mac: z.string().trim().min(1, "Missing mac"),
   channel: channelSchema,
 });
+
+const crossoverTargetSchema = z.enum(["input", "output"]);
+const crossoverKindSchema = z.enum(["hp", "lp"]);
+const crossoverFilterTypeSchema = z
+  .number()
+  .int("filterType must be an integer")
+  .min(0, "filterType must be between 0 and 10")
+  .max(10, "filterType must be between 0 and 10");
 
 const muteInSchema = baseSchema.extend({
   action: z.literal("muteIn"),
@@ -69,6 +79,30 @@ const delayOutSchema = baseSchema.extend({
     .max(DELAY_OUT_MAX_MS, `delayOut must be <= ${DELAY_OUT_MAX_MS} ms`),
 });
 
+const crossoverEnabledSchema = baseSchema.extend({
+  action: z.literal("crossoverEnabled"),
+  value: z.boolean(),
+  target: crossoverTargetSchema,
+  kind: crossoverKindSchema,
+  filterType: crossoverFilterTypeSchema,
+});
+
+const crossoverFreqSchema = baseSchema.extend({
+  action: z.literal("crossoverFreq"),
+  value: z
+    .number()
+    .min(
+      CROSSOVER_FREQ_MIN_HZ,
+      `crossoverFreq must be >= ${CROSSOVER_FREQ_MIN_HZ} Hz`,
+    )
+    .max(
+      CROSSOVER_FREQ_MAX_HZ,
+      `crossoverFreq must be <= ${CROSSOVER_FREQ_MAX_HZ} Hz`,
+    ),
+  target: crossoverTargetSchema,
+  kind: crossoverKindSchema,
+});
+
 export const ampActionRequestSchema = z.union([
   muteInSchema,
   muteOutSchema,
@@ -78,6 +112,8 @@ export const ampActionRequestSchema = z.union([
   matrixActiveSchema,
   delayInSchema,
   delayOutSchema,
+  crossoverEnabledSchema,
+  crossoverFreqSchema,
 ]);
 
 export type AmpActionRequest = z.infer<typeof ampActionRequestSchema>;

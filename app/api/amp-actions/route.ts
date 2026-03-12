@@ -36,6 +36,10 @@
  *     Wire body: 0x00=muted, 0x01=unmuted  (confirmed from C# source)
  *     C# source: Channels.cs    → SendStruct(MUTE, ch, in_out_flag.input,  link, mute_data)
  *                Channels_out.cs → SendStruct(MUTE, ch, in_out_flag.Output, link, mute_data)
+ *
+ *   "crossoverEnabled" — FC=30 FILTER_TYPE, link=0 (HP) or 9 (LP), in_out_flag=0/1
+ *   "crossoverFreq"    — FC=32 FILTER_FREQ, link=0 (HP) or 9 (LP), in_out_flag=0/1
+ *     Both are followed by the fixed crossover commit packet observed in CVR's app.
  */
 
 import { ampController } from "@/lib/amp-controller";
@@ -46,6 +50,37 @@ import {
 } from "@/lib/validation/amp-actions";
 
 export const dynamic = "force-dynamic";
+
+const DEFAULT_CROSSOVER_TYPE = {
+  hp: 0,
+  lp: 4,
+} as const;
+
+function getCrossoverLink(): number {
+  // Link is not the HP/LP selector in the C# reference path.
+  // Keep link at 0 when writing a single channel directly.
+  return 0;
+}
+
+function getCrossoverSegment(kind: "hp" | "lp"): number {
+  // HP = band 0, LP = band 9 in the 10-band EQ layout.
+  return kind === "hp" ? 0 : 9;
+}
+
+function getCrossoverInOutFlag(target: "input" | "output"): number {
+  return target === "input" ? 0 : 1;
+}
+
+function getCrossoverTypeByte(
+  kind: "hp" | "lp",
+  enabled: boolean,
+  filterType: number,
+): number {
+  const normalizedType = Number.isInteger(filterType)
+    ? filterType
+    : DEFAULT_CROSSOVER_TYPE[kind];
+  return enabled ? normalizedType : 255 - normalizedType;
+}
 
 // ---------------------------------------------------------------------------
 // Handler
@@ -224,6 +259,48 @@ export async function POST(request: Request): Promise<Response> {
           payload,
           1 /* Output */,
         );
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Input/output crossover enable/disable — FC=30 FILTER_TYPE
+      // segment=0 selects HP, segment=9 selects LP.
+      // Enabled body = filter type, disabled body = 255 - filter type.
+      // Device requires a follow-up commit packet after crossover changes.
+      // -----------------------------------------------------------------------
+      case "crossoverEnabled": {
+        const payload = Buffer.from([
+          getCrossoverTypeByte(body.kind, value, body.filterType),
+        ]);
+        await device.sendControl(
+          FuncCode.FILTER_TYPE,
+          channel,
+          payload,
+          getCrossoverInOutFlag(body.target),
+          getCrossoverLink(),
+          getCrossoverSegment(body.kind),
+        );
+        await device.commitCrossover();
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Input/output crossover frequency — FC=32 FILTER_FREQ
+      // segment=0 selects HP, segment=9 selects LP.
+      // Device requires a follow-up commit packet after crossover changes.
+      // -----------------------------------------------------------------------
+      case "crossoverFreq": {
+        const payload = Buffer.alloc(4);
+        payload.writeFloatLE(value, 0);
+        await device.sendControl(
+          FuncCode.FILTER_FREQ,
+          channel,
+          payload,
+          getCrossoverInOutFlag(body.target),
+          getCrossoverLink(),
+          getCrossoverSegment(body.kind),
+        );
+        await device.commitCrossover();
         break;
       }
 

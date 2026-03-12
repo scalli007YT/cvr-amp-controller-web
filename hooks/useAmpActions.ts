@@ -8,6 +8,8 @@ import {
   DELAY_MIN_MS,
   DELAY_IN_MAX_MS,
   DELAY_OUT_MAX_MS,
+  CROSSOVER_FREQ_MIN_HZ,
+  CROSSOVER_FREQ_MAX_HZ,
 } from "@/lib/constants";
 
 // ---------------------------------------------------------------------------
@@ -15,12 +17,29 @@ import {
 // ---------------------------------------------------------------------------
 
 type Channel = 0 | 1 | 2 | 3;
+type CrossoverTarget = "input" | "output";
+type CrossoverKind = "hp" | "lp";
 
 interface AmpActionsHook {
   muteIn: (mac: string, channel: Channel, muted: boolean) => Promise<void>;
   muteOut: (mac: string, channel: Channel, muted: boolean) => Promise<void>;
   setDelayIn: (mac: string, channel: Channel, ms: number) => Promise<void>;
   setDelayOut: (mac: string, channel: Channel, ms: number) => Promise<void>;
+  setCrossoverEnabled: (
+    mac: string,
+    channel: Channel,
+    target: CrossoverTarget,
+    kind: CrossoverKind,
+    enabled: boolean,
+    filterType: number,
+  ) => Promise<void>;
+  setCrossoverFreq: (
+    mac: string,
+    channel: Channel,
+    target: CrossoverTarget,
+    kind: CrossoverKind,
+    hz: number,
+  ) => Promise<void>;
   invertPolarityOut: (
     mac: string,
     channel: Channel,
@@ -165,6 +184,41 @@ export function useAmpActions(): AmpActionsHook {
     [send],
   );
 
+  const setCrossoverEnabled = useCallback(
+    async (
+      mac: string,
+      channel: Channel,
+      target: CrossoverTarget,
+      kind: CrossoverKind,
+      enabled: boolean,
+      filterType: number,
+    ) => {
+      await send(mac, "crossoverEnabled", channel, enabled, {
+        target,
+        kind,
+        filterType,
+      });
+    },
+    [send],
+  );
+
+  const setCrossoverFreq = useCallback(
+    async (
+      mac: string,
+      channel: Channel,
+      target: CrossoverTarget,
+      kind: CrossoverKind,
+      hz: number,
+    ) => {
+      const clamped = Math.max(
+        CROSSOVER_FREQ_MIN_HZ,
+        Math.min(CROSSOVER_FREQ_MAX_HZ, hz),
+      );
+      await send(mac, "crossoverFreq", channel, clamped, { target, kind });
+    },
+    [send],
+  );
+
   return {
     muteIn,
     muteOut,
@@ -174,5 +228,7 @@ export function useAmpActions(): AmpActionsHook {
     setMatrixActive,
     setDelayIn,
     setDelayOut,
+    setCrossoverEnabled,
+    setCrossoverFreq,
   };
 }

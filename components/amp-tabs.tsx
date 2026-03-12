@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAmpStore } from "@/stores/AmpStore";
 import type {
   HeartbeatData,
@@ -43,9 +43,17 @@ import {
 } from "@/components/ui/tooltip";
 import { useVuMeters } from "@/hooks/useVuMeters";
 import { thresholdVToDbu, formatRuntime, formatDbfs } from "@/lib/generic";
-import { getFilterTypeName } from "@/lib/parse-channel-data";
+import {
+  getFilterTypeName,
+  HPLP_FILTER_TYPE_NAMES,
+} from "@/lib/parse-channel-data";
 import { EQ_BAND_LABELS, formatFreqFull } from "@/lib/eq";
-import { MATRIX_GAIN_MAX_DB, MATRIX_GAIN_MIN_DB } from "@/lib/constants";
+import {
+  MATRIX_GAIN_MAX_DB,
+  MATRIX_GAIN_MIN_DB,
+  CROSSOVER_FREQ_MIN_HZ,
+  CROSSOVER_FREQ_MAX_HZ,
+} from "@/lib/constants";
 import { EqCurveChart } from "@/components/eq-curve-chart";
 import { COLORS } from "@/lib/colors";
 import {
@@ -226,7 +234,19 @@ function CopyJsonButton({ data }: { data: unknown }) {
 // EQ band display
 // ---------------------------------------------------------------------------
 
-function EqParamStrip({ bands }: { bands: EqBand[] }) {
+function EqParamStrip({
+  bands,
+  mac,
+  channel,
+  target,
+}: {
+  bands: EqBand[];
+  mac?: string;
+  channel?: 0 | 1 | 2 | 3;
+  target?: CrossoverTarget;
+}) {
+  const hasInteractive =
+    mac !== undefined && channel !== undefined && target !== undefined;
   return (
     <div
       className="grid gap-px m-4"
@@ -238,11 +258,12 @@ function EqParamStrip({ bands }: { bands: EqBand[] }) {
       {bands.map((band, idx) => {
         const isHpLp = idx === 0 || idx === 9;
         const bypassed = band.bypass;
+        const interactive = isHpLp && hasInteractive;
         return (
           <div
             key={idx}
             className={`flex flex-col items-center text-center py-2 px-1 ${
-              bypassed ? "opacity-40" : ""
+              interactive ? "" : bypassed ? "opacity-40" : ""
             }`}
           >
             {/* Band label */}
@@ -250,51 +271,63 @@ function EqParamStrip({ bands }: { bands: EqBand[] }) {
               {EQ_BAND_LABELS[idx]}
             </div>
 
-            {/* Filter type */}
-            <div className="text-[10px] font-medium mb-1 text-muted-foreground">
-              {getFilterTypeName(band.type, idx)}
-            </div>
+            {interactive ? (
+              <CrossoverBandCell
+                idx={idx}
+                band={band}
+                mac={mac}
+                channel={channel}
+                target={target}
+              />
+            ) : (
+              <>
+                {/* Filter type */}
+                <div className="text-[10px] font-medium mb-1 text-muted-foreground">
+                  {getFilterTypeName(band.type, idx)}
+                </div>
 
-            {/* Frequency */}
-            <div className="text-[11px] tabular-nums text-foreground">
-              {formatFreqFull(band.freq)}{" "}
-              <span className="text-[9px] text-muted-foreground">Hz</span>
-            </div>
+                {/* Frequency */}
+                <div className="text-[11px] tabular-nums text-foreground">
+                  {formatFreqFull(band.freq)}{" "}
+                  <span className="text-[9px] text-muted-foreground">Hz</span>
+                </div>
 
-            {/* Gain (not for HP/LP) */}
-            {!isHpLp && (
-              <div
-                className={`text-[11px] tabular-nums mt-0.5 ${
-                  band.gain > 0
-                    ? "text-green-500 dark:text-green-400"
-                    : band.gain < 0
-                      ? "text-red-500 dark:text-red-400"
-                      : "text-muted-foreground"
-                }`}
-              >
-                {band.gain > 0 ? "+" : ""}
-                {band.gain.toFixed(1)}{" "}
-                <span className="text-[9px] text-muted-foreground">dB</span>
-              </div>
+                {/* Gain (not for HP/LP) */}
+                {!isHpLp && (
+                  <div
+                    className={`text-[11px] tabular-nums mt-0.5 ${
+                      band.gain > 0
+                        ? "text-green-500 dark:text-green-400"
+                        : band.gain < 0
+                          ? "text-red-500 dark:text-red-400"
+                          : "text-muted-foreground"
+                    }`}
+                  >
+                    {band.gain > 0 ? "+" : ""}
+                    {band.gain.toFixed(1)}{" "}
+                    <span className="text-[9px] text-muted-foreground">dB</span>
+                  </div>
+                )}
+
+                {/* Q (not for HP/LP) */}
+                {!isHpLp && (
+                  <div className="text-[10px] tabular-nums mt-0.5 text-muted-foreground">
+                    Q: {band.q.toFixed(1)}
+                  </div>
+                )}
+
+                {/* Bypass indicator */}
+                <div
+                  className={`text-[9px] font-bold mt-1.5 w-full py-0.5 rounded-sm ${
+                    bypassed
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-muted/60 text-muted-foreground/50"
+                  }`}
+                >
+                  {bypassed ? "Bypass" : isHpLp ? "ON" : "Bypass"}
+                </div>
+              </>
             )}
-
-            {/* Q (not for HP/LP) */}
-            {!isHpLp && (
-              <div className="text-[10px] tabular-nums mt-0.5 text-muted-foreground">
-                Q: {band.q.toFixed(1)}
-              </div>
-            )}
-
-            {/* Bypass indicator */}
-            <div
-              className={`text-[9px] font-bold mt-1.5 w-full py-0.5 rounded-sm ${
-                bypassed
-                  ? "bg-destructive/10 text-destructive"
-                  : "bg-muted/60 text-muted-foreground/50"
-              }`}
-            >
-              {bypassed ? "Bypass" : isHpLp ? "ON" : "Bypass"}
-            </div>
           </div>
         );
       })}
@@ -302,14 +335,165 @@ function EqParamStrip({ bands }: { bands: EqBand[] }) {
   );
 }
 
+type CrossoverTarget = "input" | "output";
+type CrossoverKind = "hp" | "lp";
+
+const CROSSOVER_DEFAULT_TYPES: Record<CrossoverKind, number> = {
+  hp: 0,
+  lp: 4,
+};
+
+const HPLP_TYPE_OPTIONS = Object.entries(HPLP_FILTER_TYPE_NAMES)
+  .map(([key, label]) => ({ value: Number(key), label }))
+  .sort((a, b) => a.value - b.value);
+
+function normalizeCrossoverType(kind: CrossoverKind, type: number): number {
+  return Number.isInteger(type) && type >= 0 && type <= 10
+    ? type
+    : CROSSOVER_DEFAULT_TYPES[kind];
+}
+
+function formatCrossoverDraft(freq: number): string {
+  const rounded = Math.round(freq * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function parseCrossoverDraft(raw: string): number {
+  const normalized = raw.replace(/[,\s]/g, "");
+  return Number.parseFloat(normalized);
+}
+
+function CrossoverBandCell({
+  idx,
+  band,
+  mac,
+  channel,
+  target,
+}: {
+  idx: number;
+  band: EqBand;
+  mac: string;
+  channel: 0 | 1 | 2 | 3;
+  target: CrossoverTarget;
+}) {
+  const kind: CrossoverKind = idx === 0 ? "hp" : "lp";
+  const { setCrossoverEnabled, setCrossoverFreq } = useAmpActions();
+  const [draft, setDraft] = useState(() => formatCrossoverDraft(band.freq));
+  const [dirty, setDirty] = useState(false);
+  const [pending, setPending] = useState(false);
+  const pendingRef = useRef(false);
+
+  useEffect(() => {
+    if (pendingRef.current) {
+      pendingRef.current = false;
+      setPending(false);
+    }
+  }, [band]);
+
+  const markPending = () => {
+    pendingRef.current = true;
+    setPending(true);
+  };
+
+  const enabled = !band.bypass;
+  const currentType = normalizeCrossoverType(kind, band.type);
+  const inputValue = dirty ? draft : formatCrossoverDraft(band.freq);
+
+  const commit = () => {
+    const parsed = parseCrossoverDraft(inputValue);
+    if (!Number.isFinite(parsed)) {
+      setDraft(formatCrossoverDraft(band.freq));
+      setDirty(false);
+      return;
+    }
+    const clamped = Math.max(
+      CROSSOVER_FREQ_MIN_HZ,
+      Math.min(CROSSOVER_FREQ_MAX_HZ, parsed),
+    );
+    setDraft(formatCrossoverDraft(clamped));
+    setDirty(false);
+    markPending();
+    void setCrossoverFreq(mac, channel, target, kind, clamped);
+  };
+
+  const toggleEnabled = () => {
+    markPending();
+    void setCrossoverEnabled(mac, channel, target, kind, !enabled, currentType);
+  };
+
+  const handleTypeChange = (nextType: number) => {
+    if (!Number.isInteger(nextType) || nextType < 0 || nextType > 10) return;
+    markPending();
+    void setCrossoverEnabled(mac, channel, target, kind, enabled, nextType);
+  };
+
+  return (
+    <>
+      <select
+        value={currentType}
+        disabled={pending}
+        onChange={(e) => handleTypeChange(Number.parseInt(e.target.value, 10))}
+        className="mb-1 w-full rounded border border-input bg-background px-1 py-0.5 text-[10px] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {HPLP_TYPE_OPTIONS.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <div className="mb-1 flex items-center gap-0.5">
+        <Input
+          type="number"
+          min={String(CROSSOVER_FREQ_MIN_HZ)}
+          max={String(CROSSOVER_FREQ_MAX_HZ)}
+          step="1"
+          value={inputValue}
+          disabled={pending}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setDirty(true);
+          }}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") {
+              setDraft(formatCrossoverDraft(band.freq));
+              setDirty(false);
+            }
+          }}
+          className="h-6 w-full px-1 font-mono text-[10px] tabular-nums"
+        />
+        <span className="shrink-0 text-[9px] text-muted-foreground">Hz</span>
+      </div>
+      <button
+        disabled={pending}
+        onClick={toggleEnabled}
+        className={`mt-0.5 w-full rounded-sm py-0.5 text-[9px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+          enabled
+            ? "bg-muted/60 text-muted-foreground/50 hover:bg-destructive/10 hover:text-destructive"
+            : "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
+        }`}
+      >
+        {pending ? "…" : enabled ? "Bypass" : "Enable"}
+      </button>
+    </>
+  );
+}
+
 function EqBandDialog({
   triggerLabel,
   title,
   bands,
+  mac,
+  channel,
+  target,
 }: {
   triggerLabel: string;
   title: string;
   bands?: EqBand[];
+  mac?: string;
+  channel?: 0 | 1 | 2 | 3;
+  target?: CrossoverTarget;
 }) {
   return (
     <Dialog>
@@ -337,7 +521,12 @@ function EqBandDialog({
               <EqCurveChart bands={bands} />
             </div>
             <div className="overflow-x-auto">
-              <EqParamStrip bands={bands} />
+              <EqParamStrip
+                bands={bands}
+                mac={mac}
+                channel={channel}
+                target={target}
+              />
             </div>
           </>
         )}
@@ -767,6 +956,9 @@ function HeartbeatDashboard({
                       <EqBandDialog
                         triggerLabel="EQ In"
                         title={`Input EQ — Ch ${CH_LABELS[i]}`}
+                        mac={mac}
+                        channel={i as 0 | 1 | 2 | 3}
+                        target="input"
                         bands={channelParams?.channels[i]?.eqIn}
                       />
                     </div>
@@ -1027,6 +1219,9 @@ function HeartbeatDashboard({
                     <EqBandDialog
                       triggerLabel="EQ Out"
                       title={`Output EQ — Ch ${CH_LABELS[i]}`}
+                      mac={mac}
+                      channel={i as 0 | 1 | 2 | 3}
+                      target="output"
                       bands={channelParams?.channels[i]?.eqOut}
                     />
                   </div>
@@ -1511,7 +1706,10 @@ export function AmpTabs() {
                   </h2>
                 </div>
                 <div className="flex items-center gap-2 text-[11px]">
-                  <Badge variant="outline" className="rounded border-border/50 bg-muted/20 font-mono">
+                  <Badge
+                    variant="outline"
+                    className="rounded border-border/50 bg-muted/20 font-mono"
+                  >
                     {selectedAmp.ip ?? "no ip"}
                   </Badge>
                 </div>
@@ -1523,21 +1721,21 @@ export function AmpTabs() {
                   className="h-7 flex-none border border-transparent px-3 data-active:border-primary/45 data-active:bg-primary/18 data-active:text-foreground"
                 >
                   <LayoutDashboardIcon className="size-4" />
-                Main
+                  Main
                 </TabsTrigger>
                 <TabsTrigger
                   value="matrix"
                   className="h-7 flex-none border border-transparent px-3 data-active:border-primary/45 data-active:bg-primary/18 data-active:text-foreground"
                 >
                   <GridIcon className="size-4" />
-                Matrix / Limiter
+                  Matrix / Limiter
                 </TabsTrigger>
                 <TabsTrigger
                   value="preferences"
                   className="h-7 flex-none border border-transparent px-3 data-active:border-primary/45 data-active:bg-primary/18 data-active:text-foreground"
                 >
                   <SlidersHorizontalIcon className="size-4" />
-                Preferences
+                  Preferences
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -1841,7 +2039,9 @@ export function AmpTabs() {
                   <div className="flex items-center justify-between">
                     <CollapsibleTrigger className="flex items-center gap-1.5 rounded-md px-1 py-1 text-left hover:bg-muted/50 transition-colors [&[data-state=open]>svg]:rotate-90">
                       <ChevronRight className="shrink-0 h-3.5 w-3.5 text-muted-foreground transition-transform duration-200" />
-                      <span className="text-sm font-semibold">Channel Data</span>
+                      <span className="text-sm font-semibold">
+                        Channel Data
+                      </span>
                     </CollapsibleTrigger>
                     <CopyJsonButton data={selectedAmp.channelParams.channels} />
                   </div>
