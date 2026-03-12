@@ -195,6 +195,38 @@ export async function POST(request: Request): Promise<Response> {
         break;
       }
 
+      // -----------------------------------------------------------------------
+      // Input delay — FC=14, in_out_flag=0 (input)
+      // Wire body: float32 LE (milliseconds)
+      // -----------------------------------------------------------------------
+      case "delayIn": {
+        const payload = Buffer.alloc(4);
+        payload.writeFloatLE(value, 0);
+        await device.sendControl(
+          FuncCode.DELAY,
+          channel,
+          payload,
+          0 /* input */,
+        );
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Output delay — FC=14, in_out_flag=1 (Output)
+      // Wire body: float32 LE (milliseconds)
+      // -----------------------------------------------------------------------
+      case "delayOut": {
+        const payload = Buffer.alloc(4);
+        payload.writeFloatLE(value, 0);
+        await device.sendControl(
+          FuncCode.DELAY,
+          channel,
+          payload,
+          1 /* Output */,
+        );
+        break;
+      }
+
       default:
         return Response.json(
           { error: `Unknown action: ${action as string}` },

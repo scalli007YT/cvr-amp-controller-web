@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { MATRIX_GAIN_MAX_DB, MATRIX_GAIN_MIN_DB } from "@/lib/constants";
+import {
+  MATRIX_GAIN_MAX_DB,
+  MATRIX_GAIN_MIN_DB,
+  DELAY_MIN_MS,
+  DELAY_IN_MAX_MS,
+  DELAY_OUT_MAX_MS,
+} from "@/lib/constants";
 
 const channelSchema = z
   .number()
@@ -47,6 +53,22 @@ const matrixActiveSchema = baseSchema.extend({
   source: channelSchema,
 });
 
+const delayInSchema = baseSchema.extend({
+  action: z.literal("delayIn"),
+  value: z
+    .number()
+    .min(DELAY_MIN_MS, `delayIn must be >= ${DELAY_MIN_MS} ms`)
+    .max(DELAY_IN_MAX_MS, `delayIn must be <= ${DELAY_IN_MAX_MS} ms`),
+});
+
+const delayOutSchema = baseSchema.extend({
+  action: z.literal("delayOut"),
+  value: z
+    .number()
+    .min(DELAY_MIN_MS, `delayOut must be >= ${DELAY_MIN_MS} ms`)
+    .max(DELAY_OUT_MAX_MS, `delayOut must be <= ${DELAY_OUT_MAX_MS} ms`),
+});
+
 export const ampActionRequestSchema = z.union([
   muteInSchema,
   muteOutSchema,
@@ -54,6 +76,8 @@ export const ampActionRequestSchema = z.union([
   noiseGateOutSchema,
   matrixGainSchema,
   matrixActiveSchema,
+  delayInSchema,
+  delayOutSchema,
 ]);
 
 export type AmpActionRequest = z.infer<typeof ampActionRequestSchema>;

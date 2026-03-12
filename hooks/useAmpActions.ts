@@ -2,7 +2,13 @@
 
 import { useCallback } from "react";
 import { toast } from "sonner";
-import { MATRIX_GAIN_MAX_DB, MATRIX_GAIN_MIN_DB } from "@/lib/constants";
+import {
+  MATRIX_GAIN_MAX_DB,
+  MATRIX_GAIN_MIN_DB,
+  DELAY_MIN_MS,
+  DELAY_IN_MAX_MS,
+  DELAY_OUT_MAX_MS,
+} from "@/lib/constants";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -13,6 +19,8 @@ type Channel = 0 | 1 | 2 | 3;
 interface AmpActionsHook {
   muteIn: (mac: string, channel: Channel, muted: boolean) => Promise<void>;
   muteOut: (mac: string, channel: Channel, muted: boolean) => Promise<void>;
+  setDelayIn: (mac: string, channel: Channel, ms: number) => Promise<void>;
+  setDelayOut: (mac: string, channel: Channel, ms: number) => Promise<void>;
   invertPolarityOut: (
     mac: string,
     channel: Channel,
@@ -135,6 +143,28 @@ export function useAmpActions(): AmpActionsHook {
     [send],
   );
 
+  // ---------------------------------------------------------------------------
+  // setDelayIn
+  // ---------------------------------------------------------------------------
+  const setDelayIn = useCallback(
+    async (mac: string, channel: Channel, ms: number) => {
+      const clamped = Math.max(DELAY_MIN_MS, Math.min(DELAY_IN_MAX_MS, ms));
+      await send(mac, "delayIn", channel, clamped);
+    },
+    [send],
+  );
+
+  // ---------------------------------------------------------------------------
+  // setDelayOut
+  // ---------------------------------------------------------------------------
+  const setDelayOut = useCallback(
+    async (mac: string, channel: Channel, ms: number) => {
+      const clamped = Math.max(DELAY_MIN_MS, Math.min(DELAY_OUT_MAX_MS, ms));
+      await send(mac, "delayOut", channel, clamped);
+    },
+    [send],
+  );
+
   return {
     muteIn,
     muteOut,
@@ -142,5 +172,7 @@ export function useAmpActions(): AmpActionsHook {
     noiseGateOut,
     setMatrixGain,
     setMatrixActive,
+    setDelayIn,
+    setDelayOut,
   };
 }

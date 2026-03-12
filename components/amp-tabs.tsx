@@ -17,6 +17,11 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -47,7 +52,8 @@ import {
   LayoutDashboardIcon,
   GridIcon,
   SlidersHorizontalIcon,
-} from "lucide-react";
+    ChevronRight,
+  } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // JsonTree — collapsible JSON viewer (collapsed by default)
@@ -341,6 +347,113 @@ function EqBandDialog({
 }
 
 // ---------------------------------------------------------------------------
+// Delay popover pill — editable delay value with Shadcn Popover + Input
+// ---------------------------------------------------------------------------
+
+function DelayPopover({
+  delayMs,
+  maxMs,
+  label,
+  onSet,
+}: {
+  delayMs: number | undefined;
+  maxMs: number;
+  label: string;
+  onSet: (ms: number) => void | Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [inputVal, setInputVal] = useState("");
+
+  const handleOpen = (next: boolean) => {
+    // Use locale-independent formatting to avoid "0,0" on comma-decimal locales
+    if (next)
+      setInputVal(
+        delayMs !== undefined
+          ? delayMs.toLocaleString("en-US", { maximumFractionDigits: 1 })
+          : "0",
+      );
+    setOpen(next);
+  };
+
+  const commit = () => {
+    // Accept both "." and "," as decimal separators
+    const parsed = parseFloat(inputVal.replace(",", "."));
+    if (!Number.isFinite(parsed) || parsed < 0) return;
+    void onSet(Math.min(maxMs, parsed));
+    setOpen(false);
+  };
+
+  const active = delayMs !== undefined && delayMs > 0;
+
+  return (
+    <Popover open={open} onOpenChange={handleOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className={`flex flex-col items-center w-full rounded border px-1.5 py-1 cursor-pointer select-none transition-colors ${
+            delayMs === undefined
+              ? "border-border/30 bg-muted/10 opacity-40 pointer-events-none"
+              : active
+                ? "border-sky-500/60 bg-sky-500/15 hover:bg-sky-500/25"
+                : "border-border/60 bg-muted/30 hover:border-sky-500/40 hover:bg-muted/50"
+          }`}
+        >
+          <span
+            className={`font-mono text-[13px] font-semibold tabular-nums leading-none ${active ? "text-sky-400" : ""}`}
+          >
+            {delayMs !== undefined ? delayMs.toFixed(1) : "~"}
+          </span>
+          <span className="text-[9px] text-muted-foreground mt-0.5">
+            {label}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-44 p-0" side="right" align="center">
+        <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
+          <span className="text-xs font-semibold">Delay</span>
+          <span className="text-[10px] text-muted-foreground">
+            0 – {maxMs} ms
+          </span>
+        </div>
+        <div className="px-3 py-3 space-y-2">
+          <div className="flex items-center gap-1.5">
+            <Input
+              autoFocus
+              type="number"
+              min={0}
+              max={maxMs}
+              step={0.1}
+              value={inputVal}
+              onChange={(e) => setInputVal(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commit();
+                if (e.key === "Escape") setOpen(false);
+              }}
+              className="h-8 text-sm font-mono tabular-nums"
+            />
+            <span className="text-xs text-muted-foreground shrink-0 w-5">
+              ms
+            </span>
+          </div>
+          <div className="flex gap-1.5">
+            <Button size="sm" className="flex-1 h-7 text-xs" onClick={commit}>
+              Set
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1 h-7 text-xs"
+              onClick={() => setOpen(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Live sensor dashboard — rendered inside the Main tab
 // ---------------------------------------------------------------------------
 
@@ -492,7 +605,14 @@ function HeartbeatDashboard({
 
   // 60fps animated VU values — falls back to hb values until first rAF tick
   const vu = useVuMeters(mac);
-  const { muteIn, muteOut, invertPolarityOut, noiseGateOut } = useAmpActions();
+  const {
+    muteIn,
+    muteOut,
+    invertPolarityOut,
+    noiseGateOut,
+    setDelayIn,
+    setDelayOut,
+  } = useAmpActions();
   const vuOutputDbu = vu?.outputDbu ?? hb.outputDbu.map(() => null);
   const vuInputDbfs = vu?.inputDbfs ?? hb.inputDbfs;
 
@@ -604,6 +724,20 @@ function HeartbeatDashboard({
                           Gain dB
                         </span>
                       </div>
+                      {/* Delay In */}
+                      {(() => {
+                        const delay = channelParams?.channels[i]?.delayIn;
+                        return (
+                          <DelayPopover
+                            delayMs={delay}
+                            maxMs={100}
+                            label="ms in"
+                            onSet={(ms) =>
+                              setDelayIn(mac, i as 0 | 1 | 2 | 3, ms)
+                            }
+                          />
+                        );
+                      })()}
                       {/* Mute In */}
                       {(() => {
                         const muted = channelParams?.channels[i]?.muteIn;
@@ -796,6 +930,20 @@ function HeartbeatDashboard({
                         °C
                       </span>
                     </div>
+                    {/* Delay Out */}
+                    {(() => {
+                      const delay = channelParams?.channels[i]?.delayOut;
+                      return (
+                        <DelayPopover
+                          delayMs={delay}
+                          maxMs={20}
+                          label="ms out"
+                          onSet={(ms) =>
+                            setDelayOut(mac, i as 0 | 1 | 2 | 3, ms)
+                          }
+                        />
+                      );
+                    })()}
                     {/* Mute Out */}
                     {(() => {
                       const muted = channelParams?.channels[i]?.muteOut;
@@ -1401,47 +1549,52 @@ export function AmpTabs() {
             </TabsContent>
 
             <TabsContent value="preferences" className="p-4 mt-0">
-              {/* Device identity */}
-              <div className="flex items-center gap-2 mb-4">
-                <div
-                  className={`w-3 h-3 rounded-full ${
-                    selectedAmp.reachable ? "bg-green-500" : "bg-red-500"
-                  }`}
-                />
-                <h2 className="text-lg font-semibold">
-                  {getDisplayName(selectedAmp)}
-                </h2>
-              </div>
-              <dl className="grid grid-cols-2 gap-2 text-xs text-muted-foreground mb-6">
-                <div>
-                  <dt className="font-semibold">MAC:</dt>
-                  <dd className="font-mono">{selectedAmp.mac}</dd>
-                </div>
-                <div>
-                  <dt className="font-semibold">Version:</dt>
-                  <dd>{selectedAmp.version || "---"}</dd>
-                </div>
-                <div>
-                  <dt className="font-semibold">ID:</dt>
-                  <dd>{selectedAmp.id || "---"}</dd>
-                </div>
-                <div>
-                  <dt className="font-semibold">Runtime:</dt>
-                  <dd>
-                    {selectedAmp.run_time !== undefined
-                      ? formatRuntime(selectedAmp.run_time)
-                      : "---"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-semibold">Rated Output:</dt>
-                  <dd>
-                    {selectedAmp.ratedRmsV !== undefined
-                      ? `${selectedAmp.ratedRmsV} V RMS`
-                      : "---"}
-                  </dd>
-                </div>
-              </dl>
+              {/* Device identity — collapsible */}
+              <Collapsible defaultOpen={false} className="mb-4">
+                <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-muted/50 transition-colors [&[data-state=open]>svg]:rotate-90">
+                  <ChevronRight className="shrink-0 h-3.5 w-3.5 text-muted-foreground transition-transform duration-200" />
+                  <div
+                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                      selectedAmp.reachable ? "bg-green-500" : "bg-red-500"
+                    }`}
+                  />
+                  <span className="text-sm font-semibold">
+                    {getDisplayName(selectedAmp)}
+                  </span>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <dl className="grid grid-cols-2 gap-2 text-xs text-muted-foreground mt-3 px-1">
+                    <div>
+                      <dt className="font-semibold">MAC:</dt>
+                      <dd className="font-mono">{selectedAmp.mac}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold">Version:</dt>
+                      <dd>{selectedAmp.version || "---"}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold">ID:</dt>
+                      <dd>{selectedAmp.id || "---"}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold">Runtime:</dt>
+                      <dd>
+                        {selectedAmp.run_time !== undefined
+                          ? formatRuntime(selectedAmp.run_time)
+                          : "---"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-semibold">Rated Output:</dt>
+                      <dd>
+                        {selectedAmp.ratedRmsV !== undefined
+                          ? `${selectedAmp.ratedRmsV} V RMS`
+                          : "---"}
+                      </dd>
+                    </div>
+                  </dl>
+                </CollapsibleContent>
+              </Collapsible>
 
               {/* Presets section */}
               <div>
@@ -1630,21 +1783,26 @@ export function AmpTabs() {
 
               {/* Channel Data (FC=27) */}
               {selectedAmp.channelParams && (
-                <div className="mt-6 border-t pt-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold">Channel Data</h3>
+                <Collapsible defaultOpen={false} className="mt-6 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <CollapsibleTrigger className="flex items-center gap-1.5 rounded-md px-1 py-1 text-left hover:bg-muted/50 transition-colors [&[data-state=open]>svg]:rotate-90">
+                      <ChevronRight className="shrink-0 h-3.5 w-3.5 text-muted-foreground transition-transform duration-200" />
+                      <span className="text-sm font-semibold">Channel Data</span>
+                    </CollapsibleTrigger>
                     <CopyJsonButton data={selectedAmp.channelParams.channels} />
                   </div>
-                  <div className="space-y-2">
-                    {selectedAmp.channelParams.channels.map((ch) => (
-                      <JsonTree
-                        key={ch.channel}
-                        label={`Channel ${ch.channel} — ${ch.inputName} → ${ch.outputName}`}
-                        value={ch as unknown as JsonValue}
-                      />
-                    ))}
-                  </div>
-                </div>
+                  <CollapsibleContent>
+                    <div className="space-y-2 mt-3">
+                      {selectedAmp.channelParams.channels.map((ch) => (
+                        <JsonTree
+                          key={ch.channel}
+                          label={`Channel ${ch.channel} — ${ch.inputName} → ${ch.outputName}`}
+                          value={ch as unknown as JsonValue}
+                        />
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               )}
             </TabsContent>
           </Tabs>
