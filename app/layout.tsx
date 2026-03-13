@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
-import { LayoutContent } from "@/components/layout-content";
+import { LayoutContent } from "@/components/layout/layout-content";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeProvider } from "@/components/layout/theme-provider";
 
 const fontSans = Outfit({
   subsets: ["latin"],

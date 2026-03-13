@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect } from "react";
-import { Header } from "@/components/header";
+import { Header } from "@/components/layout/header";
 import { useProjectStore } from "@/stores/ProjectStore";
 import { useAmpPoller } from "@/hooks/useAmpPoller";
 import { useAmpChannelData } from "@/hooks/useAmpChannelData";

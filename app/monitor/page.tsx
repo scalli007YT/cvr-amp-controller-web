@@ -2,8 +2,8 @@
 
 import { useProjectStore } from "@/stores/ProjectStore";
 import { useAmpStore } from "@/stores/AmpStore";
-import { AssignAmpsDialog } from "@/components/assign-amps-dialog";
-import { AmpTabs } from "@/components/amp-tabs";
+import { AssignAmpsDialog } from "@/components/dialogs/assign-amps-dialog";
+import { AmpTabs } from "@/components/monitor/amp-tabs";
 
 export default function MonitorPage() {
   const { selectedProject } = useProjectStore();

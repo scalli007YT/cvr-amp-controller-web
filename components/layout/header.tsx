@@ -16,10 +16,10 @@ import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ChevronDown, Menu, Pencil, Plus, Trash2 } from "lucide-react";
 import { useProjectStore, type Project } from "@/stores/ProjectStore";
-import { NewProjectDialog } from "@/components/new-project-dialog";
-import { EditProjectDialog } from "@/components/edit-project-dialog";
-import { DeleteProjectDialog } from "@/components/delete-project-dialog";
-import { ModeToggle } from "@/components/color-mode-toggle";
+import { NewProjectDialog } from "@/components/dialogs/new-project-dialog";
+import { EditProjectDialog } from "@/components/dialogs/edit-project-dialog";
+import { DeleteProjectDialog } from "@/components/dialogs/delete-project-dialog";
+import { ModeToggle } from "@/components/custom/color-mode-toggle";
 
 interface HeaderProps {
   projects?: Project[];
