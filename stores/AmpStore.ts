@@ -89,6 +89,8 @@ export interface ChannelParam {
   noiseGateOut: boolean; // true = noise gate enabled
   delayOut: number; // ms (float32)
   invertedOut: boolean; // true = polarity flipped
+  /** Raw dzdy/CPCR mode byte from FC=27. Observed: 0=Low-Z 1=70V 2=100V. */
+  powerMode: number;
   rmsLimiter: {
     enabled: boolean;
     thresholdVrms: number;
@@ -268,6 +270,7 @@ export const useAmpStore = create<AmpStore>((set) => ({
                 noiseGateOut: ch.noiseGateOut,
                 delayOut: ch.delayOut,
                 invertedOut: ch.invertedOut,
+                powerMode: ch.powerMode,
                 rmsLimiter: { ...ch.rmsLimiter, prmsW },
                 peakLimiter: { ...ch.peakLimiter, ppeakW },
                 matrix: ch.matrix,

@@ -85,6 +85,16 @@ export function getEqFilterTypeCapabilities(
   }
 }
 
+export const POWER_MODE_NAMES: Record<number, string> = {
+  0: "Low-Z",
+  1: "70V",
+  2: "100V",
+};
+
+export function getPowerModeName(mode: number): string {
+  return POWER_MODE_NAMES[mode] ?? `Mode ${mode}`;
+}
+
 /**
  * HP/LP rolloff filter types — indices match the C# HPorLP_InttoString array.
  * Used by band 0 (HP) and band 9 (LP).
@@ -140,6 +150,8 @@ export interface ChannelData {
   noiseGateOut: boolean; // true = noise gate enabled  (wire: 0=on, 1=off @ 409)
   delayOut: number; // ms  (float32 @ 90)
   invertedOut: boolean; // true = polarity flipped  (uint8 @ 94)
+  /** Raw dzdy/CPCR mode byte from FC=27. Observed: 0=Low-Z 1=70V 2=100V. */
+  powerMode: number;
   /** RMS limiter settings */
   rmsLimiter: {
     /** false = bypassed (wire: byte @102, 1=bypassed, 0=active) */
@@ -340,6 +352,11 @@ function parseChannelFromBuffer(
     const eqIn = parseEqBlock(121);
     const eqOut = parseEqBlock(262);
 
+    // Raw output power/distribution mode (C# dzdy / CPCR byte).
+    // Layout matches the original sync structs: output EQ block including its
+    // trailing bypass byte ends at offset 402, followed by dzdy at 403.
+    const powerMode = buffer.readUInt8(base + 403);
+
     // Limiter fields (mixed types — parsed directly, not via CHANNEL_FIELDS)
     //
     // RMS threshold: standard float32 LE at offset 98.
@@ -378,6 +395,7 @@ function parseChannelFromBuffer(
       noiseGateOut: (raw.noiseGateOut as number) === 0, // 0=enabled, 1=disabled
       delayOut: round2(raw.delayOut as number),
       invertedOut: (raw.invertedOut as number) !== 0,
+      powerMode,
       rmsLimiter,
       peakLimiter,
       matrix,

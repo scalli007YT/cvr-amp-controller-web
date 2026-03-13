@@ -83,6 +83,15 @@ const delayOutSchema = baseSchema.extend({
     .max(DELAY_OUT_MAX_MS, `delayOut must be <= ${DELAY_OUT_MAX_MS} ms`),
 });
 
+const powerModeOutSchema = baseSchema.extend({
+  action: z.literal("powerModeOut"),
+  value: z
+    .number()
+    .int("powerModeOut must be an integer")
+    .min(0, "powerModeOut must be between 0 and 2")
+    .max(2, "powerModeOut must be between 0 and 2"),
+});
+
 const crossoverEnabledSchema = baseSchema.extend({
   action: z.literal("crossoverEnabled"),
   value: z.boolean(),
@@ -171,6 +180,7 @@ export const ampActionRequestSchema = z.union([
   matrixActiveSchema,
   delayInSchema,
   delayOutSchema,
+  powerModeOutSchema,
   crossoverEnabledSchema,
   crossoverFreqSchema,
   eqBandTypeSchema,

@@ -51,6 +51,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const POWER_MODE_FUNC_CODE = FuncCode.DZ_DY;
+
 const DEFAULT_CROSSOVER_TYPE = {
   hp: 0,
   lp: 4,
@@ -255,6 +257,26 @@ export async function POST(request: Request): Promise<Response> {
         payload.writeFloatLE(value, 0);
         await device.sendControl(
           FuncCode.DELAY,
+          channel,
+          payload,
+          1 /* Output */,
+        );
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Output power mode (Low-Z / 70V / 100V) — FC=49 DZ_DY_data_code
+      // Body: DZ_DY { CPCR: byte }
+      //   0 = Low-Z
+      //   1 = 70V
+      //   2 = 100V
+      // Uses the per-channel write path from the original controller rather than
+      // the larger FC=81 Power_Allot block.
+      // -----------------------------------------------------------------------
+      case "powerModeOut": {
+        const payload = Buffer.from([value]);
+        await device.sendControl(
+          POWER_MODE_FUNC_CODE,
           channel,
           payload,
           1 /* Output */,

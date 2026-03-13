@@ -29,6 +29,11 @@ interface AmpActionsHook {
   muteOut: (mac: string, channel: Channel, muted: boolean) => Promise<void>;
   setDelayIn: (mac: string, channel: Channel, ms: number) => Promise<void>;
   setDelayOut: (mac: string, channel: Channel, ms: number) => Promise<void>;
+  setPowerModeOut: (
+    mac: string,
+    channel: Channel,
+    mode: number,
+  ) => Promise<void>;
   setCrossoverEnabled: (
     mac: string,
     channel: Channel,
@@ -217,6 +222,15 @@ export function useAmpActions(): AmpActionsHook {
     [send],
   );
 
+  const setPowerModeOut = useCallback(
+    async (mac: string, channel: Channel, mode: number) => {
+      const normalized = Number.isInteger(mode) ? mode : 0;
+      const clamped = Math.max(0, Math.min(2, normalized));
+      await send(mac, "powerModeOut", channel, clamped);
+    },
+    [send],
+  );
+
   const setCrossoverEnabled = useCallback(
     async (
       mac: string,
@@ -323,6 +337,7 @@ export function useAmpActions(): AmpActionsHook {
     setMatrixActive,
     setDelayIn,
     setDelayOut,
+    setPowerModeOut,
     setCrossoverEnabled,
     setCrossoverFreq,
     setEqBandType,

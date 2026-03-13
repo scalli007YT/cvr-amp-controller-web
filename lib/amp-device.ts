@@ -79,7 +79,8 @@ export class FuncCode {
   static FIR_DATA = 43;
   static FIR_BYPASS = 44;
   static PEAK_BYPASS = 47;
-  static SOURCE_DZDY = 49;
+  static DZ_DY = 49;
+  static SOURCE_DZDY = 49; // legacy alias
   static BRIDGE = 50;
   static CH_DATA = 51;
   static EQ = 52;
