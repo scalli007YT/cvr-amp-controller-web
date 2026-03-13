@@ -231,7 +231,7 @@ class AmpController extends EventEmitter {
 
   // Promise that resolves once the UDP socket is successfully bound.
   // triggerDiscovery awaits this so it never fires into a null socket.
-  private _socketReadyResolve: (() => void) | null = null;
+  private _socketReadyResolve: (...args: any) => void = null;
   private _socketReady: Promise<void> = new Promise(
     (res) => (this._socketReadyResolve = res),
   );
@@ -663,7 +663,7 @@ class AmpController extends EventEmitter {
         this.heartbeatCount = 0;
         this._judgeOnline();
       }
-    }, HEARTBEAT_MS);
+    }, HEARTBEAT_MS) as ReturnType<typeof setInterval>;
   }
 
   // -------------------------------------------------------------------------
@@ -680,7 +680,7 @@ class AmpController extends EventEmitter {
 
     this.discoveryTimer = setInterval(() => {
       this._runDiscoveryCycle();
-    }, DISCOVERY_MS);
+    }, DISCOVERY_MS) as ReturnType<typeof setInterval>;
   }
 
   private _runDiscoveryCycle(): void {
