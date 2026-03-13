@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { usePollingStore } from "@/stores/PollingStore";
 import { useAmpStore } from "@/stores/AmpStore";
 import type { HeartbeatData } from "@/stores/AmpStore";
+import type { AmpBasicInfo } from "@/stores/AmpStore";
 import { smoothHeartbeat, resetSmootherForMac } from "@/lib/heartbeat-smoother";
 import { ratedRmsVFromDeviceName } from "@/lib/amp-model";
 
@@ -17,6 +18,7 @@ interface DiscoverySseEvent {
   mac: string;
   name: string;
   version: string;
+  basicInfo: AmpBasicInfo;
 }
 
 interface HeartbeatSseEvent {
@@ -127,7 +129,7 @@ export function useAmpPoller(): UseAmpPollerReturn {
           // discovery — device replied to FC=0 broadcast
           // ----------------------------------------------------------------
           case "discovery": {
-            const { ip, mac, name, version } = event;
+            const { ip, mac, name, version, basicInfo } = event;
             const amp = findAmp(ampsRef.current, mac);
             if (!amp) return;
 
@@ -141,6 +143,11 @@ export function useAmpPoller(): UseAmpPollerReturn {
               version,
               reachable: true,
               ratedRmsV,
+              basic_info: basicInfo,
+              analog_signal_input_chx: basicInfo.Analog_signal_Input_chx,
+              output_chx: basicInfo.Output_chx,
+              machine_state: basicInfo.Machine_state,
+              gain_max: basicInfo.Gain_max,
             });
             usePollingStore.getState().setLastUpdated(amp.mac, Date.now());
             usePollingStore.getState().setError(amp.mac, null);

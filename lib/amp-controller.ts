@@ -52,6 +52,15 @@ export interface DiscoveryEvent {
   mac: string;
   name: string;
   version: string;
+  basicInfo: BasicInfoSnapshot;
+}
+
+export interface BasicInfoSnapshot {
+  Gain_max: number;
+  Analog_signal_Input_chx: number;
+  Digital_signal_input_chx: number;
+  Output_chx: number;
+  Machine_state: number;
 }
 
 export interface HeartbeatEvent {
@@ -161,7 +170,7 @@ function validateAndStrip(raw: Buffer): Buffer | null {
 //   [84-89]  MAC
 // ---------------------------------------------------------------------------
 function parseDiscoveryPacket(raw: Buffer, ip: string): DiscoveryEvent | null {
-  if (raw.length < 90) return null;
+  if (raw.length < 95) return null;
   if (raw[10] !== 0x55) return null;
   if (raw[11] !== FuncCode.BASIC_INFO) return null;
 
@@ -186,7 +195,28 @@ function parseDiscoveryPacket(raw: Buffer, ip: string): DiscoveryEvent | null {
     .toString("ascii")
     .trim();
 
-  return { ip, mac, name, version };
+  // BASIC_INFO struct fields inside body (body starts at absolute offset 20)
+  //   +70 Gain_max
+  //   +71 Analog_signal_Input_chx
+  //   +72 Digital_signal_input_chx
+  //   +73 Output_chx
+  //   +74 Machine_state
+  const bodyStart = 20;
+  const gainMax = raw[bodyStart + 70] ?? 0;
+  const analogSignalInputChx = raw[bodyStart + 71] ?? 0;
+  const digitalSignalInputChx = raw[bodyStart + 72] ?? 0;
+  const outputChx = raw[bodyStart + 73] ?? 0;
+  const machineState = raw[bodyStart + 74] ?? 0;
+
+  const basicInfo: BasicInfoSnapshot = {
+    Gain_max: gainMax,
+    Analog_signal_Input_chx: analogSignalInputChx,
+    Digital_signal_input_chx: digitalSignalInputChx,
+    Output_chx: outputChx,
+    Machine_state: machineState,
+  };
+
+  return { ip, mac, name, version, basicInfo };
 }
 
 // ---------------------------------------------------------------------------
@@ -212,8 +242,8 @@ class AmpController extends EventEmitter {
    */
   private knownMacs = new Map<
     string,
-    { ip: string; name: string; version: string }
-  >(); // mac → { ip, name, version }
+    { ip: string; name: string; version: string; basicInfo: BasicInfoSnapshot }
+  >(); // mac → { ip, name, version, basicInfo }
 
   // Fix #5 — per-amp last-heartbeat timestamp for judgeOnline watchdog
   private lastHeartbeatAt = new Map<string, number>(); // mac → ms timestamp
@@ -577,6 +607,7 @@ class AmpController extends EventEmitter {
           ip,
           name: event.name,
           version: event.version,
+          basicInfo: event.basicInfo,
         });
 
         if (isNew) {

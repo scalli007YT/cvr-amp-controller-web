@@ -67,6 +67,14 @@ export interface HeartbeatData {
   receivedAt: number;
 }
 
+export interface AmpBasicInfo {
+  Gain_max: number;
+  Analog_signal_Input_chx: number;
+  Digital_signal_input_chx: number;
+  Output_chx: number;
+  Machine_state: number;
+}
+
 export interface MatrixSource {
   source: number;
   gain: number;
@@ -139,6 +147,13 @@ export interface AmpStatus {
   version?: string;
   /** Total runtime in minutes (from SN_TABLE, fetched once). */
   run_time?: number;
+  /** Raw FC=0 BASIC_INFO snapshot from discovery response. */
+  basic_info?: AmpBasicInfo;
+  /** Convenience mirrors from BASIC_INFO for quick access. */
+  analog_signal_input_chx?: number;
+  output_chx?: number;
+  machine_state?: number;
+  gain_max?: number;
   /**
    * Rated output RMS voltage (V) looked up from the device name.
    * e.g. DSP-2004 → 126.5 V. Set on first heartbeat.
