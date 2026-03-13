@@ -3,12 +3,14 @@ import { EventEmitter } from "events";
 
 const AMP_PORT = 45455;
 const PC_RECV_PORT = 45454;
+
 class NetworkAdapter extends EventEmitter {
   private started = false;
   private socket: Socket;
 
   constructor() {
     super();
+    this.socket = dgram.createSocket("udp4");
   }
 
   async start() {
@@ -23,7 +25,7 @@ class NetworkAdapter extends EventEmitter {
       this.started = false;
       this.start();
     });
-    await new Promise((res) => this.socket.bind({ port: PC_RECV_PORT, exclusive: false }, () => res()));
+    await new Promise<void>((res) => this.socket.bind({ port: PC_RECV_PORT, exclusive: false }, () => res()));
   }
 
   async send(msg: NodeJS.ArrayBufferView, offset: number, length: number, address: string, broadcast: boolean) {
@@ -32,7 +34,7 @@ class NetworkAdapter extends EventEmitter {
     return new Promise((resolve, reject) => {
       this.socket.send(msg, offset, length, AMP_PORT, address, (error: Error | null, bytes: number) => {
         if (error === null) resolve(bytes);
-        else reject(error, bytes);
+        else reject({ error, bytes });
       });
     });
   }

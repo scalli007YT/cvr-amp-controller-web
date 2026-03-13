@@ -1,7 +1,7 @@
 import os from "os";
-import {FuncCode} from "./amp-device";
-import {RemoteInfo} from "dgram";
-import {networkAdapter} from "@/lib/network/network-adapter";
+import { FuncCode } from "./amp-device";
+import { RemoteInfo } from "dgram";
+import { networkAdapter } from "@/lib/network/network-adapter";
 
 const DISCOVERY_TIMEOUT = 200; // 200ms — amps respond in <50ms on LAN/WiFi
 
@@ -47,11 +47,7 @@ function createBroadcastQueryPacket() {
   let sum = header.reduce((acc, byte) => acc + byte, 0);
   sum += num + (num >> 8);
 
-  const checksum = Buffer.from([
-    (num >> 8) & 0xff,
-    num & 0xff,
-    sum & 0xff,
-  ]);
+  const checksum = Buffer.from([(num >> 8) & 0xff, num & 0xff, sum & 0xff]);
 
   const frame = Buffer.concat([header, checksum]);
 
@@ -86,26 +82,26 @@ function parseBasicInfoPacket(msg: Buffer, rinfo: RemoteInfo) {
   const macBytes = msg.slice(84, 90);
   if (macBytes.reduce((a, b) => a + b, 0) === 0) return;
   const mac = Array.from(macBytes)
-      .map((b) => b.toString(16).toUpperCase().padStart(2, "0"))
-      .join(":");
+    .map((b) => b.toString(16).toUpperCase().padStart(2, "0"))
+    .join(":");
 
   // Parse version (offset 20, 24 bytes, null-terminated)
   const verSlice = msg.slice(20, 44);
   const verNull = verSlice.indexOf(0);
   const version = verSlice
-      .slice(0, verNull === -1 ? verSlice.length : verNull)
-      .toString("ascii")
-      .trim();
+    .slice(0, verNull === -1 ? verSlice.length : verNull)
+    .toString("ascii")
+    .trim();
 
   // Parse name (offset 52, 24 bytes, null-terminated)
   const nameSlice = msg.slice(52, 76);
   const nameNull = nameSlice.indexOf(0);
   const name = nameSlice
-      .slice(0, nameNull === -1 ? nameSlice.length : nameNull)
-      .toString("ascii")
-      .trim();
+    .slice(0, nameNull === -1 ? nameSlice.length : nameNull)
+    .toString("ascii")
+    .trim();
 
-  return {mac, ip: rinfo.address, name, version };
+  return { mac, ip: rinfo.address, name, version };
 }
 
 /**
@@ -117,7 +113,7 @@ function parseBasicInfoPacket(msg: Buffer, rinfo: RemoteInfo) {
 export async function broadcastDiscovery(): Promise<Array<{ ip: string; mac: string; name: string; version: string }>> {
   return new Promise((resolve) => {
     const devices = new Map<string, { ip: string; mac: string; name: string; version: string }>();
-    const basicInfoPacketHandler = (msg: Buffer, rinfo) => {
+    const basicInfoPacketHandler = (msg: Buffer, rinfo: RemoteInfo) => {
       const basicInfo = parseBasicInfoPacket(msg, rinfo);
       if (basicInfo == undefined) return;
       if (devices.has(basicInfo.mac)) return;
@@ -132,8 +128,7 @@ export async function broadcastDiscovery(): Promise<Array<{ ip: string; mac: str
     networkAdapter.on("message", basicInfoPacketHandler);
 
     const packet = createBroadcastQueryPacket();
-    for (const addr of getDirectedBroadcasts())
-      networkAdapter.send(packet, 0, packet.length, addr, true);
+    for (const addr of getDirectedBroadcasts()) networkAdapter.send(packet, 0, packet.length, addr, true);
   });
 }
 
