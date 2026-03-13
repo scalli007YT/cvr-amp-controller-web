@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "electron:dev": "concurrently -k -n next,electron -c cyan,yellow \"next dev -p 3000\" \"cross-env ELECTRON_DEV=1 electron .\"",
-    "electron:build": "next build && electron-builder --win"
+    "electron:build": "node -e \"require('fs').rmSync('.next', { recursive: true, force: true })\" && next build && electron-builder --win"
   },
   "build": {
     "appId": "com.cvr.ampcontroller",
@@ -24,10 +24,11 @@
     "files": [
       "electron/**/*",
       ".next/**/*",
-      "node_modules/**/*",
       "public/**/*",
       "storage/**/*",
-      "package.json"
+      "package.json",
+      "!.next/cache/**/*",
+      "!.next/dev/**/*"
     ],
     "win": {
       "target": "nsis",

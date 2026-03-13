@@ -3,6 +3,18 @@ import path from "path";
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 
+interface AmpChannelConstants {
+  ohms: number;
+}
+
+interface AssignedAmpConstants {
+  channels: AmpChannelConstants[];
+}
+
+const DEFAULT_AMP_CONSTANTS: AssignedAmpConstants = {
+  channels: Array.from({ length: 4 }, () => ({ ohms: 8 })),
+};
+
 /** Resolves the persistent storage directory.
  *  In the Electron production build, APP_USER_DATA is set by main.js to
  *  app.getPath("userData") — a writable OS-managed folder that survives updates.
@@ -20,7 +32,36 @@ interface Project {
   assigned_amps: Array<{
     id: string;
     mac: string;
+    constants: AssignedAmpConstants;
+    loadOhm?: number;
   }>;
+}
+
+function normalizeProject(project: Project): Project {
+  return {
+    ...project,
+    assigned_amps: project.assigned_amps.map((amp) => {
+      const fallbackOhms = amp.loadOhm ?? 8;
+      const constants =
+        amp.constants?.channels?.length === 4
+          ? {
+              channels: amp.constants.channels.map((channel) => ({
+                ohms: channel?.ohms ?? fallbackOhms,
+              })),
+            }
+          : {
+              channels: Array.from({ length: 4 }, () => ({
+                ohms: fallbackOhms,
+              })),
+            };
+
+      return {
+        id: amp.id,
+        mac: amp.mac,
+        constants,
+      };
+    }),
+  };
 }
 
 export async function GET() {
@@ -37,7 +78,7 @@ export async function GET() {
       if (file.endsWith(".json")) {
         const filePath = path.join(projectsDir, file);
         const content = await fs.readFile(filePath, "utf-8");
-        const project = JSON.parse(content) as Project;
+        const project = normalizeProject(JSON.parse(content) as Project);
         projects.push(project);
       }
     }
@@ -65,7 +106,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const body = (await request.json()) as Project;
+    const body = normalizeProject((await request.json()) as Project);
 
     if (!body.id) {
       return NextResponse.json(

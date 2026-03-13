@@ -192,6 +192,76 @@ export async function POST(request: Request): Promise<Response> {
       }
 
       // -----------------------------------------------------------------------
+      // RMS limiter bypass toggle — FC=48, in_out_flag=1 (Output)
+      // Preferred path: FC=55 RMS_LIMITER full payload write when params are provided.
+      // Fallback path: FC=48 RMS_BYPASS one-byte toggle.
+      // -----------------------------------------------------------------------
+      case "rmsLimiterOut": {
+        if (
+          typeof body.attackMs === "number" &&
+          typeof body.releaseMultiplier === "number" &&
+          typeof body.thresholdVrms === "number"
+        ) {
+          const payload = Buffer.alloc(8);
+          payload.writeUInt16LE(body.attackMs, 0);
+          payload.writeUInt8(body.releaseMultiplier, 2);
+          payload.writeFloatLE(body.thresholdVrms, 3);
+          payload.writeUInt8(value ? 0x00 : 0x01, 7); // 0=enabled, 1=bypassed
+
+          await device.sendControl(
+            FuncCode.RMS_LIMITER,
+            channel,
+            payload,
+            1 /* Output */,
+          );
+        } else {
+          const payload = Buffer.from([value ? 0x00 : 0x01]);
+          await device.sendControl(
+            FuncCode.RMS_BYPASS,
+            channel,
+            payload,
+            1 /* Output */,
+          );
+        }
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Peak limiter bypass toggle — FC=47, in_out_flag=1 (Output)
+      // Preferred path: FC=54 PEAK_LIMITER full payload write when params are provided.
+      // Fallback path: FC=47 PEAK_BYPASS one-byte toggle.
+      // -----------------------------------------------------------------------
+      case "peakLimiterOut": {
+        if (
+          typeof body.holdMs === "number" &&
+          typeof body.releaseMs === "number" &&
+          typeof body.thresholdVp === "number"
+        ) {
+          const payload = Buffer.alloc(9);
+          payload.writeUInt16LE(body.holdMs, 0);
+          payload.writeUInt16LE(body.releaseMs, 2);
+          payload.writeFloatLE(body.thresholdVp, 4);
+          payload.writeUInt8(value ? 0x00 : 0x01, 8); // 0=enabled, 1=bypassed
+
+          await device.sendControl(
+            FuncCode.PEAK_LIMITER,
+            channel,
+            payload,
+            1 /* Output */,
+          );
+        } else {
+          const payload = Buffer.from([value ? 0x00 : 0x01]);
+          await device.sendControl(
+            FuncCode.PEAK_BYPASS,
+            channel,
+            payload,
+            1 /* Output */,
+          );
+        }
+        break;
+      }
+
+      // -----------------------------------------------------------------------
       // Matrix crosspoint gain — FC=12 ROUTING
       // Body: [float32 gain_dB LE][uint8 active_flag]
       // chx = output channel (0-3), segment = source input index (0-3)

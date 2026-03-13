@@ -11,6 +11,12 @@ import {
   EQ_BAND_GAIN_MAX_DB,
   EQ_BAND_Q_MIN,
   EQ_BAND_Q_MAX,
+  RMS_LIMITER_THRESHOLD_MIN_VRMS,
+  RMS_LIMITER_ATTACK_MAX_MS,
+  RMS_LIMITER_RELEASE_MAX_MULTIPLIER,
+  PEAK_LIMITER_THRESHOLD_MIN_VP,
+  PEAK_LIMITER_HOLD_MAX_MS,
+  PEAK_LIMITER_RELEASE_MAX_MS,
 } from "@/lib/constants";
 
 const channelSchema = z
@@ -50,6 +56,66 @@ const invertPolarityOutSchema = baseSchema.extend({
 const noiseGateOutSchema = baseSchema.extend({
   action: z.literal("noiseGateOut"),
   value: z.boolean(),
+});
+
+const rmsLimiterOutSchema = baseSchema.extend({
+  action: z.literal("rmsLimiterOut"),
+  value: z.boolean(),
+  attackMs: z
+    .number()
+    .int("attackMs must be an integer")
+    .min(0)
+    .max(
+      RMS_LIMITER_ATTACK_MAX_MS,
+      `attackMs must be <= ${RMS_LIMITER_ATTACK_MAX_MS} ms`,
+    )
+    .optional(),
+  releaseMultiplier: z
+    .number()
+    .int("releaseMultiplier must be an integer")
+    .min(0)
+    .max(
+      RMS_LIMITER_RELEASE_MAX_MULTIPLIER,
+      `releaseMultiplier must be <= ${RMS_LIMITER_RELEASE_MAX_MULTIPLIER}×Atk`,
+    )
+    .optional(),
+  thresholdVrms: z
+    .number()
+    .min(
+      RMS_LIMITER_THRESHOLD_MIN_VRMS,
+      `thresholdVrms must be >= ${RMS_LIMITER_THRESHOLD_MIN_VRMS} Vrms`,
+    )
+    .optional(),
+});
+
+const peakLimiterOutSchema = baseSchema.extend({
+  action: z.literal("peakLimiterOut"),
+  value: z.boolean(),
+  holdMs: z
+    .number()
+    .int("holdMs must be an integer")
+    .min(0)
+    .max(
+      PEAK_LIMITER_HOLD_MAX_MS,
+      `holdMs must be <= ${PEAK_LIMITER_HOLD_MAX_MS} ms`,
+    )
+    .optional(),
+  releaseMs: z
+    .number()
+    .int("releaseMs must be an integer")
+    .min(0)
+    .max(
+      PEAK_LIMITER_RELEASE_MAX_MS,
+      `releaseMs must be <= ${PEAK_LIMITER_RELEASE_MAX_MS} ms`,
+    )
+    .optional(),
+  thresholdVp: z
+    .number()
+    .min(
+      PEAK_LIMITER_THRESHOLD_MIN_VP,
+      `thresholdVp must be >= ${PEAK_LIMITER_THRESHOLD_MIN_VP} Vpeak`,
+    )
+    .optional(),
 });
 
 const matrixGainSchema = baseSchema.extend({
@@ -176,6 +242,8 @@ export const ampActionRequestSchema = z.union([
   muteOutSchema,
   invertPolarityOutSchema,
   noiseGateOutSchema,
+  rmsLimiterOutSchema,
+  peakLimiterOutSchema,
   matrixGainSchema,
   matrixActiveSchema,
   delayInSchema,
