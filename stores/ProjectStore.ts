@@ -2,6 +2,18 @@ import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 import { useAmpStore } from "./AmpStore";
 
+export interface AmpChannelConstants {
+  ohms: number;
+}
+
+export interface AssignedAmpConstants {
+  channels: AmpChannelConstants[];
+}
+
+export const DEFAULT_AMP_CONSTANTS: AssignedAmpConstants = {
+  channels: Array.from({ length: 4 }, () => ({ ohms: 8 })),
+};
+
 export interface Project {
   id: string;
   name: string;
@@ -10,8 +22,7 @@ export interface Project {
   assigned_amps: Array<{
     id: string;
     mac: string;
-    /** Nominal load impedance in Ω (default: 8). */
-    loadOhm?: number;
+    constants: AssignedAmpConstants;
   }>;
 }
 
@@ -32,6 +43,11 @@ interface ProjectStore {
   deleteProject: (id: string) => Promise<void>;
   addAmpToProject: (projectId: string, mac: string) => Promise<void>;
   deleteAmpFromProject: (projectId: string, mac: string) => Promise<void>;
+  updateAmpChannelOhms: (
+    mac: string,
+    channelIndex: number,
+    ohms: number,
+  ) => Promise<void>;
 }
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -48,7 +64,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const configs = project.assigned_amps.map((amp) => ({
         mac: amp.mac,
         id: amp.id,
-        loadOhm: amp.loadOhm,
+        constants: amp.constants,
       }));
       useAmpStore.getState().seedAmps(configs);
     } else {
@@ -144,6 +160,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         {
           id: uuidv4(),
           mac: mac.toUpperCase(),
+          constants: DEFAULT_AMP_CONSTANTS,
         },
       ],
     };
@@ -161,7 +178,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const configs = updatedProject.assigned_amps.map((amp) => ({
         mac: amp.mac,
         id: amp.id,
-        loadOhm: amp.loadOhm,
+        constants: amp.constants,
       }));
       useAmpStore.getState().seedAmps(configs);
     }
@@ -201,12 +218,48 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const configs = updatedProject.assigned_amps.map((amp) => ({
         mac: amp.mac,
         id: amp.id,
-        loadOhm: amp.loadOhm,
+        constants: amp.constants,
       }));
       useAmpStore.getState().seedAmps(configs);
     }
 
     // Persist to API
+    await fetch("/api/projects", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updatedProject),
+    });
+  },
+
+  updateAmpChannelOhms: async (mac, channelIndex, ohms) => {
+    const { projects, selectedProject } = get();
+    if (!selectedProject) return;
+
+    const updatedProject: Project = {
+      ...selectedProject,
+      assigned_amps: selectedProject.assigned_amps.map((amp) => {
+        if (amp.mac.toUpperCase() !== mac.toUpperCase()) return amp;
+        return {
+          ...amp,
+          constants: {
+            channels: amp.constants.channels.map((ch, i) =>
+              i === channelIndex ? { ...ch, ohms } : ch,
+            ),
+          },
+        };
+      }),
+    };
+
+    set({
+      projects: projects.map((p) =>
+        p.id === selectedProject.id ? updatedProject : p,
+      ),
+      selectedProject: updatedProject,
+    });
+
+    // Reflect in AmpStore so next syncChannelParams uses updated ohms
+    useAmpStore.getState().updateAmpChannelOhms(mac, channelIndex, ohms);
+
     await fetch("/api/projects", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },

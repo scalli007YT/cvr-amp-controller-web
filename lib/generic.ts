@@ -60,17 +60,34 @@ export class RollingMedianFilter {
  *
  * @param thresholdVrms  - RMS limiter threshold voltage (Vrms)
  * @param thresholdVp    - Peak limiter threshold voltage (Vpeak)
- * @param loadOhm        - Nominal load impedance in Ω (default: 8)
+ * @param loadOhm        - Nominal load impedance in Ω
  * @returns Object with `prmsW` and `ppeakW` rounded to the nearest watt.
  */
 export function limiterPowerFromLoad(
   thresholdVrms: number,
   thresholdVp: number,
-  loadOhm: number = 8,
+  loadOhm: number,
 ): { prmsW: number; ppeakW: number } {
   const prmsW = Math.round((thresholdVrms * thresholdVrms) / loadOhm);
   const ppeakW = Math.round((thresholdVp * thresholdVp) / loadOhm);
   return { prmsW, ppeakW };
+}
+
+/**
+ * Convert limiter power back to the corresponding threshold voltage.
+ *
+ *   V = sqrt(P * Z)
+ *
+ * This works for both RMS and peak domains as long as the supplied power value
+ * matches the target voltage domain and the same nominal load is used.
+ */
+export function limiterVoltageFromPower(
+  powerW: number,
+  loadOhm: number,
+): number {
+  const safePower = Math.max(0, powerW);
+  const safeLoad = Math.max(loadOhm, Number.EPSILON);
+  return Math.sqrt(safePower * safeLoad);
 }
 
 /**

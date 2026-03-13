@@ -2,148 +2,175 @@
 
 import type { ChannelParams } from "@/stores/AmpStore";
 import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { useVuMeters } from "@/hooks/useVuMeters";
+import { useAmpActions } from "@/hooks/useAmpActions";
+import { useProjectStore } from "@/stores/ProjectStore";
+import { LimiterDetailsDialog } from "@/components/dialogs/limiter-details-dialog";
+import type { HeartbeatData } from "@/stores/AmpStore";
 
 const CH_LABELS = ["A", "B", "C", "D"];
 
-function LimiterGrBar({
-  gainReduction,
-  height = 48,
-}: {
-  gainReduction: number;
-  height?: number;
-}) {
-  const GR_MAX = 20;
-  const depth = Math.min(GR_MAX, Math.max(0, -gainReduction));
-  const fill = depth / GR_MAX;
-  const active = depth > 0.1;
-
-  return (
-    <div
-      className="relative rounded-sm overflow-hidden bg-muted/30 border border-border/60 w-3 flex-shrink-0"
-      style={{ height }}
-      title={`GR: ${gainReduction.toFixed(1)} dB`}
-    >
-      <div
-        className={`absolute top-0 left-0 right-0 transition-all duration-75 ${active ? "bg-amber-400" : "bg-muted/20"}`}
-        style={{ height: `${fill * 100}%` }}
-      />
-    </div>
-  );
-}
-
 export function LimiterBlock({
-  label,
+  mac,
+  ratedRmsV,
+  channelOhms,
+  heartbeat,
   channels,
   limiters,
 }: {
-  label: string;
+  mac: string;
+  ratedRmsV?: number;
+  channelOhms: number[];
+  heartbeat?: HeartbeatData;
   channels: ChannelParams["channels"];
   limiters: number[];
 }) {
+  const vu = useVuMeters(mac);
+  const {
+    rmsLimiterOut,
+    peakLimiterOut,
+    setRmsLimiterAttack,
+    setRmsLimiterReleaseMultiplier,
+    setRmsLimiterThreshold,
+    setPeakLimiterHold,
+    setPeakLimiterRelease,
+    setPeakLimiterThreshold,
+  } = useAmpActions();
+  const { updateAmpChannelOhms } = useProjectStore();
+  const vuOutputDbu = vu?.outputDbu ??
+    heartbeat?.outputDbu?.map(() => null) ?? [null, null, null, null];
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1.5">
       <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
+        Limiters
       </span>
-      <div className="flex flex-col gap-3">
+
+      <div className="grid grid-cols-[84px_1fr_1fr_1fr] items-center gap-4 px-3 py-1 text-[9px] uppercase tracking-wider text-muted-foreground">
+        <span>Name</span>
+        <span>Thresh</span>
+        <span>W</span>
+        <span>Status</span>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
         {channels.map((ch, i) => {
-          const isRms = label.startsWith("RMS");
-          const lim = isRms ? ch.rmsLimiter : ch.peakLimiter;
+          const rms = ch.rmsLimiter;
+          const peak = ch.peakLimiter;
           const gr = limiters[i] ?? 0;
-          const enabled = lim.enabled;
+          const outputDb = vuOutputDbu[i] ?? null;
+          const enabled = rms.enabled || peak.enabled;
+          const channelName = `Out${CH_LABELS[i]}`;
+          const loadOhm = channelOhms[i];
 
           return (
-            <Card
+            <LimiterDetailsDialog
               key={i}
-              className={`relative overflow-visible rounded-tr-none transition-colors ${
-                enabled ? "" : "border-border/30 bg-muted/20 opacity-50"
-              }`}
-            >
-              <div
-                className={`absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full z-10 ${
-                  enabled ? "bg-green-500" : "bg-red-500/60"
-                }`}
-              />
-              <CardContent className="flex items-center gap-4 px-4">
-                <div className="flex items-center gap-2 w-20 flex-shrink-0">
-                  <span className="text-[13px] font-bold text-foreground w-10">
-                    Out{CH_LABELS[i]}
-                  </span>
-                  <LimiterGrBar gainReduction={gr} height={28} />
-                </div>
+              mac={mac}
+              channel={i as 0 | 1 | 2 | 3}
+              channelName={channelName}
+              ratedRmsV={ratedRmsV}
+              loadOhm={loadOhm}
+              rms={rms}
+              peak={peak}
+              gr={gr}
+              outputDb={outputDb}
+              onToggleRms={(toggleMac, toggleChannel, enabledValue) =>
+                rmsLimiterOut(toggleMac, toggleChannel, enabledValue, {
+                  attackMs: rms.attackMs,
+                  releaseMultiplier: rms.releaseMultiplier,
+                  thresholdVrms: rms.thresholdVrms,
+                })
+              }
+              onTogglePeak={(toggleMac, toggleChannel, enabledValue) =>
+                peakLimiterOut(toggleMac, toggleChannel, enabledValue, {
+                  holdMs: peak.holdMs,
+                  releaseMs: peak.releaseMs,
+                  thresholdVp: peak.thresholdVp,
+                })
+              }
+              onSetRmsAttack={setRmsLimiterAttack}
+              onSetRmsReleaseMultiplier={setRmsLimiterReleaseMultiplier}
+              onSetRmsThreshold={setRmsLimiterThreshold}
+              onSetPeakHold={setPeakLimiterHold}
+              onSetPeakRelease={setPeakLimiterRelease}
+              onSetPeakThreshold={setPeakLimiterThreshold}
+              onSetOhms={(ohmsMac, ohmsChannel, ohms) =>
+                updateAmpChannelOhms(ohmsMac, ohmsChannel, ohms)
+              }
+              trigger={
+                <Card
+                  className={`relative cursor-pointer overflow-visible border border-border/25 bg-background/20 shadow-none transition-colors ${
+                    enabled
+                      ? "hover:bg-muted/15"
+                      : "border-border/20 bg-background/10 opacity-75 hover:opacity-90"
+                  }`}
+                >
+                  <CardContent className="grid grid-cols-[84px_1fr_1fr_1fr] items-center gap-4 px-3 py-2">
+                    <div>
+                      <p className="text-[13px] font-semibold leading-tight">
+                        {channelName}
+                      </p>
+                    </div>
 
-                <Separator
-                  orientation="vertical"
-                  className="self-stretch h-auto opacity-40 flex-shrink-0"
-                />
-
-                <div className="flex gap-4 flex-shrink-0">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
-                      Threshold
-                    </span>
-                    <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
-                      {"thresholdVrms" in lim
-                        ? `${lim.thresholdVrms.toFixed(2)} V`
-                        : `${(lim as typeof ch.peakLimiter).thresholdVp.toFixed(2)} V`}
-                    </span>
-                    <span className="text-[9px] text-muted-foreground">
-                      {"thresholdVrms" in lim ? "Vrms" : "Vpeak"}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-[9px] text-muted-foreground uppercase tracking-wider">
-                      {"thresholdVrms" in lim ? "Prms" : "Ppeak"}
-                    </span>
-                    <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
-                      {"thresholdVrms" in lim
-                        ? `${ch.rmsLimiter.prmsW} W`
-                        : `${ch.peakLimiter.ppeakW} W`}
-                    </span>
-                  </div>
-                </div>
-
-                <Separator
-                  orientation="vertical"
-                  className="self-stretch h-auto opacity-40 flex-shrink-0"
-                />
-
-                <div className="flex gap-4">
-                  {"attackMs" in lim ? (
-                    <>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[9px] text-muted-foreground">Atk</span>
-                        <span className="font-mono text-[11px] font-semibold tabular-nums">
-                          {lim.attackMs} ms
+                    <div>
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-x-1 leading-tight">
+                        <span className="text-[10px] text-muted-foreground">
+                          R
+                        </span>
+                        <span className="font-mono text-[12px] tabular-nums">
+                          {rms.thresholdVrms.toFixed(2)} V
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          P
+                        </span>
+                        <span className="font-mono text-[12px] tabular-nums">
+                          {peak.thresholdVp.toFixed(2)} V
                         </span>
                       </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[9px] text-muted-foreground">Rel</span>
-                        <span className="font-mono text-[11px] font-semibold tabular-nums">
-                          ×{lim.releaseMultiplier}
+                    </div>
+
+                    <div>
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-x-1 leading-tight">
+                        <span className="text-[10px] text-muted-foreground">
+                          R
+                        </span>
+                        <span className="font-mono text-[12px] tabular-nums">
+                          {rms.prmsW} W
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          P
+                        </span>
+                        <span className="font-mono text-[12px] tabular-nums">
+                          {peak.ppeakW} W
                         </span>
                       </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[9px] text-muted-foreground">Hold</span>
-                        <span className="font-mono text-[11px] font-semibold tabular-nums">
-                          {(lim as typeof ch.peakLimiter).holdMs} ms
+                    </div>
+
+                    <div>
+                      <div className="grid grid-cols-[12px_1fr] items-center gap-x-1 leading-tight">
+                        <span className="text-[10px] text-muted-foreground">
+                          R
+                        </span>
+                        <span
+                          className={`text-[12px] ${rms.enabled ? "text-green-500" : "text-red-500"}`}
+                        >
+                          {rms.enabled ? "On" : "Off"}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          P
+                        </span>
+                        <span
+                          className={`text-[12px] ${peak.enabled ? "text-green-500" : "text-red-500"}`}
+                        >
+                          {peak.enabled ? "On" : "Off"}
                         </span>
                       </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[9px] text-muted-foreground">Rel</span>
-                        <span className="font-mono text-[11px] font-semibold tabular-nums">
-                          {(lim as typeof ch.peakLimiter).releaseMs} ms
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    </div>
+                  </CardContent>
+                </Card>
+              }
+            />
           );
         })}
       </div>

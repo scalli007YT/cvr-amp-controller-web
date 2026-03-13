@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import type { CSSProperties } from "react";
 import type { HeartbeatData, ChannelParams } from "@/stores/AmpStore";
 import { useAmpActions } from "@/hooks/useAmpActions";
 import { useVuMeters } from "@/hooks/useVuMeters";
@@ -20,20 +19,12 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { ConfirmActionDialog } from "@/components/dialogs/confirm-action-dialog";
 import { EqBandDialog } from "@/components/monitor/amp-tabs/eq-controls";
+import { VerticalDbMeter } from "@/components/monitor/vertical-db-meter";
 import { COLORS } from "@/lib/colors";
-import {
-  voltageToMeterDb,
-  rmsToPeakVoltage,
-  formatDbfs,
-} from "@/lib/generic";
+import { voltageToMeterDb, rmsToPeakVoltage, formatDbfs } from "@/lib/generic";
 import { getPowerModeName } from "@/lib/parse-channel-data";
 
 const CH_LABELS = ["A", "B", "C", "D"];
@@ -90,13 +81,17 @@ function DelayPopover({
           >
             {delayMs !== undefined ? delayMs.toFixed(1) : "~"}
           </span>
-          <span className="text-[9px] text-muted-foreground mt-0.5">{label}</span>
+          <span className="text-[9px] text-muted-foreground mt-0.5">
+            {label}
+          </span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-44 p-0" side="right" align="center">
         <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
           <span className="text-xs font-semibold">Delay</span>
-          <span className="text-[10px] text-muted-foreground">0 - {maxMs} ms</span>
+          <span className="text-[10px] text-muted-foreground">
+            0 - {maxMs} ms
+          </span>
         </div>
         <div className="px-3 py-3 space-y-2">
           <div className="flex items-center gap-1.5">
@@ -114,7 +109,9 @@ function DelayPopover({
               }}
               className="h-8 text-sm font-mono tabular-nums"
             />
-            <span className="text-xs text-muted-foreground shrink-0 w-5">ms</span>
+            <span className="text-xs text-muted-foreground shrink-0 w-5">
+              ms
+            </span>
           </div>
           <div className="flex gap-1.5">
             <Button size="sm" className="flex-1 h-7 text-xs" onClick={commit}>
@@ -223,91 +220,6 @@ const IN_DB_TOP = 0;
 const IN_DB_BOT = -60;
 const IN_SCALE = [0, -12, -24, -36, -48, -60];
 
-function MeterBar({
-  value,
-  dbTop,
-  dbBottom,
-  clip,
-  width = 24,
-  height = 220,
-  thresholdLines,
-}: {
-  value: number | null;
-  dbTop: number;
-  dbBottom: number;
-  clip?: boolean;
-  width?: number;
-  height?: number;
-  thresholdLines?: { db: number; color: string; label?: string }[];
-}) {
-  const fill =
-    value === null || value < dbBottom
-      ? 0
-      : Math.min(1, (value - dbBottom) / (dbTop - dbBottom));
-
-  const dbRange = dbTop - dbBottom;
-
-  return (
-    <div
-      className="relative rounded-[min(var(--radius),8px)] overflow-hidden bg-muted/30 border border-border/60 flex-shrink-0"
-      style={{ width, height }}
-    >
-      <div
-        className={`absolute bottom-0 left-0 right-0 ${clip ? "bg-destructive" : "bg-primary"}`}
-        style={{ height: `${fill * 100}%` }}
-      />
-      {thresholdLines?.map(({ db, color, label }, idx) => {
-        const pct = Math.min(1, Math.max(0, (db - dbBottom) / dbRange));
-        if (db < dbBottom || db > dbTop) return null;
-
-        const lineStyle: CSSProperties = {
-          bottom: `calc(${pct * 100}% - 1px)`,
-          height: 3,
-          backgroundColor: color,
-          opacity: 0.85,
-        };
-
-        if (!label) {
-          return (
-            <div
-              key={idx}
-              className="absolute left-0 right-0 pointer-events-none"
-              style={lineStyle}
-            />
-          );
-        }
-
-        return (
-          <Tooltip key={idx}>
-            <TooltipTrigger asChild>
-              <div
-                className="absolute left-0 right-0 cursor-default"
-                style={{
-                  bottom: `calc(${pct * 100}% - 5px)`,
-                  height: 10,
-                }}
-              >
-                <div
-                  className="absolute left-0 right-0"
-                  style={{
-                    top: 3.5,
-                    height: 3,
-                    backgroundColor: color,
-                    opacity: 0.85,
-                  }}
-                />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">
-              {label}
-            </TooltipContent>
-          </Tooltip>
-        );
-      })}
-    </div>
-  );
-}
-
 function ScaleColumn({
   ticks,
   height = 220,
@@ -407,7 +319,7 @@ export function HeartbeatDashboard({
                     >
                       In{i + 1}
                     </div>
-                    <MeterBar
+                    <VerticalDbMeter
                       value={dbfsVal}
                       dbTop={IN_DB_TOP}
                       dbBottom={IN_DB_BOT}
@@ -415,9 +327,6 @@ export function HeartbeatDashboard({
                       width={BAR_W}
                       height={METER_H}
                     />
-                    <div className="mt-1 w-full rounded border border-border/50 bg-muted/40 px-1 py-0.5 text-center font-mono text-[10px] tabular-nums text-foreground/70">
-                      {dbfsVal !== null ? `${dbfsVal.toFixed(1)} dB` : "---"}
-                    </div>
                     <div
                       className={`mt-1 rounded px-1 py-0.5 text-[9px] font-semibold w-full text-center ${
                         isClip
@@ -438,19 +347,26 @@ export function HeartbeatDashboard({
                         <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
                           {formatDbfs(dbfsVal)}
                         </span>
-                        <span className="text-[9px] text-foreground/65 mt-0.5">dBFS</span>
+                        <span className="text-[9px] text-foreground/65 mt-0.5">
+                          dBFS
+                        </span>
                       </div>
                       <div className="flex flex-col items-center rounded border border-border/60 bg-muted/30 px-1.5 py-1">
                         <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
-                          {channelParams?.channels[i]?.volumeIn.toFixed(1) ?? "~"}
+                          {channelParams?.channels[i]?.volumeIn.toFixed(1) ??
+                            "~"}
                         </span>
-                        <span className="text-[9px] text-foreground/65 mt-0.5">Vol dB</span>
+                        <span className="text-[9px] text-foreground/65 mt-0.5">
+                          Vol dB
+                        </span>
                       </div>
                       <div className="flex flex-col items-center rounded border border-border/60 bg-muted/30 px-1.5 py-1">
                         <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
                           {channelParams?.channels[i]?.gainIn ?? "~"}
                         </span>
-                        <span className="text-[9px] text-foreground/65 mt-0.5">Gain dB</span>
+                        <span className="text-[9px] text-foreground/65 mt-0.5">
+                          Gain dB
+                        </span>
                       </div>
                       <DelayPopover
                         delayMs={channelParams?.channels[i]?.delayIn}
@@ -466,7 +382,8 @@ export function HeartbeatDashboard({
                             disabled={!canClick}
                             size="sm"
                             onClick={() =>
-                              canClick && void muteIn(mac, i as 0 | 1 | 2 | 3, !muted)
+                              canClick &&
+                              void muteIn(mac, i as 0 | 1 | 2 | 3, !muted)
                             }
                             className={`w-full h-auto py-1 text-[11px] font-semibold transition-colors ${
                               muted === true
@@ -510,7 +427,9 @@ export function HeartbeatDashboard({
                 className="flex items-end justify-end pr-1 w-full"
                 style={{ height: LABEL_H, marginBottom: 4 }}
               >
-                <span className="text-[9px] text-muted-foreground leading-none">dB</span>
+                <span className="text-[9px] text-muted-foreground leading-none">
+                  dB
+                </span>
               </div>
               <ScaleColumn ticks={OUT_SCALE} height={METER_H} width={32} />
             </div>
@@ -524,7 +443,9 @@ export function HeartbeatDashboard({
               const isClip = st === 5;
               const isActive = st === 0 || st === 8;
               const dbuVal =
-                dbu === null || dbu <= OUT_DB_BOT ? null : Math.min(dbu, OUT_DB_TOP);
+                dbu === null || dbu <= OUT_DB_BOT
+                  ? null
+                  : Math.min(dbu, OUT_DB_TOP);
 
               const chParam = channelParams?.channels[i];
               const thresholdLines: {
@@ -534,7 +455,10 @@ export function HeartbeatDashboard({
               }[] = [];
 
               if (chParam?.rmsLimiter.enabled) {
-                const d = voltageToMeterDb(chParam.rmsLimiter.thresholdVrms, ratedRmsV);
+                const d = voltageToMeterDb(
+                  chParam.rmsLimiter.thresholdVrms,
+                  ratedRmsV,
+                );
                 if (d !== null) {
                   thresholdLines.push({
                     db: d,
@@ -574,7 +498,7 @@ export function HeartbeatDashboard({
                   >
                     Out{ch}
                   </div>
-                  <MeterBar
+                  <VerticalDbMeter
                     value={dbuVal}
                     dbTop={OUT_DB_TOP}
                     dbBottom={OUT_DB_BOT}
@@ -583,9 +507,6 @@ export function HeartbeatDashboard({
                     height={METER_H}
                     thresholdLines={thresholdLines}
                   />
-                  <div className="mt-1 w-full rounded border border-border/50 bg-muted/40 px-1 py-0.5 text-center font-mono text-[10px] tabular-nums text-foreground/70">
-                    {dbuVal !== null ? `${dbuVal.toFixed(1)} dB` : "---"}
-                  </div>
                   <div
                     className={`mt-1 rounded px-1 py-0.5 text-[9px] font-semibold w-full text-center ${
                       isClip
@@ -602,7 +523,9 @@ export function HeartbeatDashboard({
                       <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
                         {v > 0.01 ? f1(v) : "0"}
                       </span>
-                      <span className="text-[9px] text-foreground/65 mt-0.5">V</span>
+                      <span className="text-[9px] text-foreground/65 mt-0.5">
+                        V
+                      </span>
                     </div>
                     <div
                       className={`flex flex-col items-center rounded border border-border/60 bg-muted/30 px-1.5 py-1 ${a <= 0.001 ? "opacity-40" : ""}`}
@@ -610,7 +533,9 @@ export function HeartbeatDashboard({
                       <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
                         {a > 0.001 ? f1(a) : "0"}
                       </span>
-                      <span className="text-[9px] text-foreground/65 mt-0.5">A</span>
+                      <span className="text-[9px] text-foreground/65 mt-0.5">
+                        A
+                      </span>
                     </div>
                     <div className="flex flex-col items-center rounded border border-border/60 bg-muted/30 px-1.5 py-1">
                       <span
@@ -618,7 +543,9 @@ export function HeartbeatDashboard({
                       >
                         {f0(temp)}
                       </span>
-                      <span className="text-[9px] text-foreground/65 mt-0.5">degC</span>
+                      <span className="text-[9px] text-foreground/65 mt-0.5">
+                        degC
+                      </span>
                     </div>
                     <DelayPopover
                       delayMs={channelParams?.channels[i]?.delayOut}
@@ -641,7 +568,8 @@ export function HeartbeatDashboard({
                           disabled={!canClick}
                           size="sm"
                           onClick={() =>
-                            canClick && void muteOut(mac, i as 0 | 1 | 2 | 3, !muted)
+                            canClick &&
+                            void muteOut(mac, i as 0 | 1 | 2 | 3, !muted)
                           }
                           className={`w-full h-auto py-1 text-[11px] font-semibold transition-colors ${
                             muted === true
@@ -665,7 +593,8 @@ export function HeartbeatDashboard({
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            canClick && void noiseGateOut(mac, i as 0 | 1 | 2 | 3, !ng)
+                            canClick &&
+                            void noiseGateOut(mac, i as 0 | 1 | 2 | 3, !ng)
                           }
                           className={`w-full h-auto py-1 text-[11px] font-semibold transition-colors ${
                             ng === true
@@ -689,7 +618,11 @@ export function HeartbeatDashboard({
                           variant="outline"
                           onClick={() =>
                             canClick &&
-                            void invertPolarityOut(mac, i as 0 | 1 | 2 | 3, !inverted)
+                            void invertPolarityOut(
+                              mac,
+                              i as 0 | 1 | 2 | 3,
+                              !inverted,
+                            )
                           }
                           className={`w-full h-auto py-1 text-[11px] font-semibold transition-colors ${
                             inverted === true

@@ -14,7 +14,8 @@ export type JsonValue =
 function JsonNode({ value, depth = 0 }: { value: JsonValue; depth?: number }) {
   const [open, setOpen] = useState(false);
 
-  if (value === null) return <span className="text-muted-foreground">null</span>;
+  if (value === null)
+    return <span className="text-muted-foreground">null</span>;
   if (typeof value === "boolean") {
     return (
       <span className={value ? "text-green-500" : "text-destructive"}>
@@ -22,14 +23,17 @@ function JsonNode({ value, depth = 0 }: { value: JsonValue; depth?: number }) {
       </span>
     );
   }
-  if (typeof value === "number") return <span className="text-foreground">{value}</span>;
+  if (typeof value === "number")
+    return <span className="text-foreground">{value}</span>;
   if (typeof value === "string") {
     return <span className="text-foreground">&quot;{value}&quot;</span>;
   }
 
   const isArray = Array.isArray(value);
   const entries = isArray
-    ? (value as JsonValue[]).map((v, i) => [String(i), v] as [string, JsonValue])
+    ? (value as JsonValue[]).map(
+        (v, i) => [String(i), v] as [string, JsonValue],
+      )
     : Object.entries(value as { [k: string]: JsonValue });
 
   const preview = isArray ? `[${entries.length}]` : `{${entries.length}}`;
@@ -48,7 +52,9 @@ function JsonNode({ value, depth = 0 }: { value: JsonValue; depth?: number }) {
         <span className="block" style={{ paddingLeft: indent + 12 }}>
           {entries.map(([k, v]) => (
             <span key={k} className="block leading-5">
-              {!isArray && <span className="text-foreground/70">&quot;{k}&quot;</span>}
+              {!isArray && (
+                <span className="text-foreground/70">&quot;{k}&quot;</span>
+              )}
               {!isArray && <span className="text-foreground/50">: </span>}
               <JsonNode value={v} depth={depth + 1} />
               <span className="text-foreground/30">,</span>
@@ -60,7 +66,13 @@ function JsonNode({ value, depth = 0 }: { value: JsonValue; depth?: number }) {
   );
 }
 
-export function JsonTree({ label, value }: { label: string; value: JsonValue }) {
+export function JsonTree({
+  label,
+  value,
+}: {
+  label: string;
+  value: JsonValue;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -69,11 +81,15 @@ export function JsonTree({ label, value }: { label: string; value: JsonValue }) 
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center gap-1.5 px-3 py-2 text-left hover:bg-muted/60 transition-colors cursor-pointer"
       >
-        <span className="text-muted-foreground text-[10px]">{open ? "▾" : "▸"}</span>
+        <span className="text-muted-foreground text-[10px]">
+          {open ? "▾" : "▸"}
+        </span>
         <span className="font-semibold text-foreground/80">{label}</span>
         {!open && (
           <span className="text-muted-foreground ml-1">
-            {Array.isArray(value) ? `[${(value as JsonValue[]).length}]` : "{…}"}
+            {Array.isArray(value)
+              ? `[${(value as JsonValue[]).length}]`
+              : "{…}"}
           </span>
         )}
       </button>

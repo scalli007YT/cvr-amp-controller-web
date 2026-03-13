@@ -193,7 +193,9 @@ function EqBandCell({
 }) {
   const { setEqBandType, setEqBandFreq, setEqBandGain, setEqBandQ } =
     useAmpActions();
-  const [freqDraft, setFreqDraft] = useState(() => formatCrossoverDraft(band.freq));
+  const [freqDraft, setFreqDraft] = useState(() =>
+    formatCrossoverDraft(band.freq),
+  );
   const [gainDraft, setGainDraft] = useState(() =>
     String(Math.round(band.gain * 10) / 10),
   );

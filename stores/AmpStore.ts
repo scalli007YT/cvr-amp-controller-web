@@ -1,6 +1,14 @@
 import { create } from "zustand";
 import { limiterPowerFromLoad } from "@/lib/generic";
 
+export interface AmpChannelConstants {
+  ohms: number;
+}
+
+export interface AssignedAmpConstants {
+  channels: AmpChannelConstants[];
+}
+
 // ---------------------------------------------------------------------------
 // Types — three clearly separated concerns
 // ---------------------------------------------------------------------------
@@ -12,8 +20,8 @@ export interface AmpConfig {
   id: string;
   /** User-given name stored in the project (optional). */
   customName?: string;
-  /** Nominal load impedance in Ω — used to calculate limiter power (default: 8). */
-  loadOhm?: number;
+  /** Project-defined per-channel constants. */
+  constants: AssignedAmpConstants;
 }
 
 /**
@@ -191,6 +199,13 @@ interface AmpStore {
   /** Set the fetched preset list for an amp. */
   setPresets: (mac: string, presets: AmpPreset[]) => void;
 
+  /** Update a single channel's ohm constant in-memory (called by ProjectStore after persist). */
+  updateAmpChannelOhms: (
+    mac: string,
+    channelIndex: number,
+    ohms: number,
+  ) => void;
+
   // — Selectors —
   getDisplayName: (amp: Amp) => string;
 }
@@ -248,11 +263,11 @@ export const useAmpStore = create<AmpStore>((set) => ({
     set((state) => ({
       amps: state.amps.map((amp) => {
         if (amp.mac !== mac) return amp;
-        const loadOhm = amp.loadOhm ?? 8;
         return {
           ...amp,
           channelParams: {
             channels: channels.map((ch) => {
+              const loadOhm = amp.constants.channels[ch.channel]?.ohms;
               const { prmsW, ppeakW } = limiterPowerFromLoad(
                 ch.rmsLimiter.thresholdVrms,
                 ch.peakLimiter.thresholdVp,
@@ -281,6 +296,17 @@ export const useAmpStore = create<AmpStore>((set) => ({
             }),
           },
         };
+      }),
+    })),
+
+  updateAmpChannelOhms: (mac, channelIndex, ohms) =>
+    set((state) => ({
+      amps: state.amps.map((amp) => {
+        if (amp.mac !== mac) return amp;
+        const channels = amp.constants.channels.map((ch, i) =>
+          i === channelIndex ? { ...ch, ohms } : ch,
+        );
+        return { ...amp, constants: { channels } };
       }),
     })),
 

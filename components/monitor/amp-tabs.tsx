@@ -120,7 +120,9 @@ export function AmpTabs() {
                   }`}
                 />
                 <div className="min-w-0 text-left">
-                  <p className="truncate text-xs font-semibold">{getDisplayName(amp)}</p>
+                  <p className="truncate text-xs font-semibold">
+                    {getDisplayName(amp)}
+                  </p>
                   <p className="truncate text-[10px] opacity-70">{amp.mac}</p>
                 </div>
               </Button>
@@ -184,10 +186,12 @@ export function AmpTabs() {
 
             <TabsContent value="main" className="p-4 mt-0">
               {!selectedAmp.reachable ? (
-                <p className="text-sm text-muted-foreground">Amp is unreachable.</p>
+                <p className="text-sm text-muted-foreground">
+                  Amp is unreachable.
+                </p>
               ) : !selectedAmp.heartbeat ? (
                 <p className="text-sm text-muted-foreground animate-pulse">
-                  Waiting for data�
+                  Waiting for data
                 </p>
               ) : (
                 <div className="overflow-hidden rounded-md border border-border/50 bg-background/30 p-2.5">
@@ -204,7 +208,7 @@ export function AmpTabs() {
             <TabsContent value="matrix" className="p-4 mt-0">
               {!selectedAmp.channelParams ? (
                 <p className="text-sm text-muted-foreground animate-pulse">
-                  Waiting for data�
+                  Waiting for data
                 </p>
               ) : (
                 <div className="flex flex-wrap gap-6 items-start">
@@ -218,18 +222,14 @@ export function AmpTabs() {
                     />
                   </div>
 
-                  <div className="flex gap-6 rounded-md border border-border/50 bg-background/30 p-2.5">
+                  <div className="rounded-md border border-border/50 bg-background/30 p-2.5">
                     <LimiterBlock
-                      label="RMS Limiter"
-                      channels={selectedAmp.channelParams.channels}
-                      limiters={selectedAmp.heartbeat?.limiters ?? [0, 0, 0, 0]}
-                    />
-                    <Separator
-                      orientation="vertical"
-                      className="self-stretch h-auto opacity-40"
-                    />
-                    <LimiterBlock
-                      label="Peak Limiter"
+                      mac={selectedAmp.mac}
+                      ratedRmsV={selectedAmp.ratedRmsV}
+                      channelOhms={selectedAmp.constants.channels.map(
+                        (channel) => channel.ohms,
+                      )}
+                      heartbeat={selectedAmp.heartbeat}
                       channels={selectedAmp.channelParams.channels}
                       limiters={selectedAmp.heartbeat?.limiters ?? [0, 0, 0, 0]}
                     />
@@ -296,7 +296,9 @@ export function AmpTabs() {
                       : "Recall this preset?"
                   }
                   confirmLabel={
-                    recallingSlot === activePreset?.slot ? "Recalling..." : "Recall"
+                    recallingSlot === activePreset?.slot
+                      ? "Recalling..."
+                      : "Recall"
                   }
                   confirmDisabled={
                     !selectedAmp?.reachable ||
@@ -318,7 +320,8 @@ export function AmpTabs() {
                   open={storeDialogOpen}
                   onOpenChange={(open) => {
                     setStoreDialogOpen(open);
-                    if (!open && activePreset) setStorePresetName(activePreset.name);
+                    if (!open && activePreset)
+                      setStorePresetName(activePreset.name);
                   }}
                   title="Store Preset"
                   description={
@@ -375,7 +378,11 @@ export function AmpTabs() {
                   )}
                 </div>
 
-                {presetsError && <p className="text-xs text-destructive mb-2">{presetsError}</p>}
+                {presetsError && (
+                  <p className="text-xs text-destructive mb-2">
+                    {presetsError}
+                  </p>
+                )}
 
                 {!fetching && !selectedAmp.presets && !presetsError && (
                   <p className="text-xs text-muted-foreground">
@@ -467,7 +474,9 @@ export function AmpTabs() {
                   <div className="flex items-center justify-between">
                     <CollapsibleTrigger className="flex items-center gap-1.5 rounded-md px-1 py-1 text-left hover:bg-muted/50 transition-colors [&[data-state=open]>svg]:rotate-90">
                       <ChevronRight className="shrink-0 h-3.5 w-3.5 text-muted-foreground transition-transform duration-200" />
-                      <span className="text-sm font-semibold">Channel Data</span>
+                      <span className="text-sm font-semibold">
+                        Channel Data
+                      </span>
                     </CollapsibleTrigger>
                     <CopyJsonButton data={selectedAmp.channelParams.channels} />
                   </div>

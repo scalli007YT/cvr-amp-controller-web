@@ -14,7 +14,15 @@ import {
   EQ_BAND_GAIN_MAX_DB,
   EQ_BAND_Q_MIN,
   EQ_BAND_Q_MAX,
+  RMS_LIMITER_THRESHOLD_MIN_VRMS,
+  RMS_LIMITER_ATTACK_MAX_MS,
+  RMS_LIMITER_RELEASE_MAX_MULTIPLIER,
+  PEAK_LIMITER_THRESHOLD_MIN_VP,
+  PEAK_LIMITER_HOLD_MAX_MS,
+  PEAK_LIMITER_RELEASE_MAX_MS,
 } from "@/lib/constants";
+import { useAmpStore } from "@/stores/AmpStore";
+import { rmsToPeakVoltage } from "@/lib/generic";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -23,6 +31,18 @@ import {
 type Channel = 0 | 1 | 2 | 3;
 type CrossoverTarget = "input" | "output";
 type CrossoverKind = "hp" | "lp";
+
+type RmsLimiterParams = {
+  attackMs: number;
+  releaseMultiplier: number;
+  thresholdVrms: number;
+};
+
+type PeakLimiterParams = {
+  holdMs: number;
+  releaseMs: number;
+  thresholdVp: number;
+};
 
 interface AmpActionsHook {
   muteIn: (mac: string, channel: Channel, muted: boolean) => Promise<void>;
@@ -88,6 +108,54 @@ interface AmpActionsHook {
     channel: Channel,
     enabled: boolean,
   ) => Promise<void>;
+  rmsLimiterOut: (
+    mac: string,
+    channel: Channel,
+    enabled: boolean,
+    params?: RmsLimiterParams,
+  ) => Promise<void>;
+  setRmsLimiterAttack: (
+    mac: string,
+    channel: Channel,
+    attackMs: number,
+    config: RmsLimiterParams & { enabled: boolean },
+  ) => Promise<void>;
+  setRmsLimiterReleaseMultiplier: (
+    mac: string,
+    channel: Channel,
+    releaseMultiplier: number,
+    config: RmsLimiterParams & { enabled: boolean },
+  ) => Promise<void>;
+  setRmsLimiterThreshold: (
+    mac: string,
+    channel: Channel,
+    thresholdVrms: number,
+    config: RmsLimiterParams & { enabled: boolean },
+  ) => Promise<void>;
+  peakLimiterOut: (
+    mac: string,
+    channel: Channel,
+    enabled: boolean,
+    params?: PeakLimiterParams,
+  ) => Promise<void>;
+  setPeakLimiterHold: (
+    mac: string,
+    channel: Channel,
+    holdMs: number,
+    config: PeakLimiterParams & { enabled: boolean },
+  ) => Promise<void>;
+  setPeakLimiterRelease: (
+    mac: string,
+    channel: Channel,
+    releaseMs: number,
+    config: PeakLimiterParams & { enabled: boolean },
+  ) => Promise<void>;
+  setPeakLimiterThreshold: (
+    mac: string,
+    channel: Channel,
+    thresholdVp: number,
+    config: PeakLimiterParams & { enabled: boolean },
+  ) => Promise<void>;
   /** Set crosspoint gain (dB) for a matrix cell. */
   setMatrixGain: (
     mac: string,
@@ -109,6 +177,14 @@ interface AmpActionsHook {
 // ---------------------------------------------------------------------------
 
 export function useAmpActions(): AmpActionsHook {
+  const { amps } = useAmpStore();
+
+  /** Returns the rated RMS voltage for a given mac, or undefined if unknown. */
+  const getRatedRmsV = useCallback(
+    (mac: string) => amps.find((a) => a.mac === mac)?.ratedRmsV,
+    [amps],
+  );
+
   /** Send a POST to /api/amp-actions. UI updates from polled amp state. */
   const send = useCallback(
     async (
@@ -177,6 +253,155 @@ export function useAmpActions(): AmpActionsHook {
       await send(mac, "noiseGateOut", channel, enabled);
     },
     [send],
+  );
+
+  const rmsLimiterOut = useCallback(
+    async (
+      mac: string,
+      channel: Channel,
+      enabled: boolean,
+      params?: RmsLimiterParams,
+    ) => {
+      await send(mac, "rmsLimiterOut", channel, enabled, params);
+    },
+    [send],
+  );
+
+  const setRmsLimiterAttack = useCallback(
+    async (
+      mac: string,
+      channel: Channel,
+      attackMs: number,
+      config: RmsLimiterParams & { enabled: boolean },
+    ) => {
+      const clampedAttack = Math.max(
+        0,
+        Math.min(RMS_LIMITER_ATTACK_MAX_MS, attackMs),
+      );
+      await send(mac, "rmsLimiterOut", channel, config.enabled, {
+        attackMs: clampedAttack,
+        releaseMultiplier: config.releaseMultiplier,
+        thresholdVrms: config.thresholdVrms,
+      });
+    },
+    [send],
+  );
+
+  const setRmsLimiterReleaseMultiplier = useCallback(
+    async (
+      mac: string,
+      channel: Channel,
+      releaseMultiplier: number,
+      config: RmsLimiterParams & { enabled: boolean },
+    ) => {
+      const clamped = Math.max(
+        0,
+        Math.min(RMS_LIMITER_RELEASE_MAX_MULTIPLIER, releaseMultiplier),
+      );
+      await send(mac, "rmsLimiterOut", channel, config.enabled, {
+        attackMs: config.attackMs,
+        releaseMultiplier: clamped,
+        thresholdVrms: config.thresholdVrms,
+      });
+    },
+    [send],
+  );
+
+  const setRmsLimiterThreshold = useCallback(
+    async (
+      mac: string,
+      channel: Channel,
+      thresholdVrms: number,
+      config: RmsLimiterParams & { enabled: boolean },
+    ) => {
+      const maxVrms = getRatedRmsV(mac);
+      const clamped =
+        maxVrms != null
+          ? Math.max(
+              RMS_LIMITER_THRESHOLD_MIN_VRMS,
+              Math.min(maxVrms, thresholdVrms),
+            )
+          : Math.max(RMS_LIMITER_THRESHOLD_MIN_VRMS, thresholdVrms);
+      await send(mac, "rmsLimiterOut", channel, config.enabled, {
+        attackMs: config.attackMs,
+        releaseMultiplier: config.releaseMultiplier,
+        thresholdVrms: clamped,
+      });
+    },
+    [send, getRatedRmsV],
+  );
+
+  const peakLimiterOut = useCallback(
+    async (
+      mac: string,
+      channel: Channel,
+      enabled: boolean,
+      params?: PeakLimiterParams,
+    ) => {
+      await send(mac, "peakLimiterOut", channel, enabled, params);
+    },
+    [send],
+  );
+
+  const setPeakLimiterHold = useCallback(
+    async (
+      mac: string,
+      channel: Channel,
+      holdMs: number,
+      config: PeakLimiterParams & { enabled: boolean },
+    ) => {
+      const clamped = Math.max(0, Math.min(PEAK_LIMITER_HOLD_MAX_MS, holdMs));
+      await send(mac, "peakLimiterOut", channel, config.enabled, {
+        holdMs: clamped,
+        releaseMs: config.releaseMs,
+        thresholdVp: config.thresholdVp,
+      });
+    },
+    [send],
+  );
+
+  const setPeakLimiterRelease = useCallback(
+    async (
+      mac: string,
+      channel: Channel,
+      releaseMs: number,
+      config: PeakLimiterParams & { enabled: boolean },
+    ) => {
+      const clamped = Math.max(
+        0,
+        Math.min(PEAK_LIMITER_RELEASE_MAX_MS, releaseMs),
+      );
+      await send(mac, "peakLimiterOut", channel, config.enabled, {
+        holdMs: config.holdMs,
+        releaseMs: clamped,
+        thresholdVp: config.thresholdVp,
+      });
+    },
+    [send],
+  );
+
+  const setPeakLimiterThreshold = useCallback(
+    async (
+      mac: string,
+      channel: Channel,
+      thresholdVp: number,
+      config: PeakLimiterParams & { enabled: boolean },
+    ) => {
+      const maxVp = rmsToPeakVoltage(getRatedRmsV(mac));
+      const clamped =
+        maxVp != null
+          ? Math.max(
+              PEAK_LIMITER_THRESHOLD_MIN_VP,
+              Math.min(maxVp, thresholdVp),
+            )
+          : Math.max(PEAK_LIMITER_THRESHOLD_MIN_VP, thresholdVp);
+      await send(mac, "peakLimiterOut", channel, config.enabled, {
+        holdMs: config.holdMs,
+        releaseMs: config.releaseMs,
+        thresholdVp: clamped,
+      });
+    },
+    [send, getRatedRmsV],
   );
 
   const setMatrixGain = useCallback(
@@ -333,6 +558,14 @@ export function useAmpActions(): AmpActionsHook {
     muteOut,
     invertPolarityOut,
     noiseGateOut,
+    rmsLimiterOut,
+    peakLimiterOut,
+    setRmsLimiterAttack,
+    setRmsLimiterReleaseMultiplier,
+    setRmsLimiterThreshold,
+    setPeakLimiterHold,
+    setPeakLimiterRelease,
+    setPeakLimiterThreshold,
     setMatrixGain,
     setMatrixActive,
     setDelayIn,
