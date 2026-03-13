@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import {
   Collapsible,
   CollapsibleContent,
@@ -159,24 +158,24 @@ export function AmpTabs() {
                 </div>
               </div>
 
-              <TabsList className="mt-2 h-9 w-full justify-start gap-1 rounded-md border border-border/50 bg-background/35 px-1">
+              <TabsList className="mt-2 grid h-9 w-full grid-cols-3 gap-1 rounded-md border border-border/50 bg-background/35 px-1">
                 <TabsTrigger
                   value="main"
-                  className="h-7 flex-none border border-transparent px-3 data-active:border-primary/45 data-active:bg-primary/18 data-active:text-foreground"
+                  className="h-7 w-full justify-center border border-transparent px-3 data-active:border-primary/45 data-active:bg-primary/18 data-active:text-foreground"
                 >
                   <LayoutDashboardIcon className="size-4" />
                   Main
                 </TabsTrigger>
                 <TabsTrigger
                   value="matrix"
-                  className="h-7 flex-none border border-transparent px-3 data-active:border-primary/45 data-active:bg-primary/18 data-active:text-foreground"
+                  className="h-7 w-full justify-center border border-transparent px-3 data-active:border-primary/45 data-active:bg-primary/18 data-active:text-foreground"
                 >
                   <GridIcon className="size-4" />
                   Matrix / Limiter
                 </TabsTrigger>
                 <TabsTrigger
                   value="preferences"
-                  className="h-7 flex-none border border-transparent px-3 data-active:border-primary/45 data-active:bg-primary/18 data-active:text-foreground"
+                  className="h-7 w-full justify-center border border-transparent px-3 data-active:border-primary/45 data-active:bg-primary/18 data-active:text-foreground"
                 >
                   <SlidersHorizontalIcon className="size-4" />
                   Preferences
@@ -211,28 +210,42 @@ export function AmpTabs() {
                   Waiting for data
                 </p>
               ) : (
-                <div className="flex flex-wrap gap-6 items-start">
-                  <div className="flex flex-col gap-2 flex-shrink-0 rounded-md border border-border/50 bg-background/30 p-2.5">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Crosspoint Matrix
-                    </span>
-                    <MatrixGrid
-                      channels={selectedAmp.channelParams.channels}
-                      mac={selectedAmp.mac}
-                    />
-                  </div>
+                <div className="overflow-hidden rounded-md border border-border/50 bg-background/30 p-2.5">
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)] xl:gap-3">
+                    <section className="flex min-h-[360px] flex-col gap-2">
+                      <h3 className="text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                        Crosspoint Matrix
+                      </h3>
+                      <div className="flex flex-1 items-center justify-center overflow-auto">
+                        <MatrixGrid
+                          channels={selectedAmp.channelParams.channels}
+                          mac={selectedAmp.mac}
+                        />
+                      </div>
+                    </section>
 
-                  <div className="rounded-md border border-border/50 bg-background/30 p-2.5">
-                    <LimiterBlock
-                      mac={selectedAmp.mac}
-                      ratedRmsV={selectedAmp.ratedRmsV}
-                      channelOhms={selectedAmp.constants.channels.map(
-                        (channel) => channel.ohms,
-                      )}
-                      heartbeat={selectedAmp.heartbeat}
-                      channels={selectedAmp.channelParams.channels}
-                      limiters={selectedAmp.heartbeat?.limiters ?? [0, 0, 0, 0]}
-                    />
+                    <div className="hidden xl:block self-stretch w-px bg-border/60" />
+
+                    <section className="flex min-h-[360px] flex-col gap-2">
+                      <h3 className="text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                        Limiters
+                      </h3>
+                      <div className="flex flex-1 items-center justify-center">
+                        <LimiterBlock
+                          mac={selectedAmp.mac}
+                          ratedRmsV={selectedAmp.ratedRmsV}
+                          channelOhms={selectedAmp.constants.channels.map(
+                            (channel) => channel.ohms,
+                          )}
+                          heartbeat={selectedAmp.heartbeat}
+                          channels={selectedAmp.channelParams.channels}
+                          limiters={
+                            selectedAmp.heartbeat?.limiters ?? [0, 0, 0, 0]
+                          }
+                          showTitle={false}
+                        />
+                      </div>
+                    </section>
                   </div>
                 </div>
               )}

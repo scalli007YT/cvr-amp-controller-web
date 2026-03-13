@@ -17,6 +17,7 @@ export function LimiterBlock({
   heartbeat,
   channels,
   limiters,
+  showTitle = true,
 }: {
   mac: string;
   ratedRmsV?: number;
@@ -24,6 +25,7 @@ export function LimiterBlock({
   heartbeat?: HeartbeatData;
   channels: ChannelParams["channels"];
   limiters: number[];
+  showTitle?: boolean;
 }) {
   const vu = useVuMeters(mac);
   const {
@@ -42,18 +44,13 @@ export function LimiterBlock({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Limiters
-      </span>
+      {showTitle && (
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Limiters
+        </span>
+      )}
 
-      <div className="grid grid-cols-[84px_1fr_1fr_1fr] items-center gap-4 px-3 py-1 text-[9px] uppercase tracking-wider text-muted-foreground">
-        <span>Name</span>
-        <span>Thresh</span>
-        <span>W</span>
-        <span>Status</span>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
+      <div className="mx-auto grid w-fit max-w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {channels.map((ch, i) => {
           const rms = ch.rmsLimiter;
           const peak = ch.peakLimiter;
@@ -100,21 +97,27 @@ export function LimiterBlock({
               }
               trigger={
                 <Card
-                  className={`relative cursor-pointer overflow-visible border border-border/25 bg-background/20 shadow-none transition-colors ${
-                    enabled
-                      ? "hover:bg-muted/15"
-                      : "border-border/20 bg-background/10 opacity-75 hover:opacity-90"
+                  size="sm"
+                  className={`relative h-48 w-48 cursor-pointer overflow-visible transition-colors hover:bg-muted/10 ${
+                    enabled ? "text-foreground" : "text-muted-foreground"
                   }`}
                 >
-                  <CardContent className="grid grid-cols-[84px_1fr_1fr_1fr] items-center gap-4 px-3 py-2">
-                    <div>
+                  <CardContent className="flex h-full w-full flex-col justify-center gap-2 py-2 text-center">
+                    <div className="space-y-0.5">
                       <p className="text-[13px] font-semibold leading-tight">
                         {channelName}
                       </p>
+                      <p
+                        className={`text-[9px] font-medium uppercase tracking-wider ${
+                          enabled ? "text-primary/80" : "text-muted-foreground"
+                        }`}
+                      >
+                        {enabled ? "Active" : "Bypassed"}
+                      </p>
                     </div>
 
-                    <div>
-                      <div className="grid grid-cols-[12px_1fr] items-center gap-x-1 leading-tight">
+                    <div className="space-y-1">
+                      <div className="mx-auto grid w-fit grid-cols-[12px_auto] items-center gap-x-1 leading-tight">
                         <span className="text-[10px] text-muted-foreground">
                           R
                         </span>
@@ -128,10 +131,7 @@ export function LimiterBlock({
                           {peak.thresholdVp.toFixed(2)} V
                         </span>
                       </div>
-                    </div>
-
-                    <div>
-                      <div className="grid grid-cols-[12px_1fr] items-center gap-x-1 leading-tight">
+                      <div className="mx-auto grid w-fit grid-cols-[12px_auto] items-center gap-x-1 leading-tight">
                         <span className="text-[10px] text-muted-foreground">
                           R
                         </span>
@@ -145,10 +145,7 @@ export function LimiterBlock({
                           {peak.ppeakW} W
                         </span>
                       </div>
-                    </div>
-
-                    <div>
-                      <div className="grid grid-cols-[12px_1fr] items-center gap-x-1 leading-tight">
+                      <div className="mx-auto grid w-fit grid-cols-[12px_auto] items-center gap-x-1 leading-tight">
                         <span className="text-[10px] text-muted-foreground">
                           R
                         </span>
