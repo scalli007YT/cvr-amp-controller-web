@@ -108,6 +108,66 @@ function EditableLimiterFieldRow({
   );
 }
 
+function CenteredEditableField({
+  label,
+  value,
+  unit,
+  inputMode = "decimal",
+  disabled,
+  onCommit,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  inputMode?: "decimal" | "numeric";
+  disabled?: boolean;
+  onCommit: (nextValue: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (!dirty) setDraft(value);
+  }, [value, dirty]);
+
+  const commit = () => {
+    onCommit(draft);
+    setDirty(false);
+  };
+
+  const reset = () => {
+    setDraft(value);
+    setDirty(false);
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <p className="text-xs">{label}</p>
+      <div className="flex items-center justify-center gap-2">
+        <Input
+          type="number"
+          inputMode={inputMode}
+          value={draft}
+          disabled={disabled}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setDirty(true);
+          }}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") reset();
+          }}
+          className="h-8 w-24 text-center font-mono tabular-nums"
+        />
+        <span className="text-[10px] leading-none text-muted-foreground">
+          {unit ?? ""}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function MeterWithScale({
   value,
   dbTop,
@@ -503,7 +563,7 @@ export function LimiterDetailsDialog({
               </div>
             </div>
             <Separator className="w-16" />
-            <EditableLimiterFieldRow
+            <CenteredEditableField
               label="Load"
               value={String(resolvedLoadOhm)}
               unit="Ω"

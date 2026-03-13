@@ -13,15 +13,10 @@ export default function MonitorPage() {
   return (
     <div className="space-y-4">
       <section className="rounded-lg border border-border/50 bg-card/30 px-4 py-3 sm:px-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-              System Monitor
-            </p>
-            <h1 className="mt-1 text-xl font-semibold sm:text-2xl">
-              {selectedProject ? selectedProject.name : "No Project Selected"}
-            </h1>
-          </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-xl font-semibold sm:text-2xl">
+            {selectedProject ? selectedProject.name : "No Project Selected"}
+          </h1>
 
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-md border border-border/60 bg-card/60 px-2.5 py-1 text-xs font-medium text-muted-foreground">
@@ -35,7 +30,7 @@ export default function MonitorPage() {
         </div>
       </section>
 
-      <div className="rounded-lg border border-border/50 bg-card/20 p-3 sm:p-4">
+      <div>
         {selectedProject ? (
           <AmpTabs />
         ) : (

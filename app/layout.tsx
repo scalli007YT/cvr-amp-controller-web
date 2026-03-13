@@ -29,7 +29,7 @@ export default function RootLayout({
       <html lang="en" suppressHydrationWarning className={fontSans.variable}>
         <head />
         <body
-          className={`${fontSans.variable} ${fontSans.variable} antialiased bg-background`}
+          className={`${fontSans.variable} ${fontSans.variable} h-screen overflow-hidden antialiased bg-background`}
         >
           <ThemeProvider
             attribute="class"

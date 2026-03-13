@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 const http = require("http");
 
@@ -74,11 +74,57 @@ function createWindow() {
     show: true,
     title: "CVR AMP Controller",
     autoHideMenuBar: true,
-    webPreferences: { nodeIntegration: false, contextIsolation: true },
+    frame: false,
+    titleBarStyle: "hidden",
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, "preload.js"),
+    },
   });
+
+  const emitWindowState = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send(
+      "window:maximized-changed",
+      mainWindow.isMaximized(),
+    );
+  };
+
+  mainWindow.on("maximize", emitWindowState);
+  mainWindow.on("unmaximize", emitWindowState);
+  mainWindow.on("enter-full-screen", emitWindowState);
+  mainWindow.on("leave-full-screen", emitWindowState);
 
   mainWindow.loadFile(path.join(__dirname, "splash.html"));
 }
+
+ipcMain.handle("window:minimize", () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  mainWindow.minimize();
+  return true;
+});
+
+ipcMain.handle("window:toggle-maximize", () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  if (mainWindow.isMaximized()) {
+    mainWindow.unmaximize();
+    return false;
+  }
+  mainWindow.maximize();
+  return true;
+});
+
+ipcMain.handle("window:close", () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  mainWindow.close();
+  return true;
+});
+
+ipcMain.handle("window:is-maximized", () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  return mainWindow.isMaximized();
+});
 
 // --- Lifecycle ------------------------------------------------------------
 

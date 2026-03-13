@@ -37,11 +37,11 @@ export function LayoutContent({ children }: { children: ReactNode }) {
   }, [setProjects, setLoading, setSelectedProject]);
 
   return (
-    <>
+    <div className="flex h-screen min-h-0 flex-col overflow-hidden">
       <Header projects={projects} loading={loading} />
-      <main>
-        <div className="px-3 py-4">{children}</div>
+      <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="px-3 py-3">{children}</div>
       </main>
-    </>
+    </div>
   );
 }
