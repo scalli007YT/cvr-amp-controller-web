@@ -50,7 +50,7 @@ export function LimiterBlock({
         </span>
       )}
 
-      <div className="mx-auto grid w-fit max-w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid w-full grid-cols-2 gap-2 xl:grid-cols-4">
         {channels.map((ch, i) => {
           const rms = ch.rmsLimiter;
           const peak = ch.peakLimiter;
@@ -98,7 +98,7 @@ export function LimiterBlock({
               trigger={
                 <Card
                   size="sm"
-                  className={`relative h-48 w-48 cursor-pointer overflow-visible transition-colors hover:bg-muted/10 ${
+                  className={`relative h-48 w-full cursor-pointer overflow-visible transition-colors hover:bg-muted/10 ${
                     enabled ? "text-foreground" : "text-muted-foreground"
                   }`}
                 >
