@@ -37,8 +37,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -70,6 +68,7 @@ import {
   EQ_BAND_Q_MAX,
 } from "@/lib/constants";
 import { EqCurveChart } from "@/components/eq-curve-chart";
+import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import { COLORS } from "@/lib/colors";
 import {
   LayoutDashboardIcon,
@@ -81,46 +80,6 @@ import {
 // ---------------------------------------------------------------------------
 // JsonTree — collapsible JSON viewer (collapsed by default)
 // ---------------------------------------------------------------------------
-
-function PresetActionDialog({
-  open,
-  onOpenChange,
-  title,
-  description,
-  confirmLabel,
-  confirmDisabled,
-  onConfirm,
-  children,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  description: string;
-  confirmLabel: string;
-  confirmDisabled?: boolean;
-  onConfirm?: () => void | Promise<void>;
-  children?: React.ReactNode;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        {children}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button disabled={confirmDisabled} onClick={() => void onConfirm?.()}>
-            {confirmLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 type JsonValue =
   | string
@@ -965,22 +924,14 @@ function PowerModePill({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={confirmOpen} onOpenChange={handleConfirmOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Change Power Mode</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to switch output {channelLabel} to {getPowerModeName(nextMode)}?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => handleConfirmOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirm}>Are you sure?</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmActionDialog
+        open={confirmOpen}
+        onOpenChange={handleConfirmOpen}
+        title="Change Power Mode"
+        description={`Are you sure you want to switch output ${channelLabel} to ${getPowerModeName(nextMode)}?`}
+        confirmLabel="Are you sure?"
+        onConfirm={handleConfirm}
+      />
     </>
   );
 }
@@ -2196,7 +2147,7 @@ export function AmpTabs() {
 
               {/* Presets section */}
               <div>
-                <PresetActionDialog
+                <ConfirmActionDialog
                   open={recallDialogOpen}
                   onOpenChange={setRecallDialogOpen}
                   title="Recall Preset"
@@ -2226,7 +2177,7 @@ export function AmpTabs() {
                   }}
                 />
 
-                <PresetActionDialog
+                <ConfirmActionDialog
                   open={storeDialogOpen}
                   onOpenChange={(open) => {
                     setStoreDialogOpen(open);
@@ -2272,7 +2223,7 @@ export function AmpTabs() {
                       {storePresetName.length}/32
                     </p>
                   </div>
-                </PresetActionDialog>
+                </ConfirmActionDialog>
 
                 <div className="flex items-center gap-2 mb-3">
                   <h3 className="text-sm font-semibold">Presets</h3>
