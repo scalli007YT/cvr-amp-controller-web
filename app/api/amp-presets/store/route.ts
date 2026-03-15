@@ -15,9 +15,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: parsed.error.issues[0]?.message ?? "Invalid request body",
+          error: parsed.error.issues[0]?.message ?? "Invalid request body"
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -33,9 +33,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, mac, slot, name });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 },
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

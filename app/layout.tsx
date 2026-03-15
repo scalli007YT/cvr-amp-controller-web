@@ -8,19 +8,19 @@ import { ThemeProvider } from "@/components/layout/theme-provider";
 
 const fontSans = Outfit({
   subsets: ["latin"],
-  variable: "--font-sans",
+  variable: "--font-sans"
 });
 
 export const metadata: Metadata = {
   title: "CVR AMP Controller",
   description: "Control and monitor your CVR AMP system",
   icons: {
-    icon: "/logo.ico",
-  },
+    icon: "/logo.ico"
+  }
 };
 
 export default function RootLayout({
-  children,
+  children
 }: Readonly<{
   children: React.ReactNode;
 }>) {
@@ -31,12 +31,7 @@ export default function RootLayout({
         <body
           className={`${fontSans.variable} ${fontSans.variable} h-screen overflow-hidden antialiased bg-background`}
         >
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
             <LayoutContent>
               <TooltipProvider>{children}</TooltipProvider>
             </LayoutContent>

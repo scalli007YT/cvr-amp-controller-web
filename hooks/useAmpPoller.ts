@@ -9,6 +9,7 @@ import type { AmpBasicInfo } from "@/stores/AmpStore";
 import type { BridgeReadback } from "@/stores/AmpStore";
 import { smoothHeartbeat, resetSmootherForMac } from "@/lib/heartbeat-smoother";
 import { ratedRmsVFromDeviceName } from "@/lib/amp-model";
+import { deriveSourceCapabilities } from "@/lib/source-capabilities";
 
 // ---------------------------------------------------------------------------
 // SSE event shapes (mirroring what /api/amp-events sends)
@@ -41,11 +42,7 @@ interface PingEvent {
   type: "ping";
 }
 
-type AmpSseEvent =
-  | DiscoverySseEvent
-  | HeartbeatSseEvent
-  | OfflineSseEvent
-  | PingEvent;
+type AmpSseEvent = DiscoverySseEvent | HeartbeatSseEvent | OfflineSseEvent | PingEvent;
 
 // ---------------------------------------------------------------------------
 
@@ -56,10 +53,7 @@ interface UseAmpPollerReturn {
 }
 
 /** Find an amp by MAC (case-insensitive). */
-function findAmp(
-  amps: ReturnType<typeof useAmpStore.getState>["amps"],
-  mac: string,
-) {
+function findAmp(amps: ReturnType<typeof useAmpStore.getState>["amps"], mac: string) {
   return amps.find((a) => a.mac.toUpperCase() === mac.toUpperCase());
 }
 
@@ -139,17 +133,24 @@ export function useAmpPoller(): UseAmpPollerReturn {
             // Derive rated RMS voltage from version string (e.g. "42404B06-006118-DSP-2004")
             // which always contains the model — more reliable than the name field.
             const ratedRmsV = ratedRmsVFromDeviceName(version ?? name ?? "");
+            const sourceCapabilities = deriveSourceCapabilities({
+              machineName: version ?? name,
+              analogInputCount: basicInfo.Analog_signal_Input_chx,
+              digitalInputCount: basicInfo.Digital_signal_input_chx,
+              outputCount: basicInfo.Output_chx
+            });
             useAmpStore.getState().updateAmpStatus(amp.mac, {
               ip,
               name,
               version,
               reachable: true,
               ratedRmsV,
+              sourceCapabilities,
               basic_info: basicInfo,
               analog_signal_input_chx: basicInfo.Analog_signal_Input_chx,
               output_chx: basicInfo.Output_chx,
               machine_state: basicInfo.Machine_state,
-              gain_max: basicInfo.Gain_max,
+              gain_max: basicInfo.Gain_max
             });
             usePollingStore.getState().setLastUpdated(amp.mac, Date.now());
             usePollingStore.getState().setError(amp.mac, null);
@@ -172,10 +173,7 @@ export function useAmpPoller(): UseAmpPollerReturn {
 
             // Use name/version from the event itself — always fresh from the server's
             // knownMacs table, never stale due to client-side store race on startup.
-            const deviceName =
-              name ||
-              version ||
-              (amp.name ?? amp.lastKnownName ?? amp.version ?? "");
+            const deviceName = name || version || (amp.name ?? amp.lastKnownName ?? amp.version ?? "");
             // Keep the meter reference stable: prefer the already-resolved rated RMS
             // voltage from store, and only derive from device strings as fallback.
             const derivedRatedRmsV = ratedRmsVFromDeviceName(deviceName);
@@ -186,17 +184,11 @@ export function useAmpPoller(): UseAmpPollerReturn {
             // Also retries if a 0 was stored previously due to a name/version race on startup.
             if (!amp.ratedRmsV) {
               useAmpStore.getState().updateAmpStatus(amp.mac, {
-                ratedRmsV: derivedRatedRmsV,
+                ratedRmsV: derivedRatedRmsV
               });
             }
 
-            useAmpStore
-              .getState()
-              .updateHeartbeat(
-                amp.mac,
-                smoothHeartbeat(amp.mac, heartbeat, maxDb),
-                bridgePairs,
-              );
+            useAmpStore.getState().updateHeartbeat(amp.mac, smoothHeartbeat(amp.mac, heartbeat, maxDb), bridgePairs);
             usePollingStore.getState().setLastUpdated(amp.mac, Date.now());
             break;
           }
@@ -209,13 +201,9 @@ export function useAmpPoller(): UseAmpPollerReturn {
             const amp = findAmp(ampsRef.current, mac);
             if (!amp || amp.reachable === false) return;
 
-            useAmpStore
-              .getState()
-              .updateAmpStatus(amp.mac, { reachable: false });
+            useAmpStore.getState().updateAmpStatus(amp.mac, { reachable: false });
             usePollingStore.getState().setError(amp.mac, "Offline");
-            toast.error(
-              `${amp.name ?? amp.lastKnownName ?? mac} is now unreachable`,
-            );
+            toast.error(`${amp.name ?? amp.lastKnownName ?? mac} is now unreachable`);
             break;
           }
 
@@ -254,6 +242,6 @@ export function useAmpPoller(): UseAmpPollerReturn {
   return {
     isPolling: pollingStore.isPolling,
     lastUpdated: pollingStore.lastUpdated,
-    errors: pollingStore.errors,
+    errors: pollingStore.errors
   };
 }

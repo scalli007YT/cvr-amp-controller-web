@@ -33,13 +33,8 @@ function getDirectedBroadcasts(): string[] {
  * Each BASIC_INFO response contains the full device identity — no follow-up
  * unicast queries needed.
  */
-export async function broadcastDiscovery(): Promise<
-  Array<{ ip: string; mac: string; name: string; version: string }>
-> {
-  const devices: Map<
-    string,
-    { ip: string; mac: string; name: string; version: string }
-  > = new Map();
+export async function broadcastDiscovery(): Promise<Array<{ ip: string; mac: string; name: string; version: string }>> {
+  const devices: Map<string, { ip: string; mac: string; name: string; version: string }> = new Map();
   const PC_RECV_PORT = 45454; // Port to listen for AMP responses
 
   return new Promise((resolve) => {
@@ -110,73 +105,66 @@ export async function broadcastDiscovery(): Promise<
       });
 
       // Bind socket to receive port BEFORE sending
-      socket.bind(
-        { port: PC_RECV_PORT, address: "0.0.0.0", exclusive: false },
-        () => {
-          try {
-            // Now that socket is bound, enable broadcast mode
-            socket.setBroadcast(true);
+      socket.bind({ port: PC_RECV_PORT, address: "0.0.0.0", exclusive: false }, () => {
+        try {
+          // Now that socket is bound, enable broadcast mode
+          socket.setBroadcast(true);
 
-            // Build BASIC_INFO broadcast query packet
-            // Build StructHeader (10 bytes)
-            const header = Buffer.alloc(10);
-            header[0] = 0x55; // head
-            header[1] = FuncCode.BASIC_INFO; // function_code
-            header[2] = 2; // status_code (request)
-            header[3] = 0; // chx
-            header[4] = 0; // link
-            header[5] = 0; // inOutFlag
-            header[6] = 0; // segment
-            header[7] = 0; // r1
-            header[8] = 0; // r2
-            header[9] = 0; // r3
+          // Build BASIC_INFO broadcast query packet
+          // Build StructHeader (10 bytes)
+          const header = Buffer.alloc(10);
+          header[0] = 0x55; // head
+          header[1] = FuncCode.BASIC_INFO; // function_code
+          header[2] = 2; // status_code (request)
+          header[3] = 0; // chx
+          header[4] = 0; // link
+          header[5] = 0; // inOutFlag
+          header[6] = 0; // segment
+          header[7] = 0; // r1
+          header[8] = 0; // r2
+          header[9] = 0; // r3
 
-            // Calculate checksum (3 bytes)
-            const length = header.length;
-            const num = length + 3;
-            let sum = header.reduce((acc, byte) => acc + byte, 0);
-            sum += num + (num >> 8);
+          // Calculate checksum (3 bytes)
+          const length = header.length;
+          const num = length + 3;
+          let sum = header.reduce((acc, byte) => acc + byte, 0);
+          sum += num + (num >> 8);
 
-            const checksum = Buffer.from([
-              (num >> 8) & 0xff,
-              num & 0xff,
-              sum & 0xff,
-            ]);
+          const checksum = Buffer.from([(num >> 8) & 0xff, num & 0xff, sum & 0xff]);
 
-            const frame = Buffer.concat([header, checksum]);
+          const frame = Buffer.concat([header, checksum]);
 
-            // Build NetworkData wrapper (10 bytes)
-            const networkData = Buffer.alloc(10);
-            networkData.writeUInt16LE(NETWORK_DATA_FLAG, 0);
-            networkData.writeInt16LE(0, 2);
-            networkData[4] = 1; // packets_count
-            networkData.writeUInt16LE(frame.length, 5); // packets_lastlenth
-            networkData[7] = 1; // packets_stepcount
-            networkData[8] = 0; // data_state
-            networkData[9] = 0; // padding_data
+          // Build NetworkData wrapper (10 bytes)
+          const networkData = Buffer.alloc(10);
+          networkData.writeUInt16LE(NETWORK_DATA_FLAG, 0);
+          networkData.writeInt16LE(0, 2);
+          networkData[4] = 1; // packets_count
+          networkData.writeUInt16LE(frame.length, 5); // packets_lastlenth
+          networkData[7] = 1; // packets_stepcount
+          networkData[8] = 0; // data_state
+          networkData[9] = 0; // padding_data
 
-            const packet = Buffer.concat([networkData, frame]);
+          const packet = Buffer.concat([networkData, frame]);
 
-            // Send directed broadcast on every active network interface so amps
-            // are discovered regardless of which subnet/adapter they're on.
-            const broadcastAddrs = getDirectedBroadcasts();
-            for (const addr of broadcastAddrs) {
-              socket.send(packet, 0, packet.length, AMP_PORT, addr, (err) => {
-                if (err) {
-                  console.error(`[DISCOVERY] Send error on ${addr}:`, err);
-                }
-              });
-            }
-          } catch (err) {
-            console.error("[DISCOVERY] Failed to build or send packet:", err);
-            clearTimeout(timeoutHandle);
-            try {
-              socket.close();
-            } catch {}
-            resolve([]);
+          // Send directed broadcast on every active network interface so amps
+          // are discovered regardless of which subnet/adapter they're on.
+          const broadcastAddrs = getDirectedBroadcasts();
+          for (const addr of broadcastAddrs) {
+            socket.send(packet, 0, packet.length, AMP_PORT, addr, (err) => {
+              if (err) {
+                console.error(`[DISCOVERY] Send error on ${addr}:`, err);
+              }
+            });
           }
-        },
-      );
+        } catch (err) {
+          console.error("[DISCOVERY] Failed to build or send packet:", err);
+          clearTimeout(timeoutHandle);
+          try {
+            socket.close();
+          } catch {}
+          resolve([]);
+        }
+      });
 
       // Handle bind errors
       socket.on("error", (err) => {

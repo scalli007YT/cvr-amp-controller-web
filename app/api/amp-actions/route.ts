@@ -46,10 +46,7 @@
 
 import { ampController } from "@/lib/amp-controller";
 import { CvrAmpDevice, FuncCode } from "@/lib/amp-device";
-import {
-  ampActionRequestSchema,
-  type AmpActionRequest,
-} from "@/lib/validation/amp-actions";
+import { ampActionRequestSchema, type AmpActionRequest } from "@/lib/validation/amp-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +54,7 @@ const POWER_MODE_FUNC_CODE = FuncCode.DZ_DY;
 
 const DEFAULT_CROSSOVER_TYPE = {
   hp: 0,
-  lp: 4,
+  lp: 4
 } as const;
 
 function getCrossoverLink(): number {
@@ -75,14 +72,8 @@ function getCrossoverInOutFlag(target: "input" | "output"): number {
   return target === "input" ? 0 : 1;
 }
 
-function getCrossoverTypeByte(
-  kind: "hp" | "lp",
-  enabled: boolean,
-  filterType: number,
-): number {
-  const normalizedType = Number.isInteger(filterType)
-    ? filterType
-    : DEFAULT_CROSSOVER_TYPE[kind];
+function getCrossoverTypeByte(kind: "hp" | "lp", enabled: boolean, filterType: number): number {
+  const normalizedType = Number.isInteger(filterType) ? filterType : DEFAULT_CROSSOVER_TYPE[kind];
   return enabled ? normalizedType : 255 - normalizedType;
 }
 
@@ -104,9 +95,9 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json(
       {
         error: parsed.error.issues[0]?.message ?? "Invalid request payload",
-        issues: parsed.error.issues,
+        issues: parsed.error.issues
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -118,10 +109,7 @@ export async function POST(request: Request): Promise<Response> {
 
   const ip = ampController.getIpForMac(mac);
   if (!ip) {
-    return Response.json(
-      { error: `Amp ${mac} not yet discovered — is it online?` },
-      { status: 404 },
-    );
+    return Response.json({ error: `Amp ${mac} not yet discovered — is it online?` }, { status: 404 });
   }
 
   const device = new CvrAmpDevice(ip);
@@ -135,12 +123,7 @@ export async function POST(request: Request): Promise<Response> {
       // -----------------------------------------------------------------------
       case "muteIn": {
         const payload = Buffer.from([value ? 0x00 : 0x01]);
-        await device.sendControl(
-          FuncCode.MUTE,
-          channel,
-          payload,
-          0 /* input */,
-        );
+        await device.sendControl(FuncCode.MUTE, channel, payload, 0 /* input */);
         break;
       }
 
@@ -163,12 +146,7 @@ export async function POST(request: Request): Promise<Response> {
       // -----------------------------------------------------------------------
       case "muteOut": {
         const payload = Buffer.from([value ? 0x00 : 0x01]);
-        await device.sendControl(
-          FuncCode.MUTE,
-          channel,
-          payload,
-          1 /* Output */,
-        );
+        await device.sendControl(FuncCode.MUTE, channel, payload, 1 /* Output */);
         break;
       }
 
@@ -179,12 +157,7 @@ export async function POST(request: Request): Promise<Response> {
       // -----------------------------------------------------------------------
       case "invertPolarityOut": {
         const payload = Buffer.from([value ? 0x01 : 0x00]);
-        await device.sendControl(
-          FuncCode.PHASE,
-          channel,
-          payload,
-          1 /* Output */,
-        );
+        await device.sendControl(FuncCode.PHASE, channel, payload, 1 /* Output */);
         break;
       }
 
@@ -196,12 +169,7 @@ export async function POST(request: Request): Promise<Response> {
       // -----------------------------------------------------------------------
       case "noiseGateOut": {
         const payload = Buffer.from([value ? 0x00 : 0x01]);
-        await device.sendControl(
-          FuncCode.NOISE_GATE,
-          channel,
-          payload,
-          1 /* Output */,
-        );
+        await device.sendControl(FuncCode.NOISE_GATE, channel, payload, 1 /* Output */);
         break;
       }
 
@@ -222,20 +190,10 @@ export async function POST(request: Request): Promise<Response> {
           payload.writeFloatLE(body.thresholdVrms, 3);
           payload.writeUInt8(value ? 0x00 : 0x01, 7); // 0=enabled, 1=bypassed
 
-          await device.sendControl(
-            FuncCode.RMS_LIMITER,
-            channel,
-            payload,
-            1 /* Output */,
-          );
+          await device.sendControl(FuncCode.RMS_LIMITER, channel, payload, 1 /* Output */);
         } else {
           const payload = Buffer.from([value ? 0x00 : 0x01]);
-          await device.sendControl(
-            FuncCode.RMS_BYPASS,
-            channel,
-            payload,
-            1 /* Output */,
-          );
+          await device.sendControl(FuncCode.RMS_BYPASS, channel, payload, 1 /* Output */);
         }
         break;
       }
@@ -257,20 +215,10 @@ export async function POST(request: Request): Promise<Response> {
           payload.writeFloatLE(body.thresholdVp, 4);
           payload.writeUInt8(value ? 0x00 : 0x01, 8); // 0=enabled, 1=bypassed
 
-          await device.sendControl(
-            FuncCode.PEAK_LIMITER,
-            channel,
-            payload,
-            1 /* Output */,
-          );
+          await device.sendControl(FuncCode.PEAK_LIMITER, channel, payload, 1 /* Output */);
         } else {
           const payload = Buffer.from([value ? 0x00 : 0x01]);
-          await device.sendControl(
-            FuncCode.PEAK_BYPASS,
-            channel,
-            payload,
-            1 /* Output */,
-          );
+          await device.sendControl(FuncCode.PEAK_BYPASS, channel, payload, 1 /* Output */);
         }
         break;
       }
@@ -284,14 +232,7 @@ export async function POST(request: Request): Promise<Response> {
         const payload = Buffer.alloc(5);
         payload.writeFloatLE(value, 0);
         payload.writeUInt8(1, 4); // keep active when changing gain
-        await device.sendControl(
-          FuncCode.ROUTING,
-          channel,
-          payload,
-          1 /* Output */,
-          0,
-          body.source,
-        );
+        await device.sendControl(FuncCode.ROUTING, channel, payload, 1 /* Output */, 0, body.source);
         break;
       }
 
@@ -305,14 +246,59 @@ export async function POST(request: Request): Promise<Response> {
         const payload = Buffer.alloc(5);
         payload.writeFloatLE(0, 0); // gain=0 dB (caller can set gain separately)
         payload.writeUInt8(value ? 1 : 0, 4);
-        await device.sendControl(
-          FuncCode.ROUTING,
-          channel,
-          payload,
-          1 /* Output */,
-          0,
-          body.source,
-        );
+        await device.sendControl(FuncCode.ROUTING, channel, payload, 1 /* Output */, 0, body.source);
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Source selection mode — FC=11 SOURCE
+      // Body: Source_data { byte Source }
+      //   0 = Analog
+      //   1 = Digital (Dante on Dante-capable models, AES3 on AES-only models)
+      //   2 = AES3
+      // Backup is managed by priority/auto-source controls in the original app,
+      // not by writing SOURCE as a dedicated mode.
+      // -----------------------------------------------------------------------
+      case "sourceType": {
+        const payload = Buffer.from([value]);
+        await device.sendControl(FuncCode.SOURCE_SELECT, channel, payload, 0 /* input */);
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Source delay update — FC=63 Source_data_code (gain_matching_data)
+      // Header segment selects source family: 0=Analog, 1=Dante, 2=AES3.
+      // Body layout (8 bytes): [float32 trim][float32 delay]
+      // -----------------------------------------------------------------------
+      case "sourceDelay": {
+        const payload = Buffer.alloc(8);
+        payload.writeFloatLE(body.trim, 0);
+        payload.writeFloatLE(value, 4);
+        await device.sendControl(FuncCode.SOURCE_DATA, channel, payload, 0 /* input */, 0, body.source);
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Source trim update — FC=63 Source_data_code (gain_matching_data)
+      // Header segment selects source family: 0=Analog, 1=Dante, 2=AES3.
+      // Body layout (8 bytes): [float32 trim][float32 delay]
+      // -----------------------------------------------------------------------
+      case "sourceTrim": {
+        const payload = Buffer.alloc(8);
+        payload.writeFloatLE(value, 0);
+        payload.writeFloatLE(body.delay, 4);
+        await device.sendControl(FuncCode.SOURCE_DATA, channel, payload, 0 /* input */, 0, body.source);
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Analog input type selection — FC=79 Analog_Matrix_input
+      // Body: byte analog type/index (model-specific mapping)
+      // Packet shape matches original capture: FC=0x4F, 1-byte payload.
+      // -----------------------------------------------------------------------
+      case "analogType": {
+        const payload = Buffer.from([value & 0xff]);
+        await device.sendControl(FuncCode.ANALOG_TYPE, channel, payload, 0 /* input */);
         break;
       }
 
@@ -323,12 +309,7 @@ export async function POST(request: Request): Promise<Response> {
       case "delayIn": {
         const payload = Buffer.alloc(4);
         payload.writeFloatLE(value, 0);
-        await device.sendControl(
-          FuncCode.DELAY,
-          channel,
-          payload,
-          0 /* input */,
-        );
+        await device.sendControl(FuncCode.DELAY, channel, payload, 0 /* input */);
         break;
       }
 
@@ -339,12 +320,7 @@ export async function POST(request: Request): Promise<Response> {
       case "delayOut": {
         const payload = Buffer.alloc(4);
         payload.writeFloatLE(value, 0);
-        await device.sendControl(
-          FuncCode.DELAY,
-          channel,
-          payload,
-          1 /* Output */,
-        );
+        await device.sendControl(FuncCode.DELAY, channel, payload, 1 /* Output */);
         break;
       }
 
@@ -359,12 +335,7 @@ export async function POST(request: Request): Promise<Response> {
       // -----------------------------------------------------------------------
       case "powerModeOut": {
         const payload = Buffer.from([value]);
-        await device.sendControl(
-          POWER_MODE_FUNC_CODE,
-          channel,
-          payload,
-          1 /* Output */,
-        );
+        await device.sendControl(POWER_MODE_FUNC_CODE, channel, payload, 1 /* Output */);
         break;
       }
 
@@ -386,16 +357,14 @@ export async function POST(request: Request): Promise<Response> {
       // Device requires a follow-up commit packet after crossover changes.
       // -----------------------------------------------------------------------
       case "crossoverEnabled": {
-        const payload = Buffer.from([
-          getCrossoverTypeByte(body.kind, value, body.filterType),
-        ]);
+        const payload = Buffer.from([getCrossoverTypeByte(body.kind, value, body.filterType)]);
         await device.sendControl(
           FuncCode.FILTER_TYPE,
           channel,
           payload,
           getCrossoverInOutFlag(body.target),
           getCrossoverLink(),
-          getCrossoverSegment(body.kind),
+          getCrossoverSegment(body.kind)
         );
         await device.commitCrossover();
         break;
@@ -415,7 +384,7 @@ export async function POST(request: Request): Promise<Response> {
           payload,
           getCrossoverInOutFlag(body.target),
           getCrossoverLink(),
-          getCrossoverSegment(body.kind),
+          getCrossoverSegment(body.kind)
         );
         await device.commitCrossover();
         break;
@@ -429,14 +398,7 @@ export async function POST(request: Request): Promise<Response> {
       case "eqBandType": {
         const typeByte = body.bypass ? 255 - body.value : body.value;
         const payload = Buffer.from([typeByte]);
-        await device.sendControl(
-          FuncCode.FILTER_TYPE,
-          channel,
-          payload,
-          body.target === "input" ? 0 : 1,
-          0,
-          body.band,
-        );
+        await device.sendControl(FuncCode.FILTER_TYPE, channel, payload, body.target === "input" ? 0 : 1, 0, body.band);
         break;
       }
 
@@ -447,14 +409,7 @@ export async function POST(request: Request): Promise<Response> {
       case "eqBandFreq": {
         const payload = Buffer.alloc(4);
         payload.writeFloatLE(value, 0);
-        await device.sendControl(
-          FuncCode.FILTER_FREQ,
-          channel,
-          payload,
-          body.target === "input" ? 0 : 1,
-          0,
-          body.band,
-        );
+        await device.sendControl(FuncCode.FILTER_FREQ, channel, payload, body.target === "input" ? 0 : 1, 0, body.band);
         break;
       }
 
@@ -467,14 +422,7 @@ export async function POST(request: Request): Promise<Response> {
       case "eqBandGain": {
         const payload = Buffer.alloc(4);
         payload.writeFloatLE(value, 0);
-        await device.sendControl(
-          FuncCode.FILTER_GAIN,
-          channel,
-          payload,
-          body.target === "input" ? 0 : 1,
-          0,
-          body.band,
-        );
+        await device.sendControl(FuncCode.FILTER_GAIN, channel, payload, body.target === "input" ? 0 : 1, 0, body.band);
         break;
       }
 
@@ -485,30 +433,20 @@ export async function POST(request: Request): Promise<Response> {
       case "eqBandQ": {
         const payload = Buffer.alloc(4);
         payload.writeFloatLE(value, 0);
-        await device.sendControl(
-          FuncCode.FILTER_Q,
-          channel,
-          payload,
-          body.target === "input" ? 0 : 1,
-          0,
-          body.band,
-        );
+        await device.sendControl(FuncCode.FILTER_Q, channel, payload, body.target === "input" ? 0 : 1, 0, body.band);
         break;
       }
 
       default:
-        return Response.json(
-          { error: `Unknown action: ${action as string}` },
-          { status: 400 },
-        );
+        return Response.json({ error: `Unknown action: ${action as string}` }, { status: 400 });
     }
   } catch (err) {
     console.error("[amp-actions] sendControl error:", err);
     return Response.json(
       {
-        error: `Command failed: ${err instanceof Error ? err.message : String(err)}`,
+        error: `Command failed: ${err instanceof Error ? err.message : String(err)}`
       },
-      { status: 502 },
+      { status: 502 }
     );
   }
 

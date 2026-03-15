@@ -20,6 +20,19 @@ export interface MatrixSource {
   active: boolean;
 }
 
+export interface ChannelInputSource {
+  /** Source family key from the original software model. */
+  key: "analog" | "dante" | "aes3" | "backup";
+  /** UI label (e.g. Analog-1, Dante-3, AES3-2, Backup). */
+  type: string;
+  /** Per-source matching delay in ms. */
+  delay: number;
+  /** Per-source matching trim in dB. */
+  trim: number;
+  /** True when this source is currently selected for the channel. */
+  selected: boolean;
+}
+
 /**
  * One parametric EQ band.
  * Wire layout per band (14 bytes, stride 14):
@@ -53,7 +66,7 @@ export const EQ_FILTER_TYPE_NAMES: Record<number, string> = {
   7: "Butterworth_Low",
   8: "Butterworth_High",
   9: "Bessel_Low",
-  10: "Bessel_High",
+  10: "Bessel_High"
 };
 
 export interface EqFilterTypeCapabilities {
@@ -61,9 +74,7 @@ export interface EqFilterTypeCapabilities {
   supportsQ: boolean;
 }
 
-export function getEqFilterTypeCapabilities(
-  type: number,
-): EqFilterTypeCapabilities {
+export function getEqFilterTypeCapabilities(type: number): EqFilterTypeCapabilities {
   switch (type) {
     case 0:
     case 1:
@@ -88,7 +99,7 @@ export function getEqFilterTypeCapabilities(
 export const POWER_MODE_NAMES: Record<number, string> = {
   0: "Low-Z",
   1: "70V",
-  2: "100V",
+  2: "100V"
 };
 
 export function getPowerModeName(mode: number): string {
@@ -110,16 +121,14 @@ export const HPLP_FILTER_TYPE_NAMES: Record<number, string> = {
   7: "BW-36",
   8: "BW-48",
   9: "BE-48",
-  10: "LR-48",
+  10: "LR-48"
 };
 
 /** Resolve a filter type code to its display name, considering band position. */
 export function getFilterTypeName(type: number, bandIndex: number): string {
   // Band 0 (HP) and band 9 (LP) use the HP/LP rolloff lookup
   if (bandIndex === 0 || bandIndex === 9) {
-    return (
-      HPLP_FILTER_TYPE_NAMES[type] ?? EQ_FILTER_TYPE_NAMES[type] ?? String(type)
-    );
+    return HPLP_FILTER_TYPE_NAMES[type] ?? EQ_FILTER_TYPE_NAMES[type] ?? String(type);
   }
   return EQ_FILTER_TYPE_NAMES[type] ?? String(type);
 }
@@ -152,6 +161,16 @@ export interface ChannelData {
   invertedOut: boolean; // true = polarity flipped  (uint8 @ 94)
   /** Raw dzdy/CPCR mode byte from FC=27. Observed: 0=Low-Z 1=70V 2=100V. */
   powerMode: number;
+  /** Raw source selector byte (0=Analog, 1=Dante, 2=AES3, 3=Backup on compatible models). */
+  sourceTypeCode: number;
+  /** Selected source label, e.g. Analog-1 / Dante-2 / AES3-1 / Backup. */
+  sourceType: string;
+  /** Delay value of the currently selected source. */
+  sourceDelay: number;
+  /** Trim value of the currently selected source. */
+  sourceTrim: number;
+  /** Per-source values shown in the original Source dialog (Delay/Trim blocks). */
+  sourceInputs: ChannelInputSource[];
   /** RMS limiter settings */
   rmsLimiter: {
     /** false = bypassed (wire: byte @102, 1=bypassed, 0=active) */
@@ -209,7 +228,7 @@ const CHANNEL_FIELDS = [
   { field: "invertedOut", type: "uint8", offset: 94 },
   { field: "volumeIn", type: "float32", offset: 405 },
   { field: "inputName", type: "ascii", offset: 413, length: 16 },
-  { field: "outputName", type: "ascii", offset: 430, length: 16 },
+  { field: "outputName", type: "ascii", offset: 430, length: 16 }
 ] as const;
 
 /**
@@ -226,13 +245,42 @@ const CHANNEL_FIELDS = [
  */
 const TRAILER_BASE = 4 * BYTES_PER_CHANNEL;
 const TRAILER_MUTE_IN_OFFSET = TRAILER_BASE + 132; // abs 2192
+const TRAILER_ANALOG_MATRIX_OFFSET = TRAILER_BASE + 136;
 // Maps channel index → absolute byte offset of its muteIn flag in the trailer
 const MUTE_IN_ABS: Record<number, number> = {
   0: TRAILER_MUTE_IN_OFFSET + 0, // ch0 (A) at rel 132
   1: TRAILER_MUTE_IN_OFFSET + 1, // ch1 (B) at rel 133
   2: TRAILER_MUTE_IN_OFFSET + 2, // ch2 (C) at rel 134
-  3: TRAILER_MUTE_IN_OFFSET + 3, // ch3 (D) at rel 135
+  3: TRAILER_MUTE_IN_OFFSET + 3 // ch3 (D) at rel 135
 };
+
+function clampSourceCode(code: number): 0 | 1 | 2 | 3 {
+  if (code <= 0) return 0;
+  if (code === 1) return 1;
+  if (code === 2) return 2;
+  return 3;
+}
+
+function sourceNameFromCode(code: 0 | 1 | 2 | 3): "analog" | "dante" | "aes3" | "backup" {
+  switch (code) {
+    case 1:
+      return "dante";
+    case 2:
+      return "aes3";
+    case 3:
+      return "backup";
+    default:
+      return "analog";
+  }
+}
+
+function buildSourceTypeLabel(key: "analog" | "dante" | "aes3" | "backup", index: number): string {
+  if (key === "backup") return "Backup";
+  const safeIndex = Number.isFinite(index) ? Math.max(1, Math.floor(index)) : 1;
+  if (key === "analog") return `Analog-${safeIndex}`;
+  if (key === "dante") return `Dante-${safeIndex}`;
+  return `AES3-${safeIndex}`;
+}
 
 // ---------------------------------------------------------------------------
 // Parser
@@ -254,17 +302,23 @@ export function parseFC27Channels(hexData: string): ChannelData[] {
     const buffer = Buffer.from(hexData, "hex");
     const channels: ChannelData[] = [];
 
+    const analogMatrix = [0, 1, 2, 3].map((ch) => {
+      const abs = TRAILER_ANALOG_MATRIX_OFFSET + ch;
+      const raw = abs < buffer.length ? buffer.readUInt8(abs) : ch;
+      return raw + 1;
+    });
+
     for (let ch = 0; ch < 4; ch++) {
       // Read muteIn from the trailer (not from the per-channel body)
       const muteInAbs = MUTE_IN_ABS[ch];
-      const muteIn =
-        muteInAbs < buffer.length ? buffer.readUInt8(muteInAbs) === 0 : true;
+      const muteIn = muteInAbs < buffer.length ? buffer.readUInt8(muteInAbs) === 0 : true;
 
       const channelData = parseChannelFromBuffer(
         ch,
         buffer,
         ch * BYTES_PER_CHANNEL,
         muteIn,
+        analogMatrix[ch] ?? ch + 1
       );
       if (channelData) channels.push(channelData);
     }
@@ -281,6 +335,7 @@ function parseChannelFromBuffer(
   buffer: Buffer,
   base: number,
   muteIn: boolean,
+  analogInputIndex: number
 ): ChannelData | null {
   try {
     // Accumulate raw values by reading each field definition
@@ -318,7 +373,7 @@ function parseChannelFromBuffer(
       return {
         source: src,
         gain: round2(buffer.readFloatLE(off)),
-        active: buffer.readUInt8(off + 4) !== 0,
+        active: buffer.readUInt8(off + 4) !== 0
       };
     });
 
@@ -346,7 +401,7 @@ function parseChannelFromBuffer(
           gain: round2(buffer.readFloatLE(off + 1)),
           freq: round2(buffer.readFloatLE(off + 5)),
           q: round2(buffer.readFloatLE(off + 9)),
-          bypass,
+          bypass
         };
       });
 
@@ -357,6 +412,54 @@ function parseChannelFromBuffer(
     // Layout matches the original sync structs: output EQ block including its
     // trailing bypass byte ends at offset 402, followed by dzdy at 403.
     const powerMode = buffer.readUInt8(base + 403);
+
+    const sourceTypeCode = clampSourceCode(buffer.readUInt8(base + 85));
+    const analogTrim = round2(buffer.readFloatLE(base + 36));
+    const analogDelay = round2(buffer.readFloatLE(base + 40));
+    const danteTrim = round2(buffer.readFloatLE(base + 44));
+    const danteDelay = round2(buffer.readFloatLE(base + 48));
+    const aesTrim = round2(buffer.readFloatLE(base + 52));
+    const aesDelay = round2(buffer.readFloatLE(base + 56));
+
+    const danteIndex = channelNum + 1;
+    const aesIndex = channelNum + 1;
+
+    const sourceInputs: ChannelInputSource[] = [
+      {
+        key: "analog",
+        type: buildSourceTypeLabel("analog", analogInputIndex),
+        delay: analogDelay,
+        trim: analogTrim,
+        selected: sourceTypeCode === 0
+      },
+      {
+        key: "dante",
+        type: buildSourceTypeLabel("dante", danteIndex),
+        delay: danteDelay,
+        trim: danteTrim,
+        selected: sourceTypeCode === 1
+      },
+      {
+        key: "aes3",
+        type: buildSourceTypeLabel("aes3", aesIndex),
+        delay: aesDelay,
+        trim: aesTrim,
+        selected: sourceTypeCode === 2
+      },
+      {
+        key: "backup",
+        type: "Backup",
+        delay: 0,
+        trim: 0,
+        selected: sourceTypeCode === 3
+      }
+    ];
+
+    const selectedKey = sourceNameFromCode(sourceTypeCode);
+    const selectedSource = sourceInputs.find((s) => s.key === selectedKey) ?? sourceInputs[0];
+    const sourceType = selectedSource.type;
+    const sourceDelay = selectedSource.delay;
+    const sourceTrim = selectedSource.trim;
 
     // Limiter fields (mixed types — parsed directly, not via CHANNEL_FIELDS)
     //
@@ -369,7 +472,7 @@ function parseChannelFromBuffer(
       thresholdVrms: round2(buffer.readFloatLE(base + 98)),
       attackMs: buffer.readUInt16LE(base + 95),
       releaseMultiplier: buffer.readUInt8(base + 97),
-      prmsW: 0, // computed by the store after parse (depends on configured load impedance)
+      prmsW: 0 // computed by the store after parse (depends on configured load impedance)
     };
 
     // Peak bypass flag: byte @ offset 116 (1=bypassed, 0=active).
@@ -380,7 +483,7 @@ function parseChannelFromBuffer(
       thresholdVp: round2(buffer.readFloatLE(base + 112)),
       holdMs: buffer.readUInt16LE(base + 108),
       releaseMs: buffer.readUInt16LE(base + 110),
-      ppeakW: 0, // computed by the store after parse (depends on configured load impedance)
+      ppeakW: 0 // computed by the store after parse (depends on configured load impedance)
     };
 
     return {
@@ -397,11 +500,16 @@ function parseChannelFromBuffer(
       delayOut: round2(raw.delayOut as number),
       invertedOut: (raw.invertedOut as number) !== 0,
       powerMode,
+      sourceTypeCode,
+      sourceType,
+      sourceDelay,
+      sourceTrim,
+      sourceInputs,
       rmsLimiter,
       peakLimiter,
       matrix,
       eqIn,
-      eqOut,
+      eqOut
     };
   } catch (err) {
     console.error(`Failed to parse channel ${channelNum}:`, err);

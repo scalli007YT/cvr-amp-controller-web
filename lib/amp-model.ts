@@ -28,7 +28,7 @@ const RATED_RMS_VOLTAGE: Record<string, number> = {
   "DSP-3002": 154.9,
   "DSP-3004": 154.9,
   "DSP-3302": 162.5,
-  "DSP-4302": 185.5,
+  "DSP-4302": 185.5
 };
 
 /** Fallback rated RMS voltage when model is unknown. */

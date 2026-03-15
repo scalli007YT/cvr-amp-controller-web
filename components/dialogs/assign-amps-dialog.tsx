@@ -12,13 +12,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogTrigger
 } from "@/components/ui/dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus, Wifi } from "lucide-react";
@@ -33,8 +29,7 @@ interface ScannedDevice {
 }
 
 export function AssignAmpsDialog() {
-  const { selectedProject, projects, addAmpToProject, deleteAmpFromProject } =
-    useProjectStore();
+  const { selectedProject, projects, addAmpToProject, deleteAmpFromProject } = useProjectStore();
   const { amps, getDisplayName } = useAmpStore();
   const [macInput, setMacInput] = useState("");
   const [open, setOpen] = useState(false);
@@ -60,9 +55,7 @@ export function AssignAmpsDialog() {
       await addAmpToProject(selectedProject.id, macInput);
       setMacInput("");
     } catch (error) {
-      alert(
-        `Error adding amp: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      alert(`Error adding amp: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsSaving(false);
     }
@@ -75,9 +68,7 @@ export function AssignAmpsDialog() {
       // Remove from scanned devices list after adding
       setScannedDevices(scannedDevices.filter((d) => d.mac !== mac));
     } catch (error) {
-      alert(
-        `Error adding amp: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      alert(`Error adding amp: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsSaving(false);
     }
@@ -88,9 +79,7 @@ export function AssignAmpsDialog() {
     try {
       await deleteAmpFromProject(selectedProject.id, mac);
     } catch (error) {
-      alert(
-        `Error deleting amp: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      alert(`Error deleting amp: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsSaving(false);
     }
@@ -110,11 +99,9 @@ export function AssignAmpsDialog() {
       const data = await response.json();
       if (data.devices && Array.isArray(data.devices)) {
         // Filter out already assigned devices
-        const assignedMacs = currentProject.assigned_amps.map((a) =>
-          a.mac.toUpperCase(),
-        );
+        const assignedMacs = currentProject.assigned_amps.map((a) => a.mac.toUpperCase());
         const unassignedDevices = data.devices.filter(
-          (d: ScannedDevice) => !assignedMacs.includes(d.mac.toUpperCase()),
+          (d: ScannedDevice) => !assignedMacs.includes(d.mac.toUpperCase())
         );
         setScannedDevices(unassignedDevices);
         if (unassignedDevices.length === 0) {
@@ -124,9 +111,7 @@ export function AssignAmpsDialog() {
         setScanError("Invalid response format");
       }
     } catch (error) {
-      setScanError(
-        `Scan error: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      setScanError(`Scan error: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsScanning(false);
     }
@@ -138,7 +123,7 @@ export function AssignAmpsDialog() {
 
   const totalAmps = currentProject.assigned_amps.length;
   const reachableAmps = currentProject.assigned_amps.filter(
-    (a) => amps.find((s) => s.mac === a.mac)?.reachable === true,
+    (a) => amps.find((s) => s.mac === a.mac)?.reachable === true
   ).length;
   const statusColor =
     totalAmps === 0
@@ -156,18 +141,14 @@ export function AssignAmpsDialog() {
           Manage Amps
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
             {reachableAmps}/{totalAmps}
-            <span
-              className={`inline-block w-2 h-2 rounded-full ${statusColor}`}
-            />
+            <span className={`inline-block w-2 h-2 rounded-full ${statusColor}`} />
           </span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Manage Assigned Amps</DialogTitle>
-          <DialogDescription>
-            Add or remove amplifiers from this project
-          </DialogDescription>
+          <DialogDescription>Add or remove amplifiers from this project</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -179,42 +160,28 @@ export function AssignAmpsDialog() {
                 {currentProject.assigned_amps.map((amp) => {
                   const ampInfo = amps.find((a) => a.mac === amp.mac);
                   return (
-                    <div
-                      key={amp.mac}
-                      className="flex items-center justify-between p-3 hover:bg-accent gap-3"
-                    >
+                    <div key={amp.mac} className="flex items-center justify-between p-3 hover:bg-accent gap-3">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <div className="flex items-center gap-3 flex-1 min-w-0 cursor-default">
                             {/* Reachability indicator */}
                             <div className="flex-shrink-0">
                               <div
-                                className={`h-3 w-3 rounded-full ${
-                                  ampInfo?.reachable
-                                    ? "bg-green-500"
-                                    : "bg-red-500"
-                                }`}
+                                className={`h-3 w-3 rounded-full ${ampInfo?.reachable ? "bg-green-500" : "bg-red-500"}`}
                               />
                             </div>
 
                             {/* Amp info */}
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold">
-                                {ampInfo
-                                  ? getDisplayName(ampInfo)
-                                  : "Unknown Amp"}
+                                {ampInfo ? getDisplayName(ampInfo) : "Unknown Amp"}
                               </p>
-                              <p className="text-xs text-muted-foreground font-mono">
-                                {amp.mac}
-                              </p>
+                              <p className="text-xs text-muted-foreground font-mono">{amp.mac}</p>
                             </div>
                           </div>
                         </TooltipTrigger>
                         <TooltipContent side="left">
-                          <p>
-                            Status:{" "}
-                            {ampInfo?.reachable ? "Reachable" : "Unreachable"}
-                          </p>
+                          <p>Status: {ampInfo?.reachable ? "Reachable" : "Unreachable"}</p>
                           <p>MAC: {amp.mac}</p>
                           <p>Name: {ampInfo ? getDisplayName(ampInfo) : "—"}</p>
                           <p>Version: {ampInfo?.version ?? "—"}</p>
@@ -242,9 +209,7 @@ export function AssignAmpsDialog() {
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                No amps assigned yet
-              </p>
+              <p className="text-sm text-muted-foreground py-4 text-center">No amps assigned yet</p>
             )}
           </div>
 
@@ -294,12 +259,7 @@ export function AssignAmpsDialog() {
                     className="font-mono text-sm"
                   />
                 </div>
-                <Button
-                  onClick={handleAddAmp}
-                  disabled={isSaving}
-                  className="w-full"
-                  size="sm"
-                >
+                <Button onClick={handleAddAmp} disabled={isSaving} className="w-full" size="sm">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Amp
                 </Button>
@@ -309,44 +269,25 @@ export function AssignAmpsDialog() {
             {/* Scan mode */}
             {mode === "scan" && (
               <div className="space-y-2">
-                <Button
-                  onClick={handleScan}
-                  disabled={isScanning || isSaving}
-                  className="w-full"
-                  size="sm"
-                >
+                <Button onClick={handleScan} disabled={isScanning || isSaving} className="w-full" size="sm">
                   <Wifi className="h-4 w-4 mr-2" />
                   {isScanning ? "Scanning..." : "Start Scan"}
                 </Button>
 
                 <p className="text-xs text-muted-foreground text-center italic">
-                  Note: Other devices may become unreachable for a few seconds
-                  during scanning.
+                  Note: Other devices may become unreachable for a few seconds during scanning.
                 </p>
 
-                {scanError && (
-                  <p className="text-xs text-destructive text-center">
-                    {scanError}
-                  </p>
-                )}
+                {scanError && <p className="text-xs text-destructive text-center">{scanError}</p>}
 
                 {scannedDevices.length > 0 && (
                   <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
                     {scannedDevices.map((device) => (
-                      <div
-                        key={device.mac}
-                        className="flex items-center justify-between p-3 hover:bg-accent"
-                      >
+                      <div key={device.mac} className="flex items-center justify-between p-3 hover:bg-accent">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold truncate">
-                            {device.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground font-mono">
-                            {device.mac}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {device.ip}
-                          </p>
+                          <p className="text-sm font-semibold truncate">{device.name}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{device.mac}</p>
+                          <p className="text-xs text-muted-foreground truncate">{device.ip}</p>
                         </div>
                         <Button
                           onClick={() => handleAddFromScan(device.mac)}

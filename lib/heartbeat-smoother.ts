@@ -45,8 +45,7 @@ class ChannelWindow {
   }
 }
 
-const channels = (n: number) =>
-  Array.from({ length: n }, () => new ChannelWindow());
+const channels = (n: number) => Array.from({ length: n }, () => new ChannelWindow());
 
 interface SensorWindows {
   temperatures: ChannelWindow[];
@@ -68,7 +67,7 @@ function makeWindows(): SensorWindows {
     inputVoltages: channels(4),
     limiters: channels(4),
     outputStates: channels(4),
-    fanVoltage: new ChannelWindow(),
+    fanVoltage: new ChannelWindow()
   };
 }
 
@@ -77,19 +76,14 @@ class MedianSmoother {
 
   smooth(raw: HeartbeatData, maxDb: number): HeartbeatData {
     const { w } = this;
-    const arr = (wins: ChannelWindow[], vals: number[]) =>
-      wins.map((win, i) => win.push(vals[i]) ?? vals[i]);
+    const arr = (wins: ChannelWindow[], vals: number[]) => wins.map((win, i) => win.push(vals[i]) ?? vals[i]);
 
     const outputVoltages = arr(w.outputVoltages, raw.outputVoltages);
-    const outputStates = arr(w.outputStates, raw.outputStates).map((v) =>
-      Math.round(v),
-    );
+    const outputStates = arr(w.outputStates, raw.outputStates).map((v) => Math.round(v));
 
     // Recompute outputDbu from the already-smoothed voltages so spike samples
     // in the raw packet never propagate to the VU targets.
-    const outputDbu = outputVoltages.map((v) =>
-      v > 0 ? Math.round((Math.log10(v) * 20 - maxDb) * 10) / 10 : -100,
-    );
+    const outputDbu = outputVoltages.map((v) => (v > 0 ? Math.round((Math.log10(v) * 20 - maxDb) * 10) / 10 : -100));
 
     return {
       // Discrete / state — pass through unchanged
@@ -109,7 +103,7 @@ class MedianSmoother {
 
       // outputDbu recomputed from smoothed voltages (not forwarded raw)
       outputDbu,
-      inputDbfs: raw.inputDbfs,
+      inputDbfs: raw.inputDbfs
     };
   }
 
@@ -174,7 +168,7 @@ class VuSmoother {
   tick(dt: number): VuState {
     return {
       outputDbu: this.out.map((ch) => ch.tick(dt)),
-      inputDbfs: this.ins.map((ch) => ch.tick(dt)),
+      inputDbfs: this.ins.map((ch) => ch.tick(dt))
     };
   }
 
@@ -196,11 +190,7 @@ const registry = new Map<string, SmootherPair>();
 function getPair(mac: string): SmootherPair {
   const key = mac.toUpperCase();
   let pair = registry.get(key);
-  if (!pair)
-    registry.set(
-      key,
-      (pair = { median: new MedianSmoother(), vu: new VuSmoother() }),
-    );
+  if (!pair) registry.set(key, (pair = { median: new MedianSmoother(), vu: new VuSmoother() }));
   return pair;
 }
 
@@ -213,11 +203,7 @@ function getPair(mac: string): SmootherPair {
  * relative output meter scale where 0 dB means rated/max RMS output.
  * Call on every incoming heartbeat.
  */
-export function smoothHeartbeat(
-  mac: string,
-  raw: HeartbeatData,
-  maxDb: number,
-): HeartbeatData {
+export function smoothHeartbeat(mac: string, raw: HeartbeatData, maxDb: number): HeartbeatData {
   const { median, vu } = getPair(mac);
   const smoothed = median.smooth(raw, maxDb);
   vu.setTargets(smoothed.outputDbu, smoothed.inputDbfs);

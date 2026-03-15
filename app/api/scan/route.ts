@@ -16,10 +16,7 @@ export async function GET() {
     }
 
     if (devices.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "No AMP devices found", devices: [] },
-        { status: 200 },
-      );
+      return NextResponse.json({ success: false, error: "No AMP devices found", devices: [] }, { status: 200 });
     }
 
     const foundDevices = devices.map((device) => ({
@@ -28,7 +25,7 @@ export async function GET() {
       name: device.name || "Unknown",
       deviceVersion: device.version || "Unknown",
       identifier: "Unknown",
-      runtime: "Unknown",
+      runtime: "Unknown"
     }));
 
     for (const [idx, device] of devices.entries()) {
@@ -42,14 +39,14 @@ export async function GET() {
           name: info.name,
           deviceVersion: info.deviceVersion,
           identifier: info.identifier,
-          runtime: info.runtime,
+          runtime: info.runtime
         };
       } catch (err) {
         // Keep device discovered via AmpController even if enrichment fails.
         console.warn(
           `[scan] Enrichment failed for ${device.mac} @ ${device.ip}: ${
             err instanceof Error ? err.message : String(err)
-          }`,
+          }`
         );
       }
     }
@@ -57,13 +54,10 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       devicesCount: foundDevices.length,
-      devices: foundDevices,
+      devices: foundDevices
     });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    return NextResponse.json(
-      { success: false, error: `Discovery failed: ${errorMsg}`, devices: [] },
-      { status: 500 },
-    );
+    return NextResponse.json({ success: false, error: `Discovery failed: ${errorMsg}`, devices: [] }, { status: 500 });
   }
 }

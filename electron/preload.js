@@ -9,7 +9,6 @@ contextBridge.exposeInMainWorld("electronWindow", {
   onMaximizedChange: (callback) => {
     const listener = (_event, maximized) => callback(Boolean(maximized));
     ipcRenderer.on("window:maximized-changed", listener);
-    return () =>
-      ipcRenderer.removeListener("window:maximized-changed", listener);
-  },
+    return () => ipcRenderer.removeListener("window:maximized-changed", listener);
+  }
 });

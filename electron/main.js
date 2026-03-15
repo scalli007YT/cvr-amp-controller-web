@@ -48,7 +48,7 @@ async function startServer() {
     dev: false,
     dir: appRoot,
     port: PORT,
-    hostname: "127.0.0.1",
+    hostname: "127.0.0.1"
   });
   const handle = nextApp.getRequestHandler();
 
@@ -79,16 +79,13 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, "preload.js"),
-    },
+      preload: path.join(__dirname, "preload.js")
+    }
   });
 
   const emitWindowState = () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
-    mainWindow.webContents.send(
-      "window:maximized-changed",
-      mainWindow.isMaximized(),
-    );
+    mainWindow.webContents.send("window:maximized-changed", mainWindow.isMaximized());
   };
 
   mainWindow.on("maximize", emitWindowState);
@@ -135,23 +132,20 @@ app.whenReady().then(() => {
 
   serverReady
     .then(async () => {
-      const url = isDev
-        ? `http://localhost:${PORT}`
-        : `http://127.0.0.1:${PORT}`;
+      const url = isDev ? `http://localhost:${PORT}` : `http://127.0.0.1:${PORT}`;
 
       if (!mainWindow || mainWindow.isDestroyed()) return;
 
       try {
         // Ask splash page to fade out before navigation.
         const fadeMs = await mainWindow.webContents.executeJavaScript(
-          "window.startFadeOut ? window.startFadeOut() : 0",
+          "window.startFadeOut ? window.startFadeOut() : 0"
         );
         setTimeout(
           () => {
-            if (mainWindow && !mainWindow.isDestroyed())
-              mainWindow.loadURL(url);
+            if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(url);
           },
-          Number(fadeMs) || 0,
+          Number(fadeMs) || 0
         );
       } catch {
         // If JS execution fails, fall back to immediate navigation.

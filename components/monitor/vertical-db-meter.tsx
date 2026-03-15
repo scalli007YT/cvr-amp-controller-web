@@ -1,11 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function VerticalDbMeter({
   value,
@@ -15,7 +11,7 @@ export function VerticalDbMeter({
   width = 24,
   height = 220,
   fillDirection = "bottom-up",
-  thresholdLines,
+  thresholdLines
 }: {
   value: number | null;
   dbTop: number;
@@ -26,10 +22,7 @@ export function VerticalDbMeter({
   fillDirection?: "bottom-up" | "top-down";
   thresholdLines?: { db: number; color: string; label?: string }[];
 }) {
-  const fill =
-    value === null || value < dbBottom
-      ? 0
-      : Math.min(1, (value - dbBottom) / (dbTop - dbBottom));
+  const fill = value === null || value < dbBottom ? 0 : Math.min(1, (value - dbBottom) / (dbTop - dbBottom));
 
   const dbRange = dbTop - dbBottom;
   const fillAnchor = fillDirection === "top-down" ? "top-0" : "bottom-0";
@@ -52,17 +45,11 @@ export function VerticalDbMeter({
           bottom: `calc(${pct * 100}% - 1px)`,
           height: 3,
           backgroundColor: color,
-          opacity: 0.85,
+          opacity: 0.85
         };
 
         if (!label) {
-          return (
-            <div
-              key={idx}
-              className="absolute left-0 right-0 pointer-events-none"
-              style={lineStyle}
-            />
-          );
+          return <div key={idx} className="absolute left-0 right-0 pointer-events-none" style={lineStyle} />;
         }
 
         return (
@@ -72,7 +59,7 @@ export function VerticalDbMeter({
                 className="absolute left-0 right-0 cursor-default"
                 style={{
                   bottom: `calc(${pct * 100}% - 5px)`,
-                  height: 10,
+                  height: 10
                 }}
               >
                 <div
@@ -81,7 +68,7 @@ export function VerticalDbMeter({
                     top: 3.5,
                     height: 3,
                     backgroundColor: color,
-                    opacity: 0.85,
+                    opacity: 0.85
                   }}
                 />
               </div>

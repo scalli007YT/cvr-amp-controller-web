@@ -616,7 +616,6 @@ class AmpController extends EventEmitter {
   // (mirrors NoClientDataSet / ClientDataSet switch in the original)
   // -------------------------------------------------------------------------
   private _dispatchFC(fc: number, body: Buffer, ip: string, machineMode: number, rawAssembled: Buffer): void {
-    console.log(fc, body.length);
     switch (fc) {
       // FC=0 BASIC_INFO — device replied to our discovery broadcast
       case FuncCode.BASIC_INFO: {

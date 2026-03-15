@@ -11,7 +11,7 @@ export interface AssignedAmpConstants {
 }
 
 export const DEFAULT_AMP_CONSTANTS: AssignedAmpConstants = {
-  channels: Array.from({ length: 4 }, () => ({ ohms: 8 })),
+  channels: Array.from({ length: 4 }, () => ({ ohms: 8 }))
 };
 
 export interface Project {
@@ -35,19 +35,11 @@ interface ProjectStore {
   setLoading: (loading: boolean) => void;
   selectProjectById: (id: string) => void;
   createProject: (name: string, description?: string) => Promise<Project>;
-  renameProject: (
-    id: string,
-    name: string,
-    description: string,
-  ) => Promise<void>;
+  renameProject: (id: string, name: string, description: string) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   addAmpToProject: (projectId: string, mac: string) => Promise<void>;
   deleteAmpFromProject: (projectId: string, mac: string) => Promise<void>;
-  updateAmpChannelOhms: (
-    mac: string,
-    channelIndex: number,
-    ohms: number,
-  ) => Promise<void>;
+  updateAmpChannelOhms: (mac: string, channelIndex: number, ohms: number) => Promise<void>;
 }
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -64,7 +56,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const configs = project.assigned_amps.map((amp) => ({
         mac: amp.mac,
         id: amp.id,
-        constants: amp.constants,
+        constants: amp.constants
       }));
       useAmpStore.getState().seedAmps(configs);
     } else {
@@ -85,7 +77,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const response = await fetch("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, description }),
+      body: JSON.stringify({ name, description })
     });
 
     const data = await response.json();
@@ -108,15 +100,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
     set({
       projects: projects.map((p) => (p.id === id ? updatedProject : p)),
-      ...(selectedProject?.id === id
-        ? { selectedProject: updatedProject }
-        : {}),
+      ...(selectedProject?.id === id ? { selectedProject: updatedProject } : {})
     });
 
     await fetch("/api/projects", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedProject),
+      body: JSON.stringify(updatedProject)
     });
   },
 
@@ -131,7 +121,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
 
     await fetch(`/api/projects?id=${encodeURIComponent(id)}`, {
-      method: "DELETE",
+      method: "DELETE"
     });
   },
 
@@ -144,11 +134,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
 
     // Check if already exists
-    if (
-      project.assigned_amps.some(
-        (amp) => amp.mac.toUpperCase() === mac.toUpperCase(),
-      )
-    ) {
+    if (project.assigned_amps.some((amp) => amp.mac.toUpperCase() === mac.toUpperCase())) {
       throw new Error("This MAC address is already assigned");
     }
 
@@ -160,14 +146,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         {
           id: uuidv4(),
           mac: mac.toUpperCase(),
-          constants: DEFAULT_AMP_CONSTANTS,
-        },
-      ],
+          constants: DEFAULT_AMP_CONSTANTS
+        }
+      ]
     };
 
-    const updatedProjects = projects.map((p) =>
-      p.id === projectId ? updatedProject : p,
-    );
+    const updatedProjects = projects.map((p) => (p.id === projectId ? updatedProject : p));
 
     set({ projects: updatedProjects });
 
@@ -178,7 +162,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const configs = updatedProject.assigned_amps.map((amp) => ({
         mac: amp.mac,
         id: amp.id,
-        constants: amp.constants,
+        constants: amp.constants
       }));
       useAmpStore.getState().seedAmps(configs);
     }
@@ -187,7 +171,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await fetch("/api/projects", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedProject),
+      body: JSON.stringify(updatedProject)
     });
   },
 
@@ -202,12 +186,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // Update local state
     const updatedProject: Project = {
       ...project,
-      assigned_amps: project.assigned_amps.filter((a) => a.mac !== mac),
+      assigned_amps: project.assigned_amps.filter((a) => a.mac !== mac)
     };
 
-    const updatedProjects = projects.map((p) =>
-      p.id === projectId ? updatedProject : p,
-    );
+    const updatedProjects = projects.map((p) => (p.id === projectId ? updatedProject : p));
 
     set({ projects: updatedProjects });
 
@@ -218,7 +200,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const configs = updatedProject.assigned_amps.map((amp) => ({
         mac: amp.mac,
         id: amp.id,
-        constants: amp.constants,
+        constants: amp.constants
       }));
       useAmpStore.getState().seedAmps(configs);
     }
@@ -227,7 +209,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await fetch("/api/projects", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedProject),
+      body: JSON.stringify(updatedProject)
     });
   },
 
@@ -242,19 +224,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         return {
           ...amp,
           constants: {
-            channels: amp.constants.channels.map((ch, i) =>
-              i === channelIndex ? { ...ch, ohms } : ch,
-            ),
-          },
+            channels: amp.constants.channels.map((ch, i) => (i === channelIndex ? { ...ch, ohms } : ch))
+          }
         };
-      }),
+      })
     };
 
     set({
-      projects: projects.map((p) =>
-        p.id === selectedProject.id ? updatedProject : p,
-      ),
-      selectedProject: updatedProject,
+      projects: projects.map((p) => (p.id === selectedProject.id ? updatedProject : p)),
+      selectedProject: updatedProject
     });
 
     // Reflect in AmpStore so next syncChannelParams uses updated ohms
@@ -263,7 +241,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await fetch("/api/projects", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedProject),
+      body: JSON.stringify(updatedProject)
     });
-  },
+  }
 }));

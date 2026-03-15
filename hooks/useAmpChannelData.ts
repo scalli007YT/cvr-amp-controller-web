@@ -43,10 +43,7 @@ export function useAmpChannelData(): void {
               }
             })
             .catch((err) => {
-              console.error(
-                `[useAmpChannelData] Error fetching data for ${amp.mac}:`,
-                err,
-              );
+              console.error(`[useAmpChannelData] Error fetching data for ${amp.mac}:`, err);
             })
             .finally(() => {
               inFlightMacs.delete(amp.mac);

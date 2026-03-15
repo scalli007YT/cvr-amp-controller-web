@@ -18,7 +18,7 @@ const buttonVariants = cva(
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive focus-visible:border-destructive focus-visible:ring-destructive dark:bg-destructive dark:hover:bg-destructive dark:focus-visible:ring-destructive",
-        link: "text-primary underline-offset-4 hover:underline",
+        link: "text-primary underline-offset-4 hover:underline"
       },
       size: {
         default:
@@ -29,16 +29,15 @@ const buttonVariants = cva(
         icon: "size-9",
         "icon-xs":
           "size-6 rounded-[min(var(--radius-md),8px)] in-data-[slot=button-group]:rounded-md [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm":
-          "size-8 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-md",
-        "icon-lg": "size-10",
-      },
+        "icon-sm": "size-8 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-md",
+        "icon-lg": "size-10"
+      }
     },
     defaultVariants: {
       variant: "default",
-      size: "default",
-    },
-  },
+      size: "default"
+    }
+  }
 );
 
 function Button({
