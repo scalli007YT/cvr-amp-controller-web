@@ -25,8 +25,7 @@ export function useVuMeters(mac: string | null): VuState | null {
     let rafId: number;
 
     const frame = (now: number) => {
-      const dt =
-        lastRef.current !== null ? now - lastRef.current : DEFAULT_DT_MS;
+      const dt = lastRef.current !== null ? now - lastRef.current : DEFAULT_DT_MS;
       lastRef.current = now;
       setState(tickVuMeters(mac, dt));
       rafId = requestAnimationFrame(frame);

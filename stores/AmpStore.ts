@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { limiterPowerFromLoad } from "@/lib/generic";
+import type { SourceCapabilities } from "@/lib/source-capabilities";
 
 export interface AmpChannelConstants {
   ohms: number;
@@ -112,6 +113,14 @@ export interface MatrixSource {
   active: boolean;
 }
 
+export interface ChannelInputSource {
+  key: "analog" | "dante" | "aes3" | "backup";
+  type: string;
+  delay: number;
+  trim: number;
+  selected: boolean;
+}
+
 export interface EqBand {
   type: number;
   gain: number;
@@ -139,6 +148,16 @@ export interface ChannelParam {
   invertedOut: boolean; // true = polarity flipped
   /** Raw dzdy/CPCR mode byte from FC=27. Observed: 0=Low-Z 1=70V 2=100V. */
   powerMode: number;
+  /** Raw source selector byte (0=Analog, 1=Dante, 2=AES3, 3=Backup on compatible models). */
+  sourceTypeCode: number;
+  /** Selected source label, e.g. Analog-1 / Dante-2 / AES3-1 / Backup. */
+  sourceType: string;
+  /** Delay value of the currently selected source. */
+  sourceDelay: number;
+  /** Trim value of the currently selected source. */
+  sourceTrim: number;
+  /** Per-source values (type/delay/trim) for this channel. */
+  sourceInputs: ChannelInputSource[];
   rmsLimiter: {
     enabled: boolean;
     thresholdVrms: number;
@@ -185,6 +204,8 @@ export interface AmpStatus {
   output_chx?: number;
   machine_state?: number;
   gain_max?: number;
+  /** Derived source-capability state used to gray-out unsupported options. */
+  sourceCapabilities?: SourceCapabilities;
   /**
    * Rated output RMS voltage (V) looked up from the device name.
    * e.g. DSP-2004 → 126.5 V. Set on first heartbeat.
@@ -241,11 +262,7 @@ interface AmpStore {
   /** Merge live status fields into an existing amp. */
   updateAmpStatus: (mac: string, status: Partial<AmpStatus>) => void;
   /** Write the latest heartbeat sensor payload for an amp. */
-  updateHeartbeat: (
-    mac: string,
-    heartbeat: HeartbeatData,
-    bridgePairs?: BridgeReadback[],
-  ) => void;
+  updateHeartbeat: (mac: string, heartbeat: HeartbeatData, bridgePairs?: BridgeReadback[]) => void;
   /** Sync parsed channel data into ChannelParams for structured access. */
   syncChannelParams: (mac: string, channels: ChannelParam[]) => void;
 
@@ -254,11 +271,7 @@ interface AmpStore {
   setPresets: (mac: string, presets: AmpPreset[]) => void;
 
   /** Update a single channel's ohm constant in-memory (called by ProjectStore after persist). */
-  updateAmpChannelOhms: (
-    mac: string,
-    channelIndex: number,
-    ohms: number,
-  ) => void;
+  updateAmpChannelOhms: (mac: string, channelIndex: number, ohms: number) => void;
 
   // — Selectors —
   getDisplayName: (amp: Amp) => string;
@@ -304,7 +317,7 @@ function getOutputStateLabel(state: number): string {
 function deriveChannelFlags(
   heartbeat?: HeartbeatData,
   channelParams?: ChannelParams,
-  bridgePairs?: BridgeReadback[],
+  bridgePairs?: BridgeReadback[]
 ): ChannelFlags[] | undefined {
   if (!heartbeat) return undefined;
 
@@ -334,7 +347,7 @@ function deriveChannelFlags(
       sleep: rawState === 11,
       load: current > 0 && impedance > 0,
       hiZ: powerMode > 0,
-      bridged: bridgeReadback?.bridged ?? null,
+      bridged: bridgeReadback?.bridged ?? null
     };
   });
 }
@@ -346,14 +359,10 @@ export const useAmpStore = create<AmpStore>((set) => ({
 
   seedAmp: (config) =>
     set((state) => ({
-      amps: [
-        ...state.amps.filter((a) => a.mac !== config.mac),
-        makeAmp(config),
-      ],
+      amps: [...state.amps.filter((a) => a.mac !== config.mac), makeAmp(config)]
     })),
 
-  removeAmp: (mac) =>
-    set((state) => ({ amps: state.amps.filter((a) => a.mac !== mac) })),
+  removeAmp: (mac) => set((state) => ({ amps: state.amps.filter((a) => a.mac !== mac) })),
 
   clearAmps: () => set({ amps: [] }),
 
@@ -367,14 +376,12 @@ export const useAmpStore = create<AmpStore>((set) => ({
           updated.lastKnownName = status.name;
         }
         return updated;
-      }),
+      })
     })),
 
   setPresets: (mac, presets) =>
     set((state) => ({
-      amps: state.amps.map((amp) =>
-        amp.mac === mac ? { ...amp, presets } : amp,
-      ),
+      amps: state.amps.map((amp) => (amp.mac === mac ? { ...amp, presets } : amp))
     })),
 
   updateHeartbeat: (mac, heartbeat, bridgePairs) =>
@@ -385,14 +392,10 @@ export const useAmpStore = create<AmpStore>((set) => ({
               ...amp,
               heartbeat,
               bridgePairs: bridgePairs ?? amp.bridgePairs,
-              channelFlags: deriveChannelFlags(
-                heartbeat,
-                amp.channelParams,
-                bridgePairs ?? amp.bridgePairs,
-              ),
+              channelFlags: deriveChannelFlags(heartbeat, amp.channelParams, bridgePairs ?? amp.bridgePairs)
             }
-          : amp,
-      ),
+          : amp
+      )
     })),
 
   syncChannelParams: (mac, channels) =>
@@ -405,7 +408,7 @@ export const useAmpStore = create<AmpStore>((set) => ({
             const { prmsW, ppeakW } = limiterPowerFromLoad(
               ch.rmsLimiter.thresholdVrms,
               ch.peakLimiter.thresholdVp,
-              loadOhm,
+              loadOhm
             );
             return {
               channel: ch.channel,
@@ -421,38 +424,36 @@ export const useAmpStore = create<AmpStore>((set) => ({
               delayOut: ch.delayOut,
               invertedOut: ch.invertedOut,
               powerMode: ch.powerMode,
+              sourceTypeCode: ch.sourceTypeCode,
+              sourceType: ch.sourceType,
+              sourceDelay: ch.sourceDelay,
+              sourceTrim: ch.sourceTrim,
+              sourceInputs: ch.sourceInputs,
               rmsLimiter: { ...ch.rmsLimiter, prmsW },
               peakLimiter: { ...ch.peakLimiter, ppeakW },
               matrix: ch.matrix,
               eqIn: ch.eqIn,
-              eqOut: ch.eqOut,
+              eqOut: ch.eqOut
             };
-          }),
+          })
         };
 
         return {
           ...amp,
           channelParams: nextChannelParams,
-          channelFlags: deriveChannelFlags(
-            amp.heartbeat,
-            nextChannelParams,
-            amp.bridgePairs,
-          ),
+          channelFlags: deriveChannelFlags(amp.heartbeat, nextChannelParams, amp.bridgePairs)
         };
-      }),
+      })
     })),
 
   updateAmpChannelOhms: (mac, channelIndex, ohms) =>
     set((state) => ({
       amps: state.amps.map((amp) => {
         if (amp.mac !== mac) return amp;
-        const channels = amp.constants.channels.map((ch, i) =>
-          i === channelIndex ? { ...ch, ohms } : ch,
-        );
+        const channels = amp.constants.channels.map((ch, i) => (i === channelIndex ? { ...ch, ohms } : ch));
         return { ...amp, constants: { channels } };
-      }),
+      })
     })),
 
-  getDisplayName: (amp) =>
-    amp.name ?? amp.lastKnownName ?? amp.customName ?? "Unknown Amp",
+  getDisplayName: (amp) => amp.name ?? amp.lastKnownName ?? amp.customName ?? "Unknown Amp"
 }));

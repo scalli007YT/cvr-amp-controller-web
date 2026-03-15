@@ -1,27 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import type {
-  HeartbeatData,
-  ChannelParams,
-  BridgeReadback,
-} from "@/stores/AmpStore";
+import type { HeartbeatData, ChannelParams, BridgeReadback } from "@/stores/AmpStore";
 import { useAmpActions } from "@/hooks/useAmpActions";
 import { useVuMeters } from "@/hooks/useVuMeters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { ConfirmActionDialog } from "@/components/dialogs/confirm-action-dialog";
@@ -39,7 +31,7 @@ function DelayPopover({
   delayMs,
   maxMs,
   label,
-  onSet,
+  onSet
 }: {
   delayMs: number | undefined;
   maxMs: number;
@@ -51,11 +43,7 @@ function DelayPopover({
 
   const handleOpen = (next: boolean) => {
     if (next) {
-      setInputVal(
-        delayMs !== undefined
-          ? delayMs.toLocaleString("en-US", { maximumFractionDigits: 1 })
-          : "0",
-      );
+      setInputVal(delayMs !== undefined ? delayMs.toLocaleString("en-US", { maximumFractionDigits: 1 }) : "0");
     }
     setOpen(next);
   };
@@ -86,17 +74,13 @@ function DelayPopover({
           >
             {delayMs !== undefined ? delayMs.toFixed(1) : "~"}
           </span>
-          <span className="text-[9px] text-muted-foreground mt-0.5">
-            {label}
-          </span>
+          <span className="text-[9px] text-muted-foreground mt-0.5">{label}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-44 p-0" side="right" align="center">
         <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
           <span className="text-xs font-semibold">Delay</span>
-          <span className="text-[10px] text-muted-foreground">
-            0 - {maxMs} ms
-          </span>
+          <span className="text-[10px] text-muted-foreground">0 - {maxMs} ms</span>
         </div>
         <div className="px-3 py-3 space-y-2">
           <div className="flex items-center gap-1.5">
@@ -114,20 +98,13 @@ function DelayPopover({
               }}
               className="h-8 text-sm font-mono tabular-nums"
             />
-            <span className="text-xs text-muted-foreground shrink-0 w-5">
-              ms
-            </span>
+            <span className="text-xs text-muted-foreground shrink-0 w-5">ms</span>
           </div>
           <div className="flex gap-1.5">
             <Button size="sm" className="flex-1 h-7 text-xs" onClick={commit}>
               Set
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="flex-1 h-7 text-xs"
-              onClick={() => setOpen(false)}
-            >
+            <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => setOpen(false)}>
               Cancel
             </Button>
           </div>
@@ -140,7 +117,7 @@ function DelayPopover({
 function VolumePopover({
   volumeDb,
   label,
-  onSet,
+  onSet
 }: {
   volumeDb: number | undefined;
   label: string;
@@ -151,11 +128,7 @@ function VolumePopover({
 
   const handleOpen = (next: boolean) => {
     if (next) {
-      setInputVal(
-        volumeDb !== undefined
-          ? volumeDb.toLocaleString("en-US", { maximumFractionDigits: 1 })
-          : "0",
-      );
+      setInputVal(volumeDb !== undefined ? volumeDb.toLocaleString("en-US", { maximumFractionDigits: 1 }) : "0");
     }
     setOpen(next);
   };
@@ -202,20 +175,13 @@ function VolumePopover({
               }}
               className="h-8 text-sm font-mono tabular-nums"
             />
-            <span className="text-xs text-muted-foreground shrink-0 w-5">
-              dB
-            </span>
+            <span className="text-xs text-muted-foreground shrink-0 w-5">dB</span>
           </div>
           <div className="flex gap-1.5">
             <Button size="sm" className="flex-1 h-7 text-xs" onClick={commit}>
               Set
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="flex-1 h-7 text-xs"
-              onClick={() => setOpen(false)}
-            >
+            <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => setOpen(false)}>
               Cancel
             </Button>
           </div>
@@ -228,7 +194,7 @@ function VolumePopover({
 function PowerModePill({
   mode,
   channelLabel,
-  onConfirm,
+  onConfirm
 }: {
   mode: number | undefined;
   channelLabel: string;
@@ -280,10 +246,7 @@ function PowerModePill({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="center" className="w-44">
           <DropdownMenuLabel>Output Power Mode</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={String(currentMode)}
-            onValueChange={requestModeChange}
-          >
+          <DropdownMenuRadioGroup value={String(currentMode)} onValueChange={requestModeChange}>
             {POWER_MODE_OPTIONS.map((option) => (
               <DropdownMenuRadioItem key={option} value={String(option)}>
                 {getPowerModeName(option)}
@@ -313,25 +276,11 @@ const IN_DB_TOP = 0;
 const IN_DB_BOT = -60;
 const IN_SCALE = [0, -12, -24, -36, -48, -60];
 
-function ScaleColumn({
-  ticks,
-  height = 220,
-  width = 24,
-}: {
-  ticks: number[];
-  height?: number;
-  width?: number;
-}) {
+function ScaleColumn({ ticks, height = 220, width = 24 }: { ticks: number[]; height?: number; width?: number }) {
   return (
-    <div
-      className="flex-shrink-0 flex flex-col justify-between"
-      style={{ width, height }}
-    >
+    <div className="flex-shrink-0 flex flex-col justify-between" style={{ width, height }}>
       {ticks.map((t) => (
-        <span
-          key={t}
-          className="text-[9px] text-foreground/65 leading-none text-right pr-1 block"
-        >
+        <span key={t} className="text-[9px] text-foreground/65 leading-none text-right pr-1 block">
           {t}
         </span>
       ))}
@@ -344,7 +293,7 @@ export function HeartbeatDashboard({
   mac,
   ratedRmsV,
   channelParams,
-  bridgePairs,
+  bridgePairs
 }: {
   hb: HeartbeatData;
   mac: string;
@@ -365,7 +314,7 @@ export function HeartbeatDashboard({
     setVolumeIn,
     setDelayIn,
     setDelayOut,
-    setPowerModeOut,
+    setPowerModeOut
   } = useAmpActions();
 
   const vuOutputDbu = vu?.outputDbu ?? hb.outputDbu.map(() => null);
@@ -380,23 +329,13 @@ export function HeartbeatDashboard({
   const outputPairCount = Math.ceil(CH_LABELS.length / 2);
   const [bridgeConfirmOpen, setBridgeConfirmOpen] = useState(false);
   const [bridgeBusy, setBridgeBusy] = useState(false);
-  const [pendingBridgePair, setPendingBridgePair] = useState<BridgePair | null>(
-    null,
-  );
-  const [pendingBridgeNext, setPendingBridgeNext] = useState<boolean | null>(
-    null,
-  );
+  const [pendingBridgePair, setPendingBridgePair] = useState<BridgePair | null>(null);
+  const [pendingBridgeNext, setPendingBridgeNext] = useState<boolean | null>(null);
 
-  const pairBridgeState = (pair: number) =>
-    bridgePairs?.[pair]?.bridged ?? null;
+  const pairBridgeState = (pair: number) => bridgePairs?.[pair]?.bridged ?? null;
 
   const effectivePairBridgeState = (pair: number) => {
-    if (
-      bridgeBusy &&
-      pendingBridgePair !== null &&
-      pendingBridgeNext !== null &&
-      pendingBridgePair === pair
-    ) {
+    if (bridgeBusy && pendingBridgePair !== null && pendingBridgeNext !== null && pendingBridgePair === pair) {
       return pendingBridgeNext;
     }
 
@@ -451,10 +390,7 @@ export function HeartbeatDashboard({
           </h3>
           <div className="flex flex-1 items-center justify-center overflow-auto">
             <div className="flex gap-3 items-start">
-              <div
-                className="flex flex-col items-end flex-shrink-0"
-                style={{ width: 28 }}
-              >
+              <div className="flex flex-col items-end flex-shrink-0" style={{ width: 28 }}>
                 <div style={{ height: LABEL_H + 4 }} />
                 <ScaleColumn ticks={IN_SCALE} height={METER_H} width={28} />
               </div>
@@ -464,11 +400,7 @@ export function HeartbeatDashboard({
                   const hasSignal = hb.inputStates[i] === 0;
                   const isClip = dbfsVal !== null && dbfsVal > -1;
                   return (
-                    <div
-                      key={i}
-                      className="flex flex-col items-center gap-0"
-                      style={{ width: COL_W }}
-                    >
+                    <div key={i} className="flex flex-col items-center gap-0" style={{ width: COL_W }}>
                       <div
                         className={`rounded border px-1 text-[11px] font-semibold text-center w-full mb-1 ${
                           hasSignal
@@ -477,7 +409,7 @@ export function HeartbeatDashboard({
                         }`}
                         style={{
                           height: LABEL_H,
-                          lineHeight: `${LABEL_H - 2}px`,
+                          lineHeight: `${LABEL_H - 2}px`
                         }}
                       >
                         In{i + 1}
@@ -501,32 +433,24 @@ export function HeartbeatDashboard({
                           <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
                             {formatDbfs(dbfsVal)}
                           </span>
-                          <span className="text-[9px] text-foreground/65 mt-0.5">
-                            dBFS
-                          </span>
+                          <span className="text-[9px] text-foreground/65 mt-0.5">dBFS</span>
                         </div>
                         <VolumePopover
                           volumeDb={channelParams?.channels[i]?.volumeIn}
                           label="Vol dB"
-                          onSet={(db) =>
-                            setVolumeIn(mac, i as 0 | 1 | 2 | 3, db)
-                          }
+                          onSet={(db) => setVolumeIn(mac, i as 0 | 1 | 2 | 3, db)}
                         />
                         <div className="flex flex-col items-center rounded border border-border/60 bg-muted/30 px-1.5 py-1">
                           <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
                             {channelParams?.channels[i]?.gainIn ?? "~"}
                           </span>
-                          <span className="text-[9px] text-foreground/65 mt-0.5">
-                            Gain dB
-                          </span>
+                          <span className="text-[9px] text-foreground/65 mt-0.5">Gain dB</span>
                         </div>
                         <DelayPopover
                           delayMs={channelParams?.channels[i]?.delayIn}
                           maxMs={100}
                           label="ms in"
-                          onSet={(ms) =>
-                            setDelayIn(mac, i as 0 | 1 | 2 | 3, ms)
-                          }
+                          onSet={(ms) => setDelayIn(mac, i as 0 | 1 | 2 | 3, ms)}
                         />
                         {(() => {
                           const muted = channelParams?.channels[i]?.muteIn;
@@ -535,10 +459,7 @@ export function HeartbeatDashboard({
                             <Button
                               disabled={!canClick}
                               size="sm"
-                              onClick={() =>
-                                canClick &&
-                                void muteIn(mac, i as 0 | 1 | 2 | 3, !muted)
-                              }
+                              onClick={() => canClick && void muteIn(mac, i as 0 | 1 | 2 | 3, !muted)}
                               className={`w-full h-auto py-1 text-[11px] font-semibold transition-colors ${
                                 muted === true
                                   ? "border-orange-500/60 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 hover:text-orange-400"
@@ -580,53 +501,37 @@ export function HeartbeatDashboard({
               <div className="flex gap-3 items-start">
                 <div style={{ width: 32 }} />
                 <div className="flex gap-3 items-start">
-                  {Array.from({ length: outputPairCount }).map(
-                    (_, pairIndex) => {
-                      const firstChannel = pairIndex * 2;
-                      const secondChannel = firstChannel + 1;
-                      const state = effectivePairBridgeState(pairIndex);
-                      const statusLabel =
-                        state === true
-                          ? "Bridge ON"
-                          : state === false
-                            ? "Bridge OFF"
-                            : "Bridge ?";
+                  {Array.from({ length: outputPairCount }).map((_, pairIndex) => {
+                    const firstChannel = pairIndex * 2;
+                    const secondChannel = firstChannel + 1;
+                    const state = effectivePairBridgeState(pairIndex);
+                    const statusLabel = state === true ? "Bridge ON" : state === false ? "Bridge OFF" : "Bridge ?";
 
-                      return (
-                        <Button
-                          key={pairIndex}
-                          type="button"
-                          variant="outline"
-                          disabled={state === null || bridgeBusy}
-                          onClick={() => requestBridgeToggle(pairIndex)}
-                          className={`h-auto py-1 text-[10px] font-semibold transition-colors ${
-                            state === true
-                              ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-500"
-                              : "border-border/50 bg-muted/20 text-muted-foreground"
-                          }`}
-                          style={{ width: pairWidth }}
-                        >
-                          {CH_LABELS[firstChannel]} / {CH_LABELS[secondChannel]}{" "}
-                          - {statusLabel}
-                        </Button>
-                      );
-                    },
-                  )}
+                    return (
+                      <Button
+                        key={pairIndex}
+                        type="button"
+                        variant="outline"
+                        disabled={state === null || bridgeBusy}
+                        onClick={() => requestBridgeToggle(pairIndex)}
+                        className={`h-auto py-1 text-[10px] font-semibold transition-colors ${
+                          state === true
+                            ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-500"
+                            : "border-border/50 bg-muted/20 text-muted-foreground"
+                        }`}
+                        style={{ width: pairWidth }}
+                      >
+                        {CH_LABELS[firstChannel]} / {CH_LABELS[secondChannel]} - {statusLabel}
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
 
               <div className="flex gap-3 items-start">
-                <div
-                  className="flex flex-col items-end flex-shrink-0"
-                  style={{ width: 32 }}
-                >
-                  <div
-                    className="flex items-end justify-end pr-1 w-full"
-                    style={{ height: LABEL_H, marginBottom: 4 }}
-                  >
-                    <span className="text-[9px] text-muted-foreground leading-none">
-                      dB
-                    </span>
+                <div className="flex flex-col items-end flex-shrink-0" style={{ width: 32 }}>
+                  <div className="flex items-end justify-end pr-1 w-full" style={{ height: LABEL_H, marginBottom: 4 }}>
+                    <span className="text-[9px] text-muted-foreground leading-none">dB</span>
                   </div>
                   <ScaleColumn ticks={OUT_SCALE} height={METER_H} width={32} />
                 </div>
@@ -640,10 +545,7 @@ export function HeartbeatDashboard({
                   const isClip = st === 5;
                   const isActive = st === 0 || st === 8;
                   const isDisabledByBridge = isBridgedSecondColumn(i);
-                  const dbuVal =
-                    dbu === null || dbu <= OUT_DB_BOT
-                      ? null
-                      : Math.min(dbu, OUT_DB_TOP);
+                  const dbuVal = dbu === null || dbu <= OUT_DB_BOT ? null : Math.min(dbu, OUT_DB_TOP);
 
                   const chParam = channelParams?.channels[i];
                   const thresholdLines: {
@@ -653,29 +555,23 @@ export function HeartbeatDashboard({
                   }[] = [];
 
                   if (chParam?.rmsLimiter.enabled) {
-                    const d = voltageToMeterDb(
-                      chParam.rmsLimiter.thresholdVrms,
-                      ratedRmsV,
-                    );
+                    const d = voltageToMeterDb(chParam.rmsLimiter.thresholdVrms, ratedRmsV);
                     if (d !== null) {
                       thresholdLines.push({
                         db: d,
                         color: COLORS.RMS_LIMITER,
-                        label: `RMS ${chParam.rmsLimiter.thresholdVrms.toFixed(2)} Vrms - ${chParam.rmsLimiter.prmsW} W (${d.toFixed(1)} dB)`,
+                        label: `RMS ${chParam.rmsLimiter.thresholdVrms.toFixed(2)} Vrms - ${chParam.rmsLimiter.prmsW} W (${d.toFixed(1)} dB)`
                       });
                     }
                   }
 
                   if (chParam?.peakLimiter.enabled) {
-                    const d = voltageToMeterDb(
-                      chParam.peakLimiter.thresholdVp,
-                      rmsToPeakVoltage(ratedRmsV),
-                    );
+                    const d = voltageToMeterDb(chParam.peakLimiter.thresholdVp, rmsToPeakVoltage(ratedRmsV));
                     if (d !== null) {
                       thresholdLines.push({
                         db: d,
                         color: COLORS.PEAK_LIMITER,
-                        label: `Peak ${chParam.peakLimiter.thresholdVp.toFixed(2)} Vp - ${chParam.peakLimiter.ppeakW} W (${d.toFixed(1)} dB)`,
+                        label: `Peak ${chParam.peakLimiter.thresholdVp.toFixed(2)} Vp - ${chParam.peakLimiter.ppeakW} W (${d.toFixed(1)} dB)`
                       });
                     }
                   }
@@ -685,9 +581,7 @@ export function HeartbeatDashboard({
                       key={i}
                       aria-disabled={isDisabledByBridge}
                       className={`flex flex-col items-center gap-0 ${
-                        isDisabledByBridge
-                          ? "opacity-45 pointer-events-none grayscale"
-                          : ""
+                        isDisabledByBridge ? "opacity-45 pointer-events-none grayscale" : ""
                       }`}
                       style={{ width: COL_W }}
                     >
@@ -699,7 +593,7 @@ export function HeartbeatDashboard({
                         }`}
                         style={{
                           height: LABEL_H,
-                          lineHeight: `${LABEL_H - 2}px`,
+                          lineHeight: `${LABEL_H - 2}px`
                         }}
                       >
                         Out{ch}
@@ -715,9 +609,7 @@ export function HeartbeatDashboard({
                       />
                       <div
                         className={`mt-1 rounded px-1 py-0.5 text-[9px] font-semibold w-full text-center ${
-                          isClip
-                            ? "bg-red-500 text-white"
-                            : "bg-muted/30 text-muted-foreground/60"
+                          isClip ? "bg-red-500 text-white" : "bg-muted/30 text-muted-foreground/60"
                         }`}
                       >
                         Clip
@@ -729,9 +621,7 @@ export function HeartbeatDashboard({
                           <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
                             {v > 0.01 ? f1(v) : "0"}
                           </span>
-                          <span className="text-[9px] text-foreground/65 mt-0.5">
-                            V
-                          </span>
+                          <span className="text-[9px] text-foreground/65 mt-0.5">V</span>
                         </div>
                         <div
                           className={`flex flex-col items-center rounded border border-border/60 bg-muted/30 px-1.5 py-1 ${a <= 0.001 ? "opacity-40" : ""}`}
@@ -739,9 +629,7 @@ export function HeartbeatDashboard({
                           <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
                             {a > 0.001 ? f1(a) : "0"}
                           </span>
-                          <span className="text-[9px] text-foreground/65 mt-0.5">
-                            A
-                          </span>
+                          <span className="text-[9px] text-foreground/65 mt-0.5">A</span>
                         </div>
                         <div className="flex flex-col items-center rounded border border-border/60 bg-muted/30 px-1.5 py-1">
                           <span
@@ -749,24 +637,18 @@ export function HeartbeatDashboard({
                           >
                             {f0(temp)}
                           </span>
-                          <span className="text-[9px] text-foreground/65 mt-0.5">
-                            °C
-                          </span>
+                          <span className="text-[9px] text-foreground/65 mt-0.5">°C</span>
                         </div>
                         <DelayPopover
                           delayMs={channelParams?.channels[i]?.delayOut}
                           maxMs={20}
                           label="ms out"
-                          onSet={(ms) =>
-                            setDelayOut(mac, i as 0 | 1 | 2 | 3, ms)
-                          }
+                          onSet={(ms) => setDelayOut(mac, i as 0 | 1 | 2 | 3, ms)}
                         />
                         <PowerModePill
                           mode={channelParams?.channels[i]?.powerMode}
                           channelLabel={`Out${CH_LABELS[i]}`}
-                          onConfirm={(mode) =>
-                            setPowerModeOut(mac, i as 0 | 1 | 2 | 3, mode)
-                          }
+                          onConfirm={(mode) => setPowerModeOut(mac, i as 0 | 1 | 2 | 3, mode)}
                         />
                         {(() => {
                           const muted = channelParams?.channels[i]?.muteOut;
@@ -775,10 +657,7 @@ export function HeartbeatDashboard({
                             <Button
                               disabled={!canClick}
                               size="sm"
-                              onClick={() =>
-                                canClick &&
-                                void muteOut(mac, i as 0 | 1 | 2 | 3, !muted)
-                              }
+                              onClick={() => canClick && void muteOut(mac, i as 0 | 1 | 2 | 3, !muted)}
                               className={`w-full h-auto py-1 text-[11px] font-semibold transition-colors ${
                                 muted === true
                                   ? "border-orange-500/60 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 hover:text-orange-400"
@@ -800,10 +679,7 @@ export function HeartbeatDashboard({
                               disabled={!canClick}
                               size="sm"
                               variant="outline"
-                              onClick={() =>
-                                canClick &&
-                                void noiseGateOut(mac, i as 0 | 1 | 2 | 3, !ng)
-                              }
+                              onClick={() => canClick && void noiseGateOut(mac, i as 0 | 1 | 2 | 3, !ng)}
                               className={`w-full h-auto py-1 text-[11px] font-semibold transition-colors ${
                                 ng === true
                                   ? "border-sky-500/60 bg-sky-500/20 text-sky-400"
@@ -817,22 +693,14 @@ export function HeartbeatDashboard({
                           );
                         })()}
                         {(() => {
-                          const inverted =
-                            channelParams?.channels[i]?.invertedOut;
+                          const inverted = channelParams?.channels[i]?.invertedOut;
                           const canClick = inverted !== undefined;
                           return (
                             <Button
                               disabled={!canClick}
                               size="sm"
                               variant="outline"
-                              onClick={() =>
-                                canClick &&
-                                void invertPolarityOut(
-                                  mac,
-                                  i as 0 | 1 | 2 | 3,
-                                  !inverted,
-                                )
-                              }
+                              onClick={() => canClick && void invertPolarityOut(mac, i as 0 | 1 | 2 | 3, !inverted)}
                               className={`w-full h-auto py-1 text-[11px] font-semibold transition-colors ${
                                 inverted === true
                                   ? "border-primary/60 bg-primary/20 text-primary hover:bg-primary/25"
@@ -887,9 +755,7 @@ export function HeartbeatDashboard({
             : "Are you sure you want to change bridge mode?"
         }
         confirmLabel={bridgeBusy ? "Applying..." : "Apply Bridge Change"}
-        confirmDisabled={
-          bridgeBusy || pendingBridgePair === null || pendingBridgeNext === null
-        }
+        confirmDisabled={bridgeBusy || pendingBridgePair === null || pendingBridgeNext === null}
         onConfirm={handleConfirmBridge}
       />
     </TooltipProvider>

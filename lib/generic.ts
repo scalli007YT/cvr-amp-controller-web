@@ -66,7 +66,7 @@ export class RollingMedianFilter {
 export function limiterPowerFromLoad(
   thresholdVrms: number,
   thresholdVp: number,
-  loadOhm: number,
+  loadOhm: number
 ): { prmsW: number; ppeakW: number } {
   const prmsW = Math.round((thresholdVrms * thresholdVrms) / loadOhm);
   const ppeakW = Math.round((thresholdVp * thresholdVp) / loadOhm);
@@ -81,10 +81,7 @@ export function limiterPowerFromLoad(
  * This works for both RMS and peak domains as long as the supplied power value
  * matches the target voltage domain and the same nominal load is used.
  */
-export function limiterVoltageFromPower(
-  powerW: number,
-  loadOhm: number,
-): number {
+export function limiterVoltageFromPower(powerW: number, loadOhm: number): number {
   const safePower = Math.max(0, powerW);
   const safeLoad = Math.max(loadOhm, Number.EPSILON);
   return Math.sqrt(safePower * safeLoad);
@@ -96,59 +93,38 @@ export function bridgeVoltageMultiplier(bridgeMode: boolean): number {
 }
 
 /** Clamp load to limiter UI constraints: >= 2 ohm normal, >= 4 ohm bridged. */
-export function normalizeLimiterLoadOhm(
-  loadOhm: number | undefined,
-  bridgeMode: boolean,
-): number {
+export function normalizeLimiterLoadOhm(loadOhm: number | undefined, bridgeMode: boolean): number {
   const minLoad = bridgeMode ? 4 : 2;
   return Math.max(loadOhm ?? minLoad, minLoad);
 }
 
 /** Convert raw threshold voltage to the bridge-aware display domain. */
-export function toLimiterDisplayVoltage(
-  rawVoltage: number,
-  bridgeMode: boolean,
-): number {
+export function toLimiterDisplayVoltage(rawVoltage: number, bridgeMode: boolean): number {
   return rawVoltage * bridgeVoltageMultiplier(bridgeMode);
 }
 
 /** Bridge-aware display minimum for RMS threshold voltage. */
-export function limiterDisplayMinVrms(
-  minVrms: number,
-  bridgeMode: boolean,
-): number {
+export function limiterDisplayMinVrms(minVrms: number, bridgeMode: boolean): number {
   return toLimiterDisplayVoltage(minVrms, bridgeMode);
 }
 
 /** Bridge-aware display minimum for peak threshold voltage. */
-export function limiterDisplayMinVp(
-  minVp: number,
-  bridgeMode: boolean,
-): number {
+export function limiterDisplayMinVp(minVp: number, bridgeMode: boolean): number {
   return toLimiterDisplayVoltage(minVp, bridgeMode);
 }
 
 /** Bridge-aware display maximum for RMS threshold voltage. */
-export function limiterDisplayMaxVrms(
-  maxVrmsRaw: number,
-  bridgeMode: boolean,
-): number {
+export function limiterDisplayMaxVrms(maxVrmsRaw: number, bridgeMode: boolean): number {
   return toLimiterDisplayVoltage(maxVrmsRaw, bridgeMode);
 }
 
 /** Bridge-aware display maximum for peak threshold voltage. */
-export function limiterDisplayMaxVp(
-  maxVpRaw: number,
-  bridgeMode: boolean,
-): number {
+export function limiterDisplayMaxVp(maxVpRaw: number, bridgeMode: boolean): number {
   return toLimiterDisplayVoltage(maxVpRaw, bridgeMode);
 }
 
 /** Convert bridge-aware display threshold voltage back to raw channel voltage. */
-export function fromLimiterDisplayVoltage(
-  displayVoltage: number,
-  bridgeMode: boolean,
-): number {
+export function fromLimiterDisplayVoltage(displayVoltage: number, bridgeMode: boolean): number {
   return displayVoltage / bridgeVoltageMultiplier(bridgeMode);
 }
 
@@ -156,21 +132,12 @@ export function fromLimiterDisplayVoltage(
  * Power in the limiter UI is calculated from displayed threshold voltage and load.
  * This mirrors original bridge behavior where displayed threshold doubles in bridge mode.
  */
-export function limiterPowerFromDisplayVoltage(
-  displayVoltage: number,
-  loadOhm: number,
-): number {
-  return Math.round(
-    (displayVoltage * displayVoltage) / Math.max(loadOhm, Number.EPSILON),
-  );
+export function limiterPowerFromDisplayVoltage(displayVoltage: number, loadOhm: number): number {
+  return Math.round((displayVoltage * displayVoltage) / Math.max(loadOhm, Number.EPSILON));
 }
 
 /** Convert displayed limiter power back to raw threshold voltage for writes. */
-export function limiterRawVoltageFromDisplayPower(
-  powerW: number,
-  loadOhm: number,
-  bridgeMode: boolean,
-): number {
+export function limiterRawVoltageFromDisplayPower(powerW: number, loadOhm: number, bridgeMode: boolean): number {
   const displayVoltage = limiterVoltageFromPower(powerW, loadOhm);
   return fromLimiterDisplayVoltage(displayVoltage, bridgeMode);
 }
@@ -186,17 +153,12 @@ export function limiterRawVoltageFromDisplayPower(
  * For peak values, pass the channel's peak max voltage.
  * Returns `null` when `maxVoltage` is unknown or `voltage` ≤ 0.
  */
-export function voltageToMeterDb(
-  voltage: number,
-  maxVoltage: number | undefined,
-): number | null {
+export function voltageToMeterDb(voltage: number, maxVoltage: number | undefined): number | null {
   if (!maxVoltage || voltage <= 0) return null;
   return 20 * Math.log10(voltage / maxVoltage);
 }
 
 /** Convert a rated RMS output voltage into its equivalent peak voltage. */
-export function rmsToPeakVoltage(
-  ratedRmsV: number | undefined,
-): number | undefined {
+export function rmsToPeakVoltage(ratedRmsV: number | undefined): number | undefined {
   return ratedRmsV ? ratedRmsV * Math.SQRT2 : undefined;
 }

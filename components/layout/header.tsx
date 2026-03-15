@@ -10,21 +10,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import {
-  ChevronDown,
-  Menu,
-  Minus,
-  Pencil,
-  Plus,
-  Square,
-  SquareStack,
-  Trash2,
-  X,
-} from "lucide-react";
+import { ChevronDown, Menu, Minus, Pencil, Plus, Square, SquareStack, Trash2, X } from "lucide-react";
 import { useProjectStore, type Project } from "@/stores/ProjectStore";
 import { NewProjectDialog } from "@/components/dialogs/new-project-dialog";
 import { EditProjectDialog } from "@/components/dialogs/edit-project-dialog";
@@ -61,10 +51,7 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
 
   return (
     <>
-      <NewProjectDialog
-        open={newProjectOpen}
-        onOpenChange={setNewProjectOpen}
-      />
+      <NewProjectDialog open={newProjectOpen} onOpenChange={setNewProjectOpen} />
       <EditProjectDialog
         project={editProject}
         open={editProject !== null}
@@ -118,36 +105,14 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
             </div>
 
             {isDesktop ? (
-              <Link
-                href="/monitor"
-                className="app-region-no-drag flex min-w-0 items-center gap-2"
-              >
-                <Image
-                  src="/logo.ico"
-                  alt="CK Logo"
-                  width={24}
-                  height={24}
-                  className="shrink-0"
-                />
-                <span className="text-sm font-semibold truncate hidden sm:block">
-                  AMP Controller
-                </span>
+              <Link href="/monitor" className="app-region-no-drag flex min-w-0 items-center gap-2">
+                <Image src="/logo.ico" alt="CK Logo" width={24} height={24} className="shrink-0" />
+                <span className="text-sm font-semibold truncate hidden sm:block">AMP Controller</span>
               </Link>
             ) : (
-              <Link
-                href="/monitor"
-                className="app-region-no-drag flex min-w-0 items-center gap-2"
-              >
-                <Image
-                  src="/logo.ico"
-                  alt="CK Logo"
-                  width={24}
-                  height={24}
-                  className="shrink-0"
-                />
-                <span className="text-sm font-semibold truncate hidden sm:block">
-                  AMP Controller
-                </span>
+              <Link href="/monitor" className="app-region-no-drag flex min-w-0 items-center gap-2">
+                <Image src="/logo.ico" alt="CK Logo" width={24} height={24} className="shrink-0" />
+                <span className="text-sm font-semibold truncate hidden sm:block">AMP Controller</span>
               </Link>
             )}
           </div>
@@ -164,12 +129,7 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
               }}
             >
               {NAV_LINKS.map(({ label, href }) => (
-                <ToggleGroupItem
-                  key={href}
-                  value={href}
-                  aria-label={`Go to ${label}`}
-                  className="px-4"
-                >
+                <ToggleGroupItem key={href} value={href} aria-label={`Go to ${label}`} className="px-4">
                   {label}
                 </ToggleGroupItem>
               ))}
@@ -189,9 +149,7 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
                     disabled={loading}
                   >
                     <span className="truncate">
-                      {loading
-                        ? "Loading..."
-                        : (selectedProject?.name ?? "Select Project")}
+                      {loading ? "Loading..." : (selectedProject?.name ?? "Select Project")}
                     </span>
                     <ChevronDown className="ml-1 size-4 shrink-0 text-muted-foreground" />
                   </Button>
@@ -203,9 +161,7 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
                       onSelect={() => selectProjectById(project.id)}
                       className="flex items-center justify-between gap-1 pr-1"
                     >
-                      <span
-                        className={`truncate flex-1 ${selectedProject?.id === project.id ? "font-medium" : ""}`}
-                      >
+                      <span className={`truncate flex-1 ${selectedProject?.id === project.id ? "font-medium" : ""}`}>
                         {project.name}
                       </span>
                       <span className="flex items-center gap-0.5 shrink-0">
@@ -235,10 +191,7 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
                     </DropdownMenuItem>
                   ))}
                   {projects.length > 0 && <DropdownMenuSeparator />}
-                  <DropdownMenuItem
-                    onSelect={() => setNewProjectOpen(true)}
-                    className="text-muted-foreground"
-                  >
+                  <DropdownMenuItem onSelect={() => setNewProjectOpen(true)} className="text-muted-foreground">
                     <Plus className="mr-1 size-4" />
                     New Project
                   </DropdownMenuItem>
@@ -259,18 +212,9 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
                     position="middle"
                     onClick={() => void window.electronWindow?.toggleMaximize()}
                   >
-                    {isMaximized ? (
-                      <SquareStack className="size-3.5" />
-                    ) : (
-                      <Square className="size-3.5" />
-                    )}
+                    {isMaximized ? <SquareStack className="size-3.5" /> : <Square className="size-3.5" />}
                   </WindowButton>
-                  <WindowButton
-                    label="Close"
-                    danger
-                    position="end"
-                    onClick={() => void window.electronWindow?.close()}
-                  >
+                  <WindowButton label="Close" danger position="end" onClick={() => void window.electronWindow?.close()}>
                     <X className="size-4" />
                   </WindowButton>
                 </div>
@@ -288,7 +232,7 @@ function WindowButton({
   label,
   danger = false,
   position = "middle",
-  onClick,
+  onClick
 }: {
   children: ReactNode;
   label: string;
@@ -307,23 +251,15 @@ function WindowButton({
         danger
           ? [
               "h-8 w-9 border-0 rounded-none bg-transparent text-muted-foreground shadow-none transition-colors",
-              position === "start"
-                ? "rounded-l-[min(var(--radius-md),10px)]"
-                : "",
-              position === "end"
-                ? "rounded-r-[min(var(--radius-md),10px)]"
-                : "",
-              "hover:bg-destructive/10 hover:text-destructive",
+              position === "start" ? "rounded-l-[min(var(--radius-md),10px)]" : "",
+              position === "end" ? "rounded-r-[min(var(--radius-md),10px)]" : "",
+              "hover:bg-destructive/10 hover:text-destructive"
             ].join(" ")
           : [
               "h-8 w-9 border-0 rounded-none bg-transparent text-muted-foreground shadow-none transition-colors",
-              position === "start"
-                ? "rounded-l-[min(var(--radius-md),10px)]"
-                : "",
-              position === "end"
-                ? "rounded-r-[min(var(--radius-md),10px)]"
-                : "",
-              "hover:bg-muted/80 hover:text-foreground dark:hover:bg-background/80",
+              position === "start" ? "rounded-l-[min(var(--radius-md),10px)]" : "",
+              position === "end" ? "rounded-r-[min(var(--radius-md),10px)]" : "",
+              "hover:bg-muted/80 hover:text-foreground dark:hover:bg-background/80"
             ].join(" ")
       }
     >

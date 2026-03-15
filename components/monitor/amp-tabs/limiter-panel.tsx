@@ -11,7 +11,7 @@ import {
   bridgeVoltageMultiplier,
   limiterPowerFromDisplayVoltage,
   normalizeLimiterLoadOhm,
-  toLimiterDisplayVoltage,
+  toLimiterDisplayVoltage
 } from "@/lib/generic";
 
 const CH_LABELS = ["A", "B", "C", "D"];
@@ -24,7 +24,7 @@ export function LimiterBlock({
   heartbeat,
   channels,
   limiters,
-  showTitle = true,
+  showTitle = true
 }: {
   mac: string;
   ratedRmsV?: number;
@@ -44,18 +44,15 @@ export function LimiterBlock({
     setRmsLimiterThreshold,
     setPeakLimiterHold,
     setPeakLimiterRelease,
-    setPeakLimiterThreshold,
+    setPeakLimiterThreshold
   } = useAmpActions();
   const { updateAmpChannelOhms } = useProjectStore();
-  const vuOutputDbu = vu?.outputDbu ??
-    heartbeat?.outputDbu?.map(() => null) ?? [null, null, null, null];
+  const vuOutputDbu = vu?.outputDbu ?? heartbeat?.outputDbu?.map(() => null) ?? [null, null, null, null];
 
   return (
     <div className="flex flex-col gap-1.5">
       {showTitle && (
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Limiters
-        </span>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Limiters</span>
       )}
 
       <div className="grid w-full grid-cols-2 gap-2 xl:grid-cols-4">
@@ -76,82 +73,50 @@ export function LimiterBlock({
           const loadOhm = pairBridged
             ? normalizeLimiterLoadOhm(channelOhms[pairIndex * 2], true)
             : normalizeLimiterLoadOhm(channelOhms[i], false);
-          const displayRmsThreshold = toLimiterDisplayVoltage(
-            rms.thresholdVrms,
-            bridgeMaster,
-          );
-          const displayPeakThreshold = toLimiterDisplayVoltage(
-            peak.thresholdVp,
-            bridgeMaster,
-          );
-          const displayPrmsW = limiterPowerFromDisplayVoltage(
-            displayRmsThreshold,
-            loadOhm,
-          );
-          const displayPpeakW = limiterPowerFromDisplayVoltage(
-            displayPeakThreshold,
-            loadOhm,
-          );
+          const displayRmsThreshold = toLimiterDisplayVoltage(rms.thresholdVrms, bridgeMaster);
+          const displayPeakThreshold = toLimiterDisplayVoltage(peak.thresholdVp, bridgeMaster);
+          const displayPrmsW = limiterPowerFromDisplayVoltage(displayRmsThreshold, loadOhm);
+          const displayPpeakW = limiterPowerFromDisplayVoltage(displayPeakThreshold, loadOhm);
 
           const triggerCard = (
             <Card
               size="sm"
               className={`relative h-48 w-full overflow-visible transition-colors ${
-                disabledByBridge
-                  ? "cursor-not-allowed opacity-45 grayscale"
-                  : "cursor-pointer hover:bg-muted/10"
+                disabledByBridge ? "cursor-not-allowed opacity-45 grayscale" : "cursor-pointer hover:bg-muted/10"
               } ${enabled ? "text-foreground" : "text-muted-foreground"}`}
             >
               <CardContent className="flex h-full w-full flex-col justify-center gap-2 py-2 text-center">
                 <div className="space-y-0.5">
-                  <p className="text-[13px] font-semibold leading-tight">
-                    {channelName}
-                  </p>
+                  <p className="text-[13px] font-semibold leading-tight">{channelName}</p>
                   <p
                     className={`text-[9px] font-medium uppercase tracking-wider ${
                       enabled ? "text-primary/80" : "text-muted-foreground"
                     }`}
                   >
-                    {disabledByBridge
-                      ? "Bridge Slave"
-                      : enabled
-                        ? "Active"
-                        : "Bypassed"}
+                    {disabledByBridge ? "Bridge Slave" : enabled ? "Active" : "Bypassed"}
                   </p>
                 </div>
 
                 <div className="space-y-1">
                   <div className="mx-auto grid w-fit grid-cols-[12px_auto] items-center gap-x-1 leading-tight">
                     <span className="text-[10px] text-muted-foreground">R</span>
-                    <span className="font-mono text-[12px] tabular-nums">
-                      {displayRmsThreshold.toFixed(2)} V
-                    </span>
+                    <span className="font-mono text-[12px] tabular-nums">{displayRmsThreshold.toFixed(2)} V</span>
                     <span className="text-[10px] text-muted-foreground">P</span>
-                    <span className="font-mono text-[12px] tabular-nums">
-                      {displayPeakThreshold.toFixed(2)} V
-                    </span>
+                    <span className="font-mono text-[12px] tabular-nums">{displayPeakThreshold.toFixed(2)} V</span>
                   </div>
                   <div className="mx-auto grid w-fit grid-cols-[12px_auto] items-center gap-x-1 leading-tight">
                     <span className="text-[10px] text-muted-foreground">R</span>
-                    <span className="font-mono text-[12px] tabular-nums">
-                      {displayPrmsW} W
-                    </span>
+                    <span className="font-mono text-[12px] tabular-nums">{displayPrmsW} W</span>
                     <span className="text-[10px] text-muted-foreground">P</span>
-                    <span className="font-mono text-[12px] tabular-nums">
-                      {displayPpeakW} W
-                    </span>
+                    <span className="font-mono text-[12px] tabular-nums">{displayPpeakW} W</span>
                   </div>
                   <div className="mx-auto grid w-fit grid-cols-[12px_auto] items-center gap-x-1 leading-tight">
                     <span className="text-[10px] text-muted-foreground">R</span>
-                    <span
-                      className={`text-[12px] ${rms.enabled ? "text-green-500" : "text-red-500"}`}
-                    >
+                    <span className={`text-[12px] ${rms.enabled ? "text-green-500" : "text-red-500"}`}>
                       {rms.enabled ? "On" : "Off"}
                     </span>
                     <span className="text-[10px] text-muted-foreground">P</span>
-                    <span
-                      className={`text-[12px] ${peak.enabled ? "text-green-500" : "text-red-500"}`}
-                    >
+                    <span className={`text-[12px] ${peak.enabled ? "text-green-500" : "text-red-500"}`}>
                       {peak.enabled ? "On" : "Off"}
                     </span>
                   </div>
@@ -178,14 +143,14 @@ export function LimiterBlock({
                 rmsLimiterOut(toggleMac, toggleChannel, enabledValue, {
                   attackMs: rms.attackMs,
                   releaseMultiplier: rms.releaseMultiplier,
-                  thresholdVrms: rms.thresholdVrms,
+                  thresholdVrms: rms.thresholdVrms
                 })
               }
               onTogglePeak={(toggleMac, toggleChannel, enabledValue) =>
                 peakLimiterOut(toggleMac, toggleChannel, enabledValue, {
                   holdMs: peak.holdMs,
                   releaseMs: peak.releaseMs,
-                  thresholdVp: peak.thresholdVp,
+                  thresholdVp: peak.thresholdVp
                 })
               }
               onSetRmsAttack={setRmsLimiterAttack}
@@ -194,9 +159,7 @@ export function LimiterBlock({
               onSetPeakHold={setPeakLimiterHold}
               onSetPeakRelease={setPeakLimiterRelease}
               onSetPeakThreshold={setPeakLimiterThreshold}
-              onSetOhms={(ohmsMac, ohmsChannel, ohms) =>
-                updateAmpChannelOhms(ohmsMac, ohmsChannel, ohms)
-              }
+              onSetOhms={(ohmsMac, ohmsChannel, ohms) => updateAmpChannelOhms(ohmsMac, ohmsChannel, ohms)}
               trigger={triggerCard}
             />
           );

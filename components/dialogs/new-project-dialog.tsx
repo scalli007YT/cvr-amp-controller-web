@@ -10,7 +10,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
+  DialogTitle
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,10 +21,7 @@ interface NewProjectDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function NewProjectDialog({
-  open,
-  onOpenChange,
-}: NewProjectDialogProps) {
+export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) {
   const { createProject } = useProjectStore();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -41,9 +38,7 @@ export function NewProjectDialog({
       setDescription("");
       onOpenChange(false);
     } catch (error) {
-      toast.error(
-        `Failed to create project: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`Failed to create project: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsCreating(false);
     }
@@ -60,9 +55,7 @@ export function NewProjectDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>New Project</DialogTitle>
-          <DialogDescription>
-            Create a new project to manage a set of amplifiers.
-          </DialogDescription>
+          <DialogDescription>Create a new project to manage a set of amplifiers.</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-2">

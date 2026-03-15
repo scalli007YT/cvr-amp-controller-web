@@ -5,19 +5,13 @@ import type { EqBand } from "@/stores/AmpStore";
 import { useAmpActions } from "@/hooks/useAmpActions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { EqCurveChart } from "@/components/monitor/eq-curve-chart";
 import {
   getFilterTypeName,
   HPLP_FILTER_TYPE_NAMES,
   EQ_FILTER_TYPE_NAMES,
-  getEqFilterTypeCapabilities,
+  getEqFilterTypeCapabilities
 } from "@/lib/parse-channel-data";
 import { EQ_BAND_LABELS, formatFreqFull } from "@/lib/eq";
 import {
@@ -26,7 +20,7 @@ import {
   EQ_BAND_GAIN_MIN_DB,
   EQ_BAND_GAIN_MAX_DB,
   EQ_BAND_Q_MIN,
-  EQ_BAND_Q_MAX,
+  EQ_BAND_Q_MAX
 } from "@/lib/constants";
 
 export type CrossoverTarget = "input" | "output";
@@ -34,7 +28,7 @@ type CrossoverKind = "hp" | "lp";
 
 const CROSSOVER_DEFAULT_TYPES: Record<CrossoverKind, number> = {
   hp: 0,
-  lp: 4,
+  lp: 4
 };
 
 const HPLP_TYPE_OPTIONS = Object.entries(HPLP_FILTER_TYPE_NAMES)
@@ -46,9 +40,7 @@ const EQ_TYPE_OPTIONS = Object.entries(EQ_FILTER_TYPE_NAMES)
   .sort((a, b) => a.value - b.value);
 
 function normalizeCrossoverType(kind: CrossoverKind, type: number): number {
-  return Number.isInteger(type) && type >= 0 && type <= 10
-    ? type
-    : CROSSOVER_DEFAULT_TYPES[kind];
+  return Number.isInteger(type) && type >= 0 && type <= 10 ? type : CROSSOVER_DEFAULT_TYPES[kind];
 }
 
 function formatCrossoverDraft(freq: number): string {
@@ -66,7 +58,7 @@ function CrossoverBandCell({
   band,
   mac,
   channel,
-  target,
+  target
 }: {
   idx: number;
   band: EqBand;
@@ -104,10 +96,7 @@ function CrossoverBandCell({
       setDirty(false);
       return;
     }
-    const clamped = Math.max(
-      CROSSOVER_FREQ_MIN_HZ,
-      Math.min(CROSSOVER_FREQ_MAX_HZ, parsed),
-    );
+    const clamped = Math.max(CROSSOVER_FREQ_MIN_HZ, Math.min(CROSSOVER_FREQ_MAX_HZ, parsed));
     setDraft(formatCrossoverDraft(clamped));
     setDirty(false);
     markPending();
@@ -183,7 +172,7 @@ function EqBandCell({
   band,
   mac,
   channel,
-  target,
+  target
 }: {
   idx: number;
   band: EqBand;
@@ -191,14 +180,9 @@ function EqBandCell({
   channel: 0 | 1 | 2 | 3;
   target: CrossoverTarget;
 }) {
-  const { setEqBandType, setEqBandFreq, setEqBandGain, setEqBandQ } =
-    useAmpActions();
-  const [freqDraft, setFreqDraft] = useState(() =>
-    formatCrossoverDraft(band.freq),
-  );
-  const [gainDraft, setGainDraft] = useState(() =>
-    String(Math.round(band.gain * 10) / 10),
-  );
+  const { setEqBandType, setEqBandFreq, setEqBandGain, setEqBandQ } = useAmpActions();
+  const [freqDraft, setFreqDraft] = useState(() => formatCrossoverDraft(band.freq));
+  const [gainDraft, setGainDraft] = useState(() => String(Math.round(band.gain * 10) / 10));
   const [qDraft, setQDraft] = useState(() => band.q.toFixed(2));
   const [freqDirty, setFreqDirty] = useState(false);
   const [gainDirty, setGainDirty] = useState(false);
@@ -219,9 +203,7 @@ function EqBandCell({
   };
 
   const freqValue = freqDirty ? freqDraft : formatCrossoverDraft(band.freq);
-  const gainValue = gainDirty
-    ? gainDraft
-    : String(Math.round(band.gain * 10) / 10);
+  const gainValue = gainDirty ? gainDraft : String(Math.round(band.gain * 10) / 10);
   const qValue = qDirty ? qDraft : band.q.toFixed(2);
   const capabilities = getEqFilterTypeCapabilities(band.type);
   const gainDisabled = pending || !capabilities.supportsGain;
@@ -234,10 +216,7 @@ function EqBandCell({
       setFreqDirty(false);
       return;
     }
-    const clamped = Math.max(
-      CROSSOVER_FREQ_MIN_HZ,
-      Math.min(CROSSOVER_FREQ_MAX_HZ, parsed),
-    );
+    const clamped = Math.max(CROSSOVER_FREQ_MIN_HZ, Math.min(CROSSOVER_FREQ_MAX_HZ, parsed));
     setFreqDraft(formatCrossoverDraft(clamped));
     setFreqDirty(false);
     markPending();
@@ -256,10 +235,7 @@ function EqBandCell({
       setGainDirty(false);
       return;
     }
-    const clamped = Math.max(
-      EQ_BAND_GAIN_MIN_DB,
-      Math.min(EQ_BAND_GAIN_MAX_DB, parsed),
-    );
+    const clamped = Math.max(EQ_BAND_GAIN_MIN_DB, Math.min(EQ_BAND_GAIN_MAX_DB, parsed));
     setGainDraft(String(Math.round(clamped * 10) / 10));
     setGainDirty(false);
     markPending();
@@ -401,22 +377,21 @@ function EqParamStrip({
   bands,
   mac,
   channel,
-  target,
+  target
 }: {
   bands: EqBand[];
   mac?: string;
   channel?: 0 | 1 | 2 | 3;
   target?: CrossoverTarget;
 }) {
-  const hasInteractive =
-    mac !== undefined && channel !== undefined && target !== undefined;
+  const hasInteractive = mac !== undefined && channel !== undefined && target !== undefined;
 
   return (
     <div
       className="grid gap-px m-4"
       style={{
         gridTemplateColumns: `repeat(${bands.length}, minmax(64px, 1fr))`,
-        minWidth: `${bands.length * 72}px`,
+        minWidth: `${bands.length * 72}px`
       }}
     >
       {bands.map((band, idx) => {
@@ -459,8 +434,7 @@ function EqParamStrip({
                   {getFilterTypeName(band.type, idx)}
                 </div>
                 <div className="text-[11px] tabular-nums text-foreground">
-                  {formatFreqFull(band.freq)}{" "}
-                  <span className="text-[9px] text-muted-foreground">Hz</span>
+                  {formatFreqFull(band.freq)} <span className="text-[9px] text-muted-foreground">Hz</span>
                 </div>
                 {!isHpLp && (
                   <div
@@ -473,20 +447,15 @@ function EqParamStrip({
                     }`}
                   >
                     {band.gain > 0 ? "+" : ""}
-                    {band.gain.toFixed(1)}{" "}
-                    <span className="text-[9px] text-muted-foreground">dB</span>
+                    {band.gain.toFixed(1)} <span className="text-[9px] text-muted-foreground">dB</span>
                   </div>
                 )}
                 {!isHpLp && (
-                  <div className="text-[10px] tabular-nums mt-0.5 text-muted-foreground">
-                    Q: {band.q.toFixed(1)}
-                  </div>
+                  <div className="text-[10px] tabular-nums mt-0.5 text-muted-foreground">Q: {band.q.toFixed(1)}</div>
                 )}
                 <div
                   className={`text-[9px] font-bold mt-1.5 w-full py-0.5 rounded-sm ${
-                    bypassed
-                      ? "bg-destructive/10 text-destructive"
-                      : "bg-muted/60 text-muted-foreground/50"
+                    bypassed ? "bg-destructive/10 text-destructive" : "bg-muted/60 text-muted-foreground/50"
                   }`}
                 >
                   {bypassed ? "Bypass" : isHpLp ? "ON" : "Bypass"}
@@ -506,7 +475,7 @@ export function EqBandDialog({
   bands,
   mac,
   channel,
-  target,
+  target
 }: {
   triggerLabel: string;
   title: string;
@@ -541,12 +510,7 @@ export function EqBandDialog({
               <EqCurveChart bands={bands} />
             </div>
             <div className="overflow-x-auto">
-              <EqParamStrip
-                bands={bands}
-                mac={mac}
-                channel={channel}
-                target={target}
-              />
+              <EqParamStrip bands={bands} mac={mac} channel={channel} target={target} />
             </div>
           </>
         )}

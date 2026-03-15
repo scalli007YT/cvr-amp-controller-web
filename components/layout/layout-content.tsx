@@ -7,8 +7,7 @@ import { useAmpPoller } from "@/hooks/useAmpPoller";
 import { useAmpChannelData } from "@/hooks/useAmpChannelData";
 
 export function LayoutContent({ children }: { children: ReactNode }) {
-  const { projects, loading, setProjects, setLoading, setSelectedProject } =
-    useProjectStore();
+  const { projects, loading, setProjects, setLoading, setSelectedProject } = useProjectStore();
 
   // Start polling globally on layout mount — runs regardless of which page is active
   useAmpPoller();

@@ -46,15 +46,12 @@ export class NetworkAdapter extends EventEmitter {
       };
 
       this.socket!.once("error", onError);
-      this.socket!.bind(
-        { port: this.recvPort, address: bindAddress, exclusive: false },
-        () => {
-          this.socket?.removeListener("error", onError);
-          this.socket?.setBroadcast(true);
-          this.started = true;
-          resolve();
-        },
-      );
+      this.socket!.bind({ port: this.recvPort, address: bindAddress, exclusive: false }, () => {
+        this.socket?.removeListener("error", onError);
+        this.socket?.setBroadcast(true);
+        this.started = true;
+        resolve();
+      });
     });
   }
 
@@ -79,7 +76,7 @@ export class NetworkAdapter extends EventEmitter {
     offset: number,
     length: number,
     address: string,
-    broadcast: boolean,
+    broadcast: boolean
   ): Promise<number> {
     if (!this.started || !this.socket) {
       throw new Error("NetworkAdapter is not started");
@@ -88,17 +85,10 @@ export class NetworkAdapter extends EventEmitter {
     this.socket.setBroadcast(broadcast);
 
     return new Promise((resolve, reject) => {
-      this.socket!.send(
-        msg,
-        offset,
-        length,
-        this.sendPort,
-        address,
-        (error: Error | null, bytes: number) => {
-          if (error === null) resolve(bytes);
-          else reject(error);
-        },
-      );
+      this.socket!.send(msg, offset, length, this.sendPort, address, (error: Error | null, bytes: number) => {
+        if (error === null) resolve(bytes);
+        else reject(error);
+      });
     });
   }
 
@@ -108,30 +98,21 @@ export class NetworkAdapter extends EventEmitter {
     return super.emit(event, ...args);
   }
 
-  on(
-    event: "message",
-    listener: (msg: Buffer, rinfo: RemoteInfo) => void,
-  ): this;
+  on(event: "message", listener: (msg: Buffer, rinfo: RemoteInfo) => void): this;
   on(event: "error", listener: (err: Error) => void): this;
   on(event: string, listener: (...args: any[]) => void): this {
     super.on(event, listener);
     return this;
   }
 
-  once(
-    event: "message",
-    listener: (msg: Buffer, rinfo: RemoteInfo) => void,
-  ): this;
+  once(event: "message", listener: (msg: Buffer, rinfo: RemoteInfo) => void): this;
   once(event: "error", listener: (err: Error) => void): this;
   once(event: string, listener: (...args: any[]) => void): this {
     super.once(event, listener);
     return this;
   }
 
-  removeListener(
-    event: "message",
-    listener: (msg: Buffer, rinfo: RemoteInfo) => void,
-  ): this;
+  removeListener(event: "message", listener: (msg: Buffer, rinfo: RemoteInfo) => void): this;
   removeListener(event: "error", listener: (err: Error) => void): this;
   removeListener(event: string, listener: (...args: any[]) => void): this {
     super.removeListener(event, listener);

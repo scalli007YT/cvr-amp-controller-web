@@ -96,6 +96,7 @@ export class FuncCode {
   static KNOB_VOL = 70;
   static SN_TABLE = 71;
   static BACK_SW_FILTER = 73;
+  static SOURCE_DATA = 62;
   static ANALOG_TYPE = 79;
   static POWER_ALLOT = 81;
   static CH_NAME = 0x4d; // 77
@@ -146,10 +147,7 @@ export class CvrAmpDevice {
     this.ampIp = ampIp;
   }
 
-  private ensureSocket(
-    retries: number = 3,
-    retryDelay: number = 100,
-  ): Promise<dgram.Socket> {
+  private ensureSocket(retries: number = 3, retryDelay: number = 100): Promise<dgram.Socket> {
     return new Promise((resolve, reject) => {
       if (this.socket) {
         resolve(this.socket);
@@ -176,10 +174,7 @@ export class CvrAmpDevice {
           }
 
           // Retry on EADDRINUSE errors
-          if (
-            retriesLeft > 0 &&
-            (err.message.includes("EADDRINUSE") || err.message.includes("bind"))
-          ) {
+          if (retriesLeft > 0 && (err.message.includes("EADDRINUSE") || err.message.includes("bind"))) {
             setTimeout(() => attemptBind(retriesLeft - 1), retryDelay);
           } else {
             reject(err);
@@ -193,13 +188,13 @@ export class CvrAmpDevice {
             {
               port: PC_RECV_PORT,
               address: "0.0.0.0",
-              exclusive: false,
+              exclusive: false
             },
             () => {
               clearTimeout(bindTimeout);
               this.socket!.removeListener("error", errorHandler);
               resolve(this.socket!);
-            },
+            }
           );
         } catch (err) {
           clearTimeout(bindTimeout);
@@ -211,11 +206,7 @@ export class CvrAmpDevice {
     });
   }
 
-  private async sendRaw(
-    header: StructHeader,
-    body: Buffer = Buffer.alloc(0),
-    machineMode = 0,
-  ): Promise<Buffer> {
+  private async sendRaw(header: StructHeader, body: Buffer = Buffer.alloc(0), machineMode = 0): Promise<Buffer> {
     const sock = await this.ensureSocket();
     const inner = Buffer.concat([structHeaderToBytes(header), body]);
     const checkCode = getCheckCode(inner);
@@ -227,7 +218,7 @@ export class CvrAmpDevice {
       packetsLastlen: frame.length,
       packetsStep: 1,
       dataState: 0,
-      machineMode,
+      machineMode
     };
 
     const packet = Buffer.concat([networkDataToBytes(nd), frame]);
@@ -270,27 +261,20 @@ export class CvrAmpDevice {
       sock.on("message", messageHandler);
       sock.on("error", errorHandler);
 
-      sock.send(
-        packet,
-        0,
-        packet.length,
-        AMP_SEND_PORT,
-        this.ampIp,
-        (err: Error | null) => {
-          if (err) {
-            responded = true;
-            clearTimeout(timeout);
-            sock.removeListener("message", messageHandler);
-            sock.removeListener("error", errorHandler);
-            // Close socket on send error
-            if (this.socket) {
-              this.socket.close();
-              this.socket = null;
-            }
-            reject(err);
+      sock.send(packet, 0, packet.length, AMP_SEND_PORT, this.ampIp, (err: Error | null) => {
+        if (err) {
+          responded = true;
+          clearTimeout(timeout);
+          sock.removeListener("message", messageHandler);
+          sock.removeListener("error", errorHandler);
+          // Close socket on send error
+          if (this.socket) {
+            this.socket.close();
+            this.socket = null;
           }
-        },
-      );
+          reject(err);
+        }
+      });
     });
   }
 
@@ -302,7 +286,7 @@ export class CvrAmpDevice {
       chx: 0,
       link: 0,
       inOutFlag: 0,
-      segment: 0,
+      segment: 0
     };
 
     const sock = await this.ensureSocket();
@@ -314,7 +298,7 @@ export class CvrAmpDevice {
       packetsLastlen: frame.length,
       packetsStep: 1,
       dataState: 0,
-      machineMode: 0,
+      machineMode: 0
     };
     const packet = Buffer.concat([networkDataToBytes(nd), frame]);
 
@@ -341,16 +325,12 @@ export class CvrAmpDevice {
         sock.removeListener("message", collector);
         const best = collected.reduce<Buffer | null>(
           (acc, cur) => (acc === null || cur.length > acc.length ? cur : acc),
-          null,
+          null
         );
         if (best && best.length >= 100) {
           resolve(best);
         } else {
-          reject(
-            new Error(
-              `SN_TABLE response too short or missing (got ${best?.length ?? 0} bytes)`,
-            ),
-          );
+          reject(new Error(`SN_TABLE response too short or missing (got ${best?.length ?? 0} bytes)`));
         }
       }, 200);
     });
@@ -364,7 +344,7 @@ export class CvrAmpDevice {
       chx: 0,
       link: 0,
       inOutFlag: 0,
-      segment: 0,
+      segment: 0
     };
 
     // Run sequentially — both share the same socket, parallel use causes interference
@@ -376,7 +356,7 @@ export class CvrAmpDevice {
       mac: this.parseMacAddress(basicResponse),
       deviceVersion: this.parseDeviceVersion(basicResponse),
       identifier: this.parseIdentifier(snResponse),
-      runtime: this.parseRuntime(snResponse),
+      runtime: this.parseRuntime(snResponse)
     };
   }
 
@@ -417,7 +397,7 @@ export class CvrAmpDevice {
       chx: 0,
       link: 0,
       inOutFlag: 0,
-      segment: 0,
+      segment: 0
     };
 
     // Save_Recall_data struct: mode(1) + ch_x(1) + buffers(32) = 34 bytes, all zero for mode=0
@@ -432,7 +412,7 @@ export class CvrAmpDevice {
       packetsLastlen: frame.length,
       packetsStep: 1,
       dataState: 0,
-      machineMode: 0,
+      machineMode: 0
     };
     const packet = Buffer.concat([networkDataToBytes(nd), frame]);
 
@@ -499,20 +479,12 @@ export class CvrAmpDevice {
           return;
         }
 
-        const responseBody = assembledFrame.slice(
-          10,
-          assembledFrame.length - 3,
-        );
+        const responseBody = assembledFrame.slice(10, assembledFrame.length - 3);
 
         const SLOT_SIZE = 32;
 
-        if (
-          responseBody.length === 0 ||
-          responseBody.length % SLOT_SIZE !== 0
-        ) {
-          console.warn(
-            `[queryPresets] Body (${responseBody.length} bytes) is not a multiple of 32`,
-          );
+        if (responseBody.length === 0 || responseBody.length % SLOT_SIZE !== 0) {
+          console.warn(`[queryPresets] Body (${responseBody.length} bytes) is not a multiple of 32`);
           resolve([]);
           return;
         }
@@ -521,10 +493,7 @@ export class CvrAmpDevice {
         const presets: { slot: number; name: string }[] = [];
 
         for (let i = 0; i < slotCount; i++) {
-          const slotBuf = responseBody.slice(
-            i * SLOT_SIZE,
-            (i + 1) * SLOT_SIZE,
-          );
+          const slotBuf = responseBody.slice(i * SLOT_SIZE, (i + 1) * SLOT_SIZE);
           const nullIdx = slotBuf.indexOf(0);
           const name = slotBuf
             .slice(0, nullIdx === -1 ? SLOT_SIZE : nullIdx)
@@ -555,7 +524,7 @@ export class CvrAmpDevice {
       chx: 0,
       link: 0,
       inOutFlag: 0,
-      segment: 0,
+      segment: 0
     };
 
     return this.sendRaw(header);
@@ -579,12 +548,7 @@ export class CvrAmpDevice {
     body.writeUInt8(2, 0); // mode = 2 (recall)
     body.writeUInt8(slot - 1, 1); // ch_x = zero-based slot index
 
-    await this.sendControl(
-      FuncCode.SAVE_RECALL,
-      0,
-      body,
-      0 /* input/default */,
-    );
+    await this.sendControl(FuncCode.SAVE_RECALL, 0, body, 0 /* input/default */);
   }
 
   /**
@@ -611,12 +575,7 @@ export class CvrAmpDevice {
     const nameBytes = Buffer.from(trimmed, "ascii").subarray(0, 32);
     nameBytes.copy(body, 2);
 
-    await this.sendControl(
-      FuncCode.SAVE_RECALL,
-      0,
-      body,
-      0 /* input/default */,
-    );
+    await this.sendControl(FuncCode.SAVE_RECALL, 0, body, 0 /* input/default */);
   }
 
   /**
@@ -636,17 +595,10 @@ export class CvrAmpDevice {
     });
 
     await new Promise<void>((resolve, reject) => {
-      sock.send(
-        CROSSOVER_COMMIT_PACKET,
-        0,
-        CROSSOVER_COMMIT_PACKET.length,
-        AMP_SEND_PORT,
-        this.ampIp,
-        (err) => {
-          if (err) reject(err);
-          else resolve();
-        },
-      );
+      sock.send(CROSSOVER_COMMIT_PACKET, 0, CROSSOVER_COMMIT_PACKET.length, AMP_SEND_PORT, this.ampIp, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
     });
 
     await new Promise<void>((resolve) => setTimeout(resolve, 10));
@@ -680,14 +632,7 @@ export class CvrAmpDevice {
    * @param link       StructHeader bytes 5-8 (Link int32): link group (default 0)
    * @param segment    StructHeader byte 4 (Segment): segment selector (default 0)
    */
-  async sendControl(
-    fc: number,
-    chx: number,
-    body: Buffer,
-    inOutFlag = 0,
-    link = 0,
-    segment = 0,
-  ): Promise<void> {
+  async sendControl(fc: number, chx: number, body: Buffer, inOutFlag = 0, link = 0, segment = 0): Promise<void> {
     const header: StructHeader = {
       head: 0x55,
       functionCode: fc,
@@ -695,7 +640,7 @@ export class CvrAmpDevice {
       chx,
       link,
       inOutFlag,
-      segment,
+      segment
     };
 
     const sock = dgram.createSocket("udp4");
@@ -716,7 +661,7 @@ export class CvrAmpDevice {
       packetsLastlen: frame.length,
       packetsStep: 1,
       dataState: 0,
-      machineMode: 0,
+      machineMode: 0
     };
 
     const packet = Buffer.concat([networkDataToBytes(nd), frame]);
@@ -953,8 +898,7 @@ export function parseHeartbeat(buf: Buffer): HeartbeatData | null {
 
   // FanV only exists in 118Plus (bodyLen=96); Whole118 (bodyLen=92) has no FanV
   const fanAbs = bodyStart + 92;
-  const fanVoltage =
-    bodyLen >= 96 && fanAbs + 4 <= bodyEnd ? buf.readFloatLE(fanAbs) : 0;
+  const fanVoltage = bodyLen >= 96 && fanAbs + 4 <= bodyEnd ? buf.readFloatLE(fanAbs) : 0;
 
   // Derived fields — mirrors C# RD_44.setHeart_Inf118 calculations
   // Output impedance: CHZ = round(Vs[i] / As[i]) — 0 when idle
@@ -970,7 +914,7 @@ export function parseHeartbeat(buf: Buffer): HeartbeatData | null {
 
   // Input dBFS: 20 * log10(Vs_In[i]) — null when no signal (0 V)
   const inputDbfs: (number | null)[] = inputVoltages.map((v) =>
-    v > 0 ? Math.round(Math.log10(v) * 20 * 10) / 10 : null,
+    v > 0 ? Math.round(Math.log10(v) * 20 * 10) / 10 : null
   );
 
   return {
@@ -986,6 +930,6 @@ export function parseHeartbeat(buf: Buffer): HeartbeatData | null {
     inputStates,
     fanVoltage,
     machineMode,
-    receivedAt: Date.now(),
+    receivedAt: Date.now()
   };
 }

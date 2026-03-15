@@ -43,7 +43,7 @@ const HPLP_DEFS: Record<number, HpLpDef> = {
   7: { order: 6, family: "bw" }, // BW-36
   8: { order: 8, family: "bw" }, // BW-48
   9: { order: 8, family: "be" }, // BE-48
-  10: { order: 8, family: "lr" }, // LR-48
+  10: { order: 8, family: "lr" } // LR-48
 };
 
 // ---------------------------------------------------------------------------
@@ -57,11 +57,7 @@ const HPLP_DEFS: Record<number, HpLpDef> = {
  * @param freq   - evaluation frequency in Hz
  * @param bandIndex - 0-based index: 0 = HP, 1–8 = parametric, 9 = LP
  */
-export function bandGainAt(
-  band: EqBand,
-  freq: number,
-  bandIndex: number,
-): number {
+export function bandGainAt(band: EqBand, freq: number, bandIndex: number): number {
   if (band.bypass) return 0;
 
   // HP (band 0) and LP (band 9) use rolloff filters
@@ -123,10 +119,7 @@ function parametricGainAt(band: EqBand, freq: number): number {
       // General_High
       const inverseW = 1 / Math.max(w, 1e-9);
       const inverseW2 = inverseW * inverseW;
-      return (
-        -10 *
-        Math.log10((1 - inverseW2) * (1 - inverseW2) + inverseW2 / (Q * Q))
-      );
+      return -10 * Math.log10((1 - inverseW2) * (1 - inverseW2) + inverseW2 / (Q * Q));
     }
     case 7:
       // Butterworth_Low
@@ -274,10 +267,7 @@ function besselGainDbGeneric(w: number, order: number): number {
 }
 
 function besselCoeff(n: number, k: number): number {
-  return (
-    factorial(2 * n - k) /
-    (Math.pow(2, n - k) * factorial(k) * factorial(n - k))
-  );
+  return factorial(2 * n - k) / (Math.pow(2, n - k) * factorial(k) * factorial(n - k));
 }
 
 function factorial(n: number): number {
@@ -313,7 +303,7 @@ export function computeEqCurve(bands: EqBand[], points = 256): EqCurvePoint[] {
     }
     return {
       freq: Math.round(freq * 100) / 100,
-      gain: Math.round(totalGain * 100) / 100,
+      gain: Math.round(totalGain * 100) / 100
     };
   });
 }
@@ -331,35 +321,11 @@ export function curveGainAtBand(bands: EqBand[], bandIndex: number): number {
   return Math.round(totalGain * 100) / 100;
 }
 
-export const EQ_BAND_LABELS = [
-  "HP",
-  "EQ1",
-  "EQ2",
-  "EQ3",
-  "EQ4",
-  "EQ5",
-  "EQ6",
-  "EQ7",
-  "EQ8",
-  "LP",
-] as const;
+export const EQ_BAND_LABELS = ["HP", "EQ1", "EQ2", "EQ3", "EQ4", "EQ5", "EQ6", "EQ7", "EQ8", "LP"] as const;
 
-export const EQ_BAND_SHORT_LABELS = [
-  "HP",
-  "1",
-  "2",
-  "3",
-  "4",
-  "5",
-  "6",
-  "7",
-  "8",
-  "LP",
-] as const;
+export const EQ_BAND_SHORT_LABELS = ["HP", "1", "2", "3", "4", "5", "6", "7", "8", "LP"] as const;
 
-export const EQ_FREQ_TICKS = [
-  20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000,
-];
+export const EQ_FREQ_TICKS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
 
 export function formatFreq(hz: number): string {
   if (hz >= 1000) return `${hz / 1000}K`;

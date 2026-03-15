@@ -17,11 +17,7 @@
  */
 
 import { ampController } from "@/lib/amp-controller";
-import type {
-  DiscoveryEvent,
-  HeartbeatEvent,
-  OfflineEvent,
-} from "@/lib/amp-controller";
+import type { DiscoveryEvent, HeartbeatEvent, OfflineEvent } from "@/lib/amp-controller";
 
 // Tell Next.js this route must not be statically pre-rendered
 export const dynamic = "force-dynamic";
@@ -46,11 +42,9 @@ export async function GET(): Promise<Response> {
       // -----------------------------------------------------------------------
       // Attach listeners
       // -----------------------------------------------------------------------
-      const onDiscovery = (e: DiscoveryEvent) =>
-        send({ type: "discovery", ...e });
+      const onDiscovery = (e: DiscoveryEvent) => send({ type: "discovery", ...e });
 
-      const onHeartbeat = (e: HeartbeatEvent) =>
-        send({ type: "heartbeat", ...e });
+      const onHeartbeat = (e: HeartbeatEvent) => send({ type: "heartbeat", ...e });
 
       const onOffline = (e: OfflineEvent) => send({ type: "offline", ...e });
 
@@ -88,7 +82,7 @@ export async function GET(): Promise<Response> {
       // Called by the runtime when the client disconnects
       const ctrl = this as unknown as { _cleanup?: () => void };
       ctrl._cleanup?.();
-    },
+    }
   });
 
   return new Response(stream, {
@@ -96,7 +90,7 @@ export async function GET(): Promise<Response> {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
-      "X-Accel-Buffering": "no", // disable nginx buffering
-    },
+      "X-Accel-Buffering": "no" // disable nginx buffering
+    }
   });
 }

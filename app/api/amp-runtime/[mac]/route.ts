@@ -9,18 +9,12 @@ import { NextResponse } from "next/server";
  * Looks up the IP via the AmpController's known device map,
  * then issues a unicast SN_TABLE (FC=71) query.
  */
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ mac: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ mac: string }> }) {
   const { mac } = await params;
 
   const ip = ampController.getIpForMac(mac);
   if (!ip) {
-    return NextResponse.json(
-      { success: false, error: "Device not yet discovered" },
-      { status: 404 },
-    );
+    return NextResponse.json({ success: false, error: "Device not yet discovered" }, { status: 404 });
   }
 
   try {
@@ -29,10 +23,7 @@ export async function GET(
     device.close();
 
     if (minutes === undefined) {
-      return NextResponse.json(
-        { success: false, error: "Could not read runtime" },
-        { status: 500 },
-      );
+      return NextResponse.json({ success: false, error: "Could not read runtime" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, minutes });

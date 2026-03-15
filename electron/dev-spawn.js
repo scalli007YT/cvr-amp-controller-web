@@ -11,7 +11,7 @@ waitOn({ resources: ["http://localhost:3000"], timeout: 60000 })
     const electron = require("electron");
     const child = spawn(electron, ["."], {
       stdio: "inherit",
-      env: { ...process.env, ELECTRON_DEV: "1" },
+      env: { ...process.env, ELECTRON_DEV: "1" }
     });
     child.on("exit", (code) => process.exit(code ?? 0));
   })

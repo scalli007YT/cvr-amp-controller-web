@@ -17,17 +17,11 @@ export async function POST(req: NextRequest) {
     };
 
     if (!ip || !mac || slot === undefined) {
-      return NextResponse.json(
-        { success: false, error: "Missing ip, mac or slot" },
-        { status: 400 },
-      );
+      return NextResponse.json({ success: false, error: "Missing ip, mac or slot" }, { status: 400 });
     }
 
     if (!Number.isInteger(slot) || slot < 1 || slot > 40) {
-      return NextResponse.json(
-        { success: false, error: "slot must be an integer between 1 and 40" },
-        { status: 400 },
-      );
+      return NextResponse.json({ success: false, error: "slot must be an integer between 1 and 40" }, { status: 400 });
     }
 
     const device = new CvrAmpDevice(ip);
@@ -40,9 +34,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, mac, slot });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 },
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

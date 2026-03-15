@@ -1,13 +1,7 @@
 "use client";
 
 import type { EqBand } from "@/stores/AmpStore";
-import {
-  computeEqCurve,
-  curveGainAtBand,
-  EQ_BAND_SHORT_LABELS,
-  EQ_FREQ_TICKS,
-  formatFreq,
-} from "@/lib/eq";
+import { computeEqCurve, curveGainAtBand, EQ_BAND_SHORT_LABELS, EQ_FREQ_TICKS, formatFreq } from "@/lib/eq";
 
 /**
  * SVG-based parametric EQ frequency response chart.
@@ -31,20 +25,13 @@ export function EqCurveChart({ bands }: { bands: EqBand[] }) {
   const logMin = Math.log10(20);
   const logMax = Math.log10(20000);
 
-  const xScale = (freq: number) =>
-    pad.left +
-    ((Math.log10(Math.max(freq, 20)) - logMin) / (logMax - logMin)) * cw;
-  const yScale = (db: number) =>
-    pad.top +
-    ((yMax - Math.max(yMin, Math.min(yMax, db))) / (yMax - yMin)) * ch;
+  const xScale = (freq: number) => pad.left + ((Math.log10(Math.max(freq, 20)) - logMin) / (logMax - logMin)) * cw;
+  const yScale = (db: number) => pad.top + ((yMax - Math.max(yMin, Math.min(yMax, db))) / (yMax - yMin)) * ch;
 
   // Curve paths — use raw (unclamped) yScale for clipping to work correctly
-  const yScaleRaw = (db: number) =>
-    pad.top + ((yMax - db) / (yMax - yMin)) * ch;
+  const yScaleRaw = (db: number) => pad.top + ((yMax - db) / (yMax - yMin)) * ch;
 
-  const pathPoints = curveData.map(
-    (p) => `${xScale(p.freq)},${yScaleRaw(p.gain)}`,
-  );
+  const pathPoints = curveData.map((p) => `${xScale(p.freq)},${yScaleRaw(p.gain)}`);
   const linePath = `M${pathPoints.join("L")}`;
   const fillPath = `${linePath}L${xScale(20000)},${yScaleRaw(0)}L${xScale(20)},${yScaleRaw(0)}Z`;
 
@@ -54,7 +41,7 @@ export function EqCurveChart({ bands }: { bands: EqBand[] }) {
     x: xScale(band.freq),
     y: yScale(curveGainAtBand(bands, i)),
     label: EQ_BAND_SHORT_LABELS[i],
-    bypass: band.bypass,
+    bypass: band.bypass
   }));
 
   // Y ticks
@@ -118,30 +105,15 @@ export function EqCurveChart({ bands }: { bands: EqBand[] }) {
         </g>
       ))}
       {/* Axis labels */}
-      <text
-        x={8}
-        y={pad.top - 8}
-        className="fill-muted-foreground"
-        fontSize={10}
-      >
+      <text x={8} y={pad.top - 8} className="fill-muted-foreground" fontSize={10}>
         dB
       </text>
-      <text
-        x={W - pad.right}
-        y={H - 4}
-        textAnchor="end"
-        className="fill-muted-foreground"
-        fontSize={10}
-      >
+      <text x={W - pad.right} y={H - 4} textAnchor="end" className="fill-muted-foreground" fontSize={10}>
         Hz
       </text>
 
       {/* Filled area under/above 0 dB */}
-      <path
-        d={fillPath}
-        className="fill-primary/12"
-        clipPath={`url(#${clipId})`}
-      />
+      <path d={fillPath} className="fill-primary/12" clipPath={`url(#${clipId})`} />
       {/* Curve line */}
       <path
         d={linePath}
@@ -159,13 +131,7 @@ export function EqCurveChart({ bands }: { bands: EqBand[] }) {
         const cy = Math.max(pad.top + 8, Math.min(H - pad.bottom - 8, m.y));
         return (
           <g key={i}>
-            <circle
-              cx={cx}
-              cy={cy}
-              r={7.5}
-              className="fill-background stroke-primary/70"
-              strokeWidth={1}
-            />
+            <circle cx={cx} cy={cy} r={7.5} className="fill-background stroke-primary/70" strokeWidth={1} />
             <text
               x={cx}
               y={cy}

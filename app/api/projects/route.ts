@@ -12,7 +12,7 @@ interface AssignedAmpConstants {
 }
 
 const DEFAULT_AMP_CONSTANTS: AssignedAmpConstants = {
-  channels: Array.from({ length: 4 }, () => ({ ohms: 8 })),
+  channels: Array.from({ length: 4 }, () => ({ ohms: 8 }))
 };
 
 /** Resolves the persistent storage directory.
@@ -46,21 +46,21 @@ function normalizeProject(project: Project): Project {
         amp.constants?.channels?.length === 4
           ? {
               channels: amp.constants.channels.map((channel) => ({
-                ohms: channel?.ohms ?? fallbackOhms,
-              })),
+                ohms: channel?.ohms ?? fallbackOhms
+              }))
             }
           : {
               channels: Array.from({ length: 4 }, () => ({
-                ohms: fallbackOhms,
-              })),
+                ohms: fallbackOhms
+              }))
             };
 
       return {
         id: amp.id,
         mac: amp.mac,
-        constants,
+        constants
       };
-    }),
+    })
   };
 }
 
@@ -84,22 +84,19 @@ export async function GET() {
     }
 
     // Sort by updatedAt descending
-    projects.sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-    );
+    projects.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
     return NextResponse.json({
       success: true,
-      projects,
+      projects
     });
   } catch (err) {
     return NextResponse.json(
       {
         success: false,
-        error: err instanceof Error ? err.message : "Failed to load projects",
+        error: err instanceof Error ? err.message : "Failed to load projects"
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
@@ -109,10 +106,7 @@ export async function PUT(request: Request) {
     const body = normalizeProject((await request.json()) as Project);
 
     if (!body.id) {
-      return NextResponse.json(
-        { success: false, error: "Project ID is required" },
-        { status: 400 },
-      );
+      return NextResponse.json({ success: false, error: "Project ID is required" }, { status: 400 });
     }
 
     const projectsDir = getProjectsDir();
@@ -121,7 +115,7 @@ export async function PUT(request: Request) {
     // Update the updatedAt timestamp
     const updatedProject: Project = {
       ...body,
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
 
     // Write the updated project to file
@@ -129,15 +123,15 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({
       success: true,
-      project: updatedProject,
+      project: updatedProject
     });
   } catch (err) {
     return NextResponse.json(
       {
         success: false,
-        error: err instanceof Error ? err.message : "Failed to save project",
+        error: err instanceof Error ? err.message : "Failed to save project"
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
@@ -150,10 +144,7 @@ export async function POST(request: Request) {
     };
 
     if (!body.name?.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Project name is required" },
-        { status: 400 },
-      );
+      return NextResponse.json({ success: false, error: "Project name is required" }, { status: 400 });
     }
 
     const projectsDir = getProjectsDir();
@@ -165,23 +156,20 @@ export async function POST(request: Request) {
       name: body.name.trim(),
       description: body.description?.trim() ?? "",
       updatedAt: new Date().toISOString(),
-      assigned_amps: [],
+      assigned_amps: []
     };
 
     const filePath = path.join(projectsDir, `${id}.json`);
     await fs.writeFile(filePath, JSON.stringify(newProject, null, 2));
 
-    return NextResponse.json(
-      { success: true, project: newProject },
-      { status: 201 },
-    );
+    return NextResponse.json({ success: true, project: newProject }, { status: 201 });
   } catch (err) {
     return NextResponse.json(
       {
         success: false,
-        error: err instanceof Error ? err.message : "Failed to create project",
+        error: err instanceof Error ? err.message : "Failed to create project"
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
@@ -192,10 +180,7 @@ export async function DELETE(request: Request) {
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json(
-        { success: false, error: "Project ID is required" },
-        { status: 400 },
-      );
+      return NextResponse.json({ success: false, error: "Project ID is required" }, { status: 400 });
     }
 
     const projectsDir = getProjectsDir();
@@ -208,9 +193,9 @@ export async function DELETE(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: err instanceof Error ? err.message : "Failed to delete project",
+        error: err instanceof Error ? err.message : "Failed to delete project"
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

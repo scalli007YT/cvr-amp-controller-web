@@ -10,7 +10,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
+  DialogTitle
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,11 +22,7 @@ interface EditProjectDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function EditProjectDialog({
-  project,
-  open,
-  onOpenChange,
-}: EditProjectDialogProps) {
+export function EditProjectDialog({ project, open, onOpenChange }: EditProjectDialogProps) {
   const { renameProject } = useProjectStore();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -49,9 +45,7 @@ export function EditProjectDialog({
       toast.success("Project updated");
       onOpenChange(false);
     } catch (error) {
-      toast.error(
-        `Failed to update project: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
+      toast.error(`Failed to update project: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsSaving(false);
     }
@@ -68,9 +62,7 @@ export function EditProjectDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Edit Project</DialogTitle>
-          <DialogDescription>
-            Update the name and description of this project.
-          </DialogDescription>
+          <DialogDescription>Update the name and description of this project.</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-2">

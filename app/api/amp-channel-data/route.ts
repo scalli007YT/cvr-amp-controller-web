@@ -29,12 +29,12 @@ export async function GET(request: Request): Promise<Response> {
       success: true,
       mac,
       length: data.length,
-      hex,
+      hex
     };
 
     return new Response(JSON.stringify(response), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" }
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

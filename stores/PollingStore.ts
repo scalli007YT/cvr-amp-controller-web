@@ -19,7 +19,7 @@ export const usePollingStore = create<PollingStore>((set) => ({
 
   setLastUpdated: (mac, timestamp) =>
     set((state) => ({
-      lastUpdated: { ...state.lastUpdated, [mac]: timestamp },
+      lastUpdated: { ...state.lastUpdated, [mac]: timestamp }
     })),
 
   setError: (mac, error) =>
@@ -29,8 +29,8 @@ export const usePollingStore = create<PollingStore>((set) => ({
         : (() => {
             const { [mac]: _, ...rest } = state.errors;
             return rest;
-          })(),
+          })()
     })),
 
-  clearErrors: () => set({ errors: {} }),
+  clearErrors: () => set({ errors: {} })
 }));

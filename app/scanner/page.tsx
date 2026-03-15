@@ -53,9 +53,7 @@ export default function ScannerPage() {
         <div className="p-6">
           <div className="mb-6">
             <h2 className="text-lg font-semibold">Network Scanner</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Discover AMP devices on your network
-            </p>
+            <p className="text-sm text-muted-foreground mt-1">Discover AMP devices on your network</p>
           </div>
 
           <div className="space-y-4">
@@ -69,15 +67,11 @@ export default function ScannerPage() {
               </div>
             )}
 
-            {ampDevices.length > 0 && (
-              <div className="text-sm">Found {ampDevices.length} device(s)</div>
-            )}
+            {ampDevices.length > 0 && <div className="text-sm">Found {ampDevices.length} device(s)</div>}
 
             {/* Manual IP Input */}
             <div className="pt-4 border-t">
-              <label className="text-sm font-medium mb-2 block">
-                Query specific IP:
-              </label>
+              <label className="text-sm font-medium mb-2 block">Query specific IP:</label>
               <div className="flex gap-2">
                 <Input
                   type="text"
@@ -86,11 +80,7 @@ export default function ScannerPage() {
                   onChange={(e) => setManualIp(e.target.value)}
                   disabled={loading}
                 />
-                <Button
-                  onClick={() => handleScan(manualIp)}
-                  disabled={loading || !manualIp}
-                  variant="outline"
-                >
+                <Button onClick={() => handleScan(manualIp)} disabled={loading || !manualIp} variant="outline">
                   Query
                 </Button>
               </div>
@@ -109,9 +99,7 @@ export default function ScannerPage() {
       {/* Devices */}
       {ampDevices.length > 0 && !loading && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold">
-            Discovered Devices ({ampDevices.length})
-          </h2>
+          <h2 className="text-lg font-semibold">Discovered Devices ({ampDevices.length})</h2>
           {ampDevices.map((device) => (
             <Card key={device.ip}>
               <div className="p-6">
@@ -130,12 +118,8 @@ export default function ScannerPage() {
                     <p className="font-mono text-xs">{device.deviceVersion}</p>
                   </div>
                   <div>
-                    <p className="font-medium text-muted-foreground">
-                      Identifier
-                    </p>
-                    <p className="font-mono text-xs break-all">
-                      {device.identifier}
-                    </p>
+                    <p className="font-medium text-muted-foreground">Identifier</p>
+                    <p className="font-mono text-xs break-all">{device.identifier}</p>
                   </div>
                   <div>
                     <p className="font-medium text-muted-foreground">Runtime</p>
@@ -153,9 +137,7 @@ export default function ScannerPage() {
         <Card>
           <div className="p-12 text-center text-muted-foreground">
             <p className="font-medium mb-1">No devices found yet</p>
-            <p className="text-sm">
-              Click "Start Scan" to discover AMP devices
-            </p>
+            <p className="text-sm">Click "Start Scan" to discover AMP devices</p>
           </div>
         </Card>
       )}

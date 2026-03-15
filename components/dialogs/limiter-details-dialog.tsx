@@ -2,13 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { VerticalDbMeter } from "@/components/monitor/vertical-db-meter";
@@ -28,34 +22,16 @@ import {
   normalizeLimiterLoadOhm,
   rmsToPeakVoltage,
   toLimiterDisplayVoltage,
-  voltageToMeterDb,
+  voltageToMeterDb
 } from "@/lib/generic";
-import {
-  RMS_LIMITER_THRESHOLD_MIN_VRMS,
-  PEAK_LIMITER_THRESHOLD_MIN_VP,
-} from "@/lib/constants";
+import { RMS_LIMITER_THRESHOLD_MIN_VRMS, PEAK_LIMITER_THRESHOLD_MIN_VP } from "@/lib/constants";
 
-function LimiterFieldRow({
-  label,
-  value,
-  unit,
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-}) {
+function LimiterFieldRow({ label, value, unit }: { label: string; value: string; unit?: string }) {
   return (
     <div className="grid grid-cols-[92px_auto_auto] items-center gap-2">
       <span>{label}</span>
-      <Input
-        value={value}
-        readOnly
-        disabled
-        className="h-8 w-32 text-right font-mono tabular-nums"
-      />
-      <span className="m-0 p-0 text-[10px] leading-none text-muted-foreground">
-        {unit ?? ""}
-      </span>
+      <Input value={value} readOnly disabled className="h-8 w-32 text-right font-mono tabular-nums" />
+      <span className="m-0 p-0 text-[10px] leading-none text-muted-foreground">{unit ?? ""}</span>
     </div>
   );
 }
@@ -66,7 +42,7 @@ function EditableLimiterFieldRow({
   unit,
   inputMode = "decimal",
   disabled,
-  onCommit,
+  onCommit
 }: {
   label: string;
   value: string;
@@ -111,9 +87,7 @@ function EditableLimiterFieldRow({
         }}
         className="h-8 w-32 text-right font-mono tabular-nums"
       />
-      <span className="m-0 p-0 text-[10px] leading-none text-muted-foreground">
-        {unit ?? ""}
-      </span>
+      <span className="m-0 p-0 text-[10px] leading-none text-muted-foreground">{unit ?? ""}</span>
     </div>
   );
 }
@@ -124,7 +98,7 @@ function CenteredEditableField({
   unit,
   inputMode = "decimal",
   disabled,
-  onCommit,
+  onCommit
 }: {
   label: string;
   value: string;
@@ -170,9 +144,7 @@ function CenteredEditableField({
           }}
           className="h-8 w-24 text-center font-mono tabular-nums"
         />
-        <span className="text-[10px] leading-none text-muted-foreground">
-          {unit ?? ""}
-        </span>
+        <span className="text-[10px] leading-none text-muted-foreground">{unit ?? ""}</span>
       </div>
     </div>
   );
@@ -187,7 +159,7 @@ function MeterWithScale({
   fillDirection = "bottom-up",
   height = 220,
   width = 36,
-  thresholdLines,
+  thresholdLines
 }: {
   value: number | null;
   dbTop: number;
@@ -257,7 +229,7 @@ export function LimiterDetailsDialog({
   onSetPeakHold,
   onSetPeakRelease,
   onSetPeakThreshold,
-  onSetOhms,
+  onSetOhms
 }: {
   trigger: ReactNode;
   mac: string;
@@ -283,16 +255,8 @@ export function LimiterDetailsDialog({
   };
   gr: number;
   outputDb: number | null;
-  onToggleRms: (
-    mac: string,
-    channel: 0 | 1 | 2 | 3,
-    enabled: boolean,
-  ) => Promise<void>;
-  onTogglePeak: (
-    mac: string,
-    channel: 0 | 1 | 2 | 3,
-    enabled: boolean,
-  ) => Promise<void>;
+  onToggleRms: (mac: string, channel: 0 | 1 | 2 | 3, enabled: boolean) => Promise<void>;
+  onTogglePeak: (mac: string, channel: 0 | 1 | 2 | 3, enabled: boolean) => Promise<void>;
   onSetRmsAttack: (
     mac: string,
     channel: 0 | 1 | 2 | 3,
@@ -302,7 +266,7 @@ export function LimiterDetailsDialog({
       attackMs: number;
       releaseMultiplier: number;
       thresholdVrms: number;
-    },
+    }
   ) => Promise<void>;
   onSetRmsReleaseMultiplier: (
     mac: string,
@@ -313,7 +277,7 @@ export function LimiterDetailsDialog({
       attackMs: number;
       releaseMultiplier: number;
       thresholdVrms: number;
-    },
+    }
   ) => Promise<void>;
   onSetRmsThreshold: (
     mac: string,
@@ -324,7 +288,7 @@ export function LimiterDetailsDialog({
       attackMs: number;
       releaseMultiplier: number;
       thresholdVrms: number;
-    },
+    }
   ) => Promise<void>;
   onSetPeakHold: (
     mac: string,
@@ -335,7 +299,7 @@ export function LimiterDetailsDialog({
       holdMs: number;
       releaseMs: number;
       thresholdVp: number;
-    },
+    }
   ) => Promise<void>;
   onSetPeakRelease: (
     mac: string,
@@ -346,7 +310,7 @@ export function LimiterDetailsDialog({
       holdMs: number;
       releaseMs: number;
       thresholdVp: number;
-    },
+    }
   ) => Promise<void>;
   onSetPeakThreshold: (
     mac: string,
@@ -357,13 +321,9 @@ export function LimiterDetailsDialog({
       holdMs: number;
       releaseMs: number;
       thresholdVp: number;
-    },
+    }
   ) => Promise<void>;
-  onSetOhms: (
-    mac: string,
-    channel: 0 | 1 | 2 | 3,
-    ohms: number,
-  ) => Promise<void>;
+  onSetOhms: (mac: string, channel: 0 | 1 | 2 | 3, ohms: number) => Promise<void>;
 }) {
   const METER_H = 220;
   const METER_W = 36;
@@ -376,12 +336,8 @@ export function LimiterDetailsDialog({
   const maxVp = limiterDisplayMaxVp(maxVpRaw, bridgeMode);
 
   // Local draft state so sliders track live during drag
-  const [rmsSliderV, setRmsSliderV] = useState(
-    toLimiterDisplayVoltage(rms.thresholdVrms, bridgeMode),
-  );
-  const [peakSliderV, setPeakSliderV] = useState(
-    toLimiterDisplayVoltage(peak.thresholdVp, bridgeMode),
-  );
+  const [rmsSliderV, setRmsSliderV] = useState(toLimiterDisplayVoltage(rms.thresholdVrms, bridgeMode));
+  const [peakSliderV, setPeakSliderV] = useState(toLimiterDisplayVoltage(peak.thresholdVp, bridgeMode));
 
   // Sync slider from external prop changes (e.g. polled updates) only when not dragging
   useEffect(() => {
@@ -401,14 +357,8 @@ export function LimiterDetailsDialog({
   const peakRawThreshold = fromLimiterDisplayVoltage(peakSliderV, bridgeMode);
 
   // Live power derived from slider draft values
-  const liveRmsPrmsW = limiterPowerFromDisplayVoltage(
-    rmsSliderV,
-    resolvedLoadOhm,
-  );
-  const livePeakPpeakW = limiterPowerFromDisplayVoltage(
-    peakSliderV,
-    resolvedLoadOhm,
-  );
+  const liveRmsPrmsW = limiterPowerFromDisplayVoltage(rmsSliderV, resolvedLoadOhm);
+  const livePeakPpeakW = limiterPowerFromDisplayVoltage(peakSliderV, resolvedLoadOhm);
   const limiterCompDb = Math.max(0, Math.min(20, -gr));
   const thresholdLines: { db: number; color: string; label: string }[] = [];
 
@@ -418,7 +368,7 @@ export function LimiterDetailsDialog({
       thresholdLines.push({
         db: d,
         color: COLORS.RMS_LIMITER,
-        label: `RMS ${rmsSliderV.toFixed(2)} Vrms - ${liveRmsPrmsW} W (${d.toFixed(1)} dB)`,
+        label: `RMS ${rmsSliderV.toFixed(2)} Vrms - ${liveRmsPrmsW} W (${d.toFixed(1)} dB)`
       });
     }
   }
@@ -429,7 +379,7 @@ export function LimiterDetailsDialog({
       thresholdLines.push({
         db: d,
         color: COLORS.PEAK_LIMITER,
-        label: `Peak ${peakSliderV.toFixed(2)} Vp - ${livePeakPpeakW} W (${d.toFixed(1)} dB)`,
+        label: `Peak ${peakSliderV.toFixed(2)} Vp - ${livePeakPpeakW} W (${d.toFixed(1)} dB)`
       });
     }
   }
@@ -438,13 +388,13 @@ export function LimiterDetailsDialog({
     enabled: rms.enabled,
     attackMs: rms.attackMs,
     releaseMultiplier: rms.releaseMultiplier,
-    thresholdVrms: rms.thresholdVrms,
+    thresholdVrms: rms.thresholdVrms
   };
   const peakConfig = {
     enabled: peak.enabled,
     holdMs: peak.holdMs,
     releaseMs: peak.releaseMs,
-    thresholdVp: peak.thresholdVp,
+    thresholdVp: peak.thresholdVp
   };
 
   const commitRmsThreshold = (nextValue: string) => {
@@ -452,12 +402,7 @@ export function LimiterDetailsDialog({
     if (!Number.isFinite(parsed) || parsed < 0) {
       return;
     }
-    void onSetRmsThreshold(
-      mac,
-      channel,
-      fromLimiterDisplayVoltage(parsed, bridgeMode),
-      rmsConfig,
-    );
+    void onSetRmsThreshold(mac, channel, fromLimiterDisplayVoltage(parsed, bridgeMode), rmsConfig);
   };
 
   const commitRmsPower = (nextValue: string) => {
@@ -470,7 +415,7 @@ export function LimiterDetailsDialog({
       mac,
       channel,
       limiterRawVoltageFromDisplayPower(parsed, resolvedLoadOhm, bridgeMode),
-      rmsConfig,
+      rmsConfig
     );
   };
 
@@ -495,12 +440,7 @@ export function LimiterDetailsDialog({
     if (!Number.isFinite(parsed) || parsed < 0) {
       return;
     }
-    void onSetPeakThreshold(
-      mac,
-      channel,
-      fromLimiterDisplayVoltage(parsed, bridgeMode),
-      peakConfig,
-    );
+    void onSetPeakThreshold(mac, channel, fromLimiterDisplayVoltage(parsed, bridgeMode), peakConfig);
   };
 
   const commitPeakPower = (nextValue: string) => {
@@ -513,7 +453,7 @@ export function LimiterDetailsDialog({
       mac,
       channel,
       limiterRawVoltageFromDisplayPower(parsed, resolvedLoadOhm, bridgeMode),
-      peakConfig,
+      peakConfig
     );
   };
 
@@ -557,25 +497,17 @@ export function LimiterDetailsDialog({
             <div className="flex flex-1 items-center justify-center py-3">
               <Slider
                 orientation="vertical"
-                min={limiterDisplayMinVrms(
-                  RMS_LIMITER_THRESHOLD_MIN_VRMS,
-                  bridgeMode,
-                )}
+                min={limiterDisplayMinVrms(RMS_LIMITER_THRESHOLD_MIN_VRMS, bridgeMode)}
                 max={maxVrms}
                 step={0.01}
                 value={[rmsSliderV]}
                 disabled={!rms.enabled}
                 onValueChange={([v]) => setRmsSliderV(v!)}
                 onValueCommit={([v]) =>
-                  void onSetRmsThreshold(
-                    mac,
-                    channel,
-                    fromLimiterDisplayVoltage(v!, bridgeMode),
-                    {
-                      ...rmsConfig,
-                      thresholdVrms: fromLimiterDisplayVoltage(v!, bridgeMode),
-                    },
-                  )
+                  void onSetRmsThreshold(mac, channel, fromLimiterDisplayVoltage(v!, bridgeMode), {
+                    ...rmsConfig,
+                    thresholdVrms: fromLimiterDisplayVoltage(v!, bridgeMode)
+                  })
                 }
               />
             </div>
@@ -610,9 +542,7 @@ export function LimiterDetailsDialog({
                   width={METER_W}
                   thresholdLines={thresholdLines}
                 />
-                <p className="font-mono text-xs">
-                  {outputDb !== null ? `${outputDb.toFixed(1)} dB` : "---"}
-                </p>
+                <p className="font-mono text-xs">{outputDb !== null ? `${outputDb.toFixed(1)} dB` : "---"}</p>
               </div>
               <div className="flex flex-col items-center gap-1">
                 <p className="text-xs">Limit dB</p>
@@ -624,9 +554,7 @@ export function LimiterDetailsDialog({
                   width={METER_W}
                   fillDirection="top-down"
                 />
-                <p className="font-mono text-xs">
-                  {limiterCompDb.toFixed(1)} dB
-                </p>
+                <p className="font-mono text-xs">{limiterCompDb.toFixed(1)} dB</p>
               </div>
             </div>
             <Separator className="w-16" />
@@ -644,25 +572,17 @@ export function LimiterDetailsDialog({
             <div className="flex flex-1 items-center justify-center py-3">
               <Slider
                 orientation="vertical"
-                min={limiterDisplayMinVp(
-                  PEAK_LIMITER_THRESHOLD_MIN_VP,
-                  bridgeMode,
-                )}
+                min={limiterDisplayMinVp(PEAK_LIMITER_THRESHOLD_MIN_VP, bridgeMode)}
                 max={maxVp}
                 step={0.01}
                 value={[peakSliderV]}
                 disabled={!peak.enabled}
                 onValueChange={([v]) => setPeakSliderV(v!)}
                 onValueCommit={([v]) =>
-                  void onSetPeakThreshold(
-                    mac,
-                    channel,
-                    fromLimiterDisplayVoltage(v!, bridgeMode),
-                    {
-                      ...peakConfig,
-                      thresholdVp: fromLimiterDisplayVoltage(v!, bridgeMode),
-                    },
-                  )
+                  void onSetPeakThreshold(mac, channel, fromLimiterDisplayVoltage(v!, bridgeMode), {
+                    ...peakConfig,
+                    thresholdVp: fromLimiterDisplayVoltage(v!, bridgeMode)
+                  })
                 }
               />
             </div>
@@ -694,12 +614,7 @@ export function LimiterDetailsDialog({
               unit="Vrms"
               onCommit={commitRmsThreshold}
             />
-            <EditableLimiterFieldRow
-              label="Prms"
-              value={String(liveRmsPrmsW)}
-              unit="W"
-              onCommit={commitRmsPower}
-            />
+            <EditableLimiterFieldRow label="Prms" value={String(liveRmsPrmsW)} unit="W" onCommit={commitRmsPower} />
             <EditableLimiterFieldRow
               label="Attack"
               value={String(rms.attackMs)}
@@ -725,12 +640,7 @@ export function LimiterDetailsDialog({
               unit="Vpeak"
               onCommit={commitPeakThreshold}
             />
-            <EditableLimiterFieldRow
-              label="Ppeak"
-              value={String(livePeakPpeakW)}
-              unit="W"
-              onCommit={commitPeakPower}
-            />
+            <EditableLimiterFieldRow label="Ppeak" value={String(livePeakPpeakW)} unit="W" onCommit={commitPeakPower} />
             <EditableLimiterFieldRow
               label="Hold"
               value={String(peak.holdMs)}

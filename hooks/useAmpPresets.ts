@@ -4,10 +4,7 @@ import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { useAmpStore } from "@/stores/AmpStore";
 import type { AmpPreset } from "@/stores/AmpStore";
-import {
-  presetNameSchema,
-  presetStoreRequestSchema,
-} from "@/lib/validation/presets";
+import { presetNameSchema, presetStoreRequestSchema } from "@/lib/validation/presets";
 
 interface UseAmpPresetsReturn {
   /** Fetch preset names from the device and write them into AmpStore. */
@@ -53,9 +50,7 @@ export function useAmpPresets(): UseAmpPresetsReturn {
       const amp = amps.find((a) => a.mac === mac);
 
       if (!amp?.ip) {
-        setError(
-          "No IP address known for this amp yet. Wait for a poll cycle.",
-        );
+        setError("No IP address known for this amp yet. Wait for a poll cycle.");
         return;
       }
 
@@ -66,7 +61,7 @@ export function useAmpPresets(): UseAmpPresetsReturn {
         const res = await fetch("/api/amp-presets", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ip: amp.ip, mac }),
+          body: JSON.stringify({ ip: amp.ip, mac })
         });
 
         const data = (await res.json()) as {
@@ -86,7 +81,7 @@ export function useAmpPresets(): UseAmpPresetsReturn {
         setFetching(false);
       }
     },
-    [amps, setPresets],
+    [amps, setPresets]
   );
 
   const clearError = useCallback(() => setError(null), []);
@@ -96,8 +91,7 @@ export function useAmpPresets(): UseAmpPresetsReturn {
       const amp = amps.find((a) => a.mac === mac);
 
       if (!amp?.ip) {
-        const message =
-          "No IP address known for this amp yet. Wait for a poll cycle.";
+        const message = "No IP address known for this amp yet. Wait for a poll cycle.";
         setError(message);
         toast.error(message);
         return false;
@@ -110,7 +104,7 @@ export function useAmpPresets(): UseAmpPresetsReturn {
         const res = await fetch("/api/amp-presets/recall", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ip: amp.ip, mac, slot }),
+          body: JSON.stringify({ ip: amp.ip, mac, slot })
         });
 
         const data = (await res.json()) as {
@@ -122,9 +116,7 @@ export function useAmpPresets(): UseAmpPresetsReturn {
           throw new Error(data.error ?? `HTTP ${res.status}`);
         }
 
-        toast.success(
-          name ? `Recalled preset ${slot}: ${name}` : `Recalled preset ${slot}`,
-        );
+        toast.success(name ? `Recalled preset ${slot}: ${name}` : `Recalled preset ${slot}`);
         return true;
       } catch (err) {
         const message = err instanceof Error ? err.message : "Recall failed";
@@ -135,7 +127,7 @@ export function useAmpPresets(): UseAmpPresetsReturn {
         setRecallingSlot(null);
       }
     },
-    [amps],
+    [amps]
   );
 
   const storePreset = useCallback(
@@ -143,8 +135,7 @@ export function useAmpPresets(): UseAmpPresetsReturn {
       const amp = amps.find((a) => a.mac === mac);
 
       if (!amp?.ip) {
-        const message =
-          "No IP address known for this amp yet. Wait for a poll cycle.";
+        const message = "No IP address known for this amp yet. Wait for a poll cycle.";
         setError(message);
         toast.error(message);
         return false;
@@ -153,8 +144,7 @@ export function useAmpPresets(): UseAmpPresetsReturn {
       const trimmedName = name.trim();
       const nameValidation = presetNameSchema.safeParse(trimmedName);
       if (!nameValidation.success) {
-        const message =
-          nameValidation.error.issues[0]?.message ?? "Invalid preset name";
+        const message = nameValidation.error.issues[0]?.message ?? "Invalid preset name";
         setError(message);
         toast.error(message);
         return false;
@@ -168,20 +158,17 @@ export function useAmpPresets(): UseAmpPresetsReturn {
           ip: amp.ip,
           mac,
           slot,
-          name: nameValidation.data,
+          name: nameValidation.data
         });
 
         if (!payloadValidation.success) {
-          throw new Error(
-            payloadValidation.error.issues[0]?.message ??
-              "Invalid store request",
-          );
+          throw new Error(payloadValidation.error.issues[0]?.message ?? "Invalid store request");
         }
 
         const res = await fetch("/api/amp-presets/store", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payloadValidation.data),
+          body: JSON.stringify(payloadValidation.data)
         });
 
         const data = (await res.json()) as {
@@ -195,12 +182,8 @@ export function useAmpPresets(): UseAmpPresetsReturn {
 
         if (amp.presets) {
           const next = amp.presets.some((p) => p.slot === slot)
-            ? amp.presets.map((p) =>
-                p.slot === slot ? { ...p, name: nameValidation.data } : p,
-              )
-            : [...amp.presets, { slot, name: nameValidation.data }].sort(
-                (a, b) => a.slot - b.slot,
-              );
+            ? amp.presets.map((p) => (p.slot === slot ? { ...p, name: nameValidation.data } : p))
+            : [...amp.presets, { slot, name: nameValidation.data }].sort((a, b) => a.slot - b.slot);
           setPresets(mac, next);
         }
 
@@ -215,7 +198,7 @@ export function useAmpPresets(): UseAmpPresetsReturn {
         setStoringSlot(null);
       }
     },
-    [amps, setPresets],
+    [amps, setPresets]
   );
 
   return {
@@ -226,6 +209,6 @@ export function useAmpPresets(): UseAmpPresetsReturn {
     recallingSlot,
     storingSlot,
     error,
-    clearError,
+    clearError
   };
 }

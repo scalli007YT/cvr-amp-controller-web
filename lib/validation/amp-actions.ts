@@ -16,8 +16,13 @@ import {
   RMS_LIMITER_RELEASE_MAX_MULTIPLIER,
   PEAK_LIMITER_THRESHOLD_MIN_VP,
   PEAK_LIMITER_HOLD_MAX_MS,
-  PEAK_LIMITER_RELEASE_MAX_MS,
+  PEAK_LIMITER_RELEASE_MAX_MS
 } from "@/lib/constants";
+
+export const SOURCE_DELAY_MIN_MS = 0;
+export const SOURCE_DELAY_MAX_MS = 10;
+export const SOURCE_TRIM_MIN_DB = 0;
+export const SOURCE_TRIM_MAX_DB = 18;
 
 const channelSchema = z
   .number()
@@ -27,7 +32,7 @@ const channelSchema = z
 
 const baseSchema = z.object({
   mac: z.string().trim().min(1, "Missing mac"),
-  channel: channelSchema,
+  channel: channelSchema
 });
 
 const crossoverTargetSchema = z.enum(["input", "output"]);
@@ -40,27 +45,27 @@ const crossoverFilterTypeSchema = z
 
 const muteInSchema = baseSchema.extend({
   action: z.literal("muteIn"),
-  value: z.boolean(),
+  value: z.boolean()
 });
 
 const volumeInSchema = baseSchema.extend({
   action: z.literal("volumeIn"),
-  value: z.number(),
+  value: z.number()
 });
 
 const muteOutSchema = baseSchema.extend({
   action: z.literal("muteOut"),
-  value: z.boolean(),
+  value: z.boolean()
 });
 
 const invertPolarityOutSchema = baseSchema.extend({
   action: z.literal("invertPolarityOut"),
-  value: z.boolean(),
+  value: z.boolean()
 });
 
 const noiseGateOutSchema = baseSchema.extend({
   action: z.literal("noiseGateOut"),
-  value: z.boolean(),
+  value: z.boolean()
 });
 
 const rmsLimiterOutSchema = baseSchema.extend({
@@ -70,27 +75,18 @@ const rmsLimiterOutSchema = baseSchema.extend({
     .number()
     .int("attackMs must be an integer")
     .min(0)
-    .max(
-      RMS_LIMITER_ATTACK_MAX_MS,
-      `attackMs must be <= ${RMS_LIMITER_ATTACK_MAX_MS} ms`,
-    )
+    .max(RMS_LIMITER_ATTACK_MAX_MS, `attackMs must be <= ${RMS_LIMITER_ATTACK_MAX_MS} ms`)
     .optional(),
   releaseMultiplier: z
     .number()
     .int("releaseMultiplier must be an integer")
     .min(0)
-    .max(
-      RMS_LIMITER_RELEASE_MAX_MULTIPLIER,
-      `releaseMultiplier must be <= ${RMS_LIMITER_RELEASE_MAX_MULTIPLIER}×Atk`,
-    )
+    .max(RMS_LIMITER_RELEASE_MAX_MULTIPLIER, `releaseMultiplier must be <= ${RMS_LIMITER_RELEASE_MAX_MULTIPLIER}×Atk`)
     .optional(),
   thresholdVrms: z
     .number()
-    .min(
-      RMS_LIMITER_THRESHOLD_MIN_VRMS,
-      `thresholdVrms must be >= ${RMS_LIMITER_THRESHOLD_MIN_VRMS} Vrms`,
-    )
-    .optional(),
+    .min(RMS_LIMITER_THRESHOLD_MIN_VRMS, `thresholdVrms must be >= ${RMS_LIMITER_THRESHOLD_MIN_VRMS} Vrms`)
+    .optional()
 });
 
 const peakLimiterOutSchema = baseSchema.extend({
@@ -100,27 +96,18 @@ const peakLimiterOutSchema = baseSchema.extend({
     .number()
     .int("holdMs must be an integer")
     .min(0)
-    .max(
-      PEAK_LIMITER_HOLD_MAX_MS,
-      `holdMs must be <= ${PEAK_LIMITER_HOLD_MAX_MS} ms`,
-    )
+    .max(PEAK_LIMITER_HOLD_MAX_MS, `holdMs must be <= ${PEAK_LIMITER_HOLD_MAX_MS} ms`)
     .optional(),
   releaseMs: z
     .number()
     .int("releaseMs must be an integer")
     .min(0)
-    .max(
-      PEAK_LIMITER_RELEASE_MAX_MS,
-      `releaseMs must be <= ${PEAK_LIMITER_RELEASE_MAX_MS} ms`,
-    )
+    .max(PEAK_LIMITER_RELEASE_MAX_MS, `releaseMs must be <= ${PEAK_LIMITER_RELEASE_MAX_MS} ms`)
     .optional(),
   thresholdVp: z
     .number()
-    .min(
-      PEAK_LIMITER_THRESHOLD_MIN_VP,
-      `thresholdVp must be >= ${PEAK_LIMITER_THRESHOLD_MIN_VP} Vpeak`,
-    )
-    .optional(),
+    .min(PEAK_LIMITER_THRESHOLD_MIN_VP, `thresholdVp must be >= ${PEAK_LIMITER_THRESHOLD_MIN_VP} Vpeak`)
+    .optional()
 });
 
 const matrixGainSchema = baseSchema.extend({
@@ -129,13 +116,65 @@ const matrixGainSchema = baseSchema.extend({
     .number()
     .min(MATRIX_GAIN_MIN_DB, `matrixGain must be >= ${MATRIX_GAIN_MIN_DB} dB`)
     .max(MATRIX_GAIN_MAX_DB, `matrixGain must be <= +${MATRIX_GAIN_MAX_DB} dB`),
-  source: channelSchema,
+  source: channelSchema
 });
 
 const matrixActiveSchema = baseSchema.extend({
   action: z.literal("matrixActive"),
   value: z.boolean(),
-  source: channelSchema,
+  source: channelSchema
+});
+
+const sourceTypeSchema = baseSchema.extend({
+  action: z.literal("sourceType"),
+  value: z
+    .number()
+    .int("sourceType must be an integer")
+    .min(0, "sourceType must be between 0 and 2")
+    .max(2, "sourceType must be between 0 and 2")
+});
+
+const sourceDelaySchema = baseSchema.extend({
+  action: z.literal("sourceDelay"),
+  value: z
+    .number()
+    .min(SOURCE_DELAY_MIN_MS, `sourceDelay must be >= ${SOURCE_DELAY_MIN_MS} ms`)
+    .max(SOURCE_DELAY_MAX_MS, `sourceDelay must be <= ${SOURCE_DELAY_MAX_MS} ms`),
+  source: z
+    .number()
+    .int("source must be an integer")
+    .min(0, "source must be between 0 and 2")
+    .max(2, "source must be between 0 and 2"),
+  trim: z
+    .number()
+    .min(SOURCE_TRIM_MIN_DB, `sourceTrim must be >= ${SOURCE_TRIM_MIN_DB} dB`)
+    .max(SOURCE_TRIM_MAX_DB, `sourceTrim must be <= ${SOURCE_TRIM_MAX_DB} dB`)
+});
+
+const sourceTrimSchema = baseSchema.extend({
+  action: z.literal("sourceTrim"),
+  value: z
+    .number()
+    .min(SOURCE_TRIM_MIN_DB, `sourceTrim must be >= ${SOURCE_TRIM_MIN_DB} dB`)
+    .max(SOURCE_TRIM_MAX_DB, `sourceTrim must be <= ${SOURCE_TRIM_MAX_DB} dB`),
+  source: z
+    .number()
+    .int("source must be an integer")
+    .min(0, "source must be between 0 and 2")
+    .max(2, "source must be between 0 and 2"),
+  delay: z
+    .number()
+    .min(SOURCE_DELAY_MIN_MS, `sourceDelay must be >= ${SOURCE_DELAY_MIN_MS} ms`)
+    .max(SOURCE_DELAY_MAX_MS, `sourceDelay must be <= ${SOURCE_DELAY_MAX_MS} ms`)
+});
+
+const analogTypeSchema = baseSchema.extend({
+  action: z.literal("analogType"),
+  value: z
+    .number()
+    .int("analogType must be an integer")
+    .min(0, "analogType must be between 0 and 15")
+    .max(15, "analogType must be between 0 and 15")
 });
 
 const delayInSchema = baseSchema.extend({
@@ -143,7 +182,7 @@ const delayInSchema = baseSchema.extend({
   value: z
     .number()
     .min(DELAY_MIN_MS, `delayIn must be >= ${DELAY_MIN_MS} ms`)
-    .max(DELAY_IN_MAX_MS, `delayIn must be <= ${DELAY_IN_MAX_MS} ms`),
+    .max(DELAY_IN_MAX_MS, `delayIn must be <= ${DELAY_IN_MAX_MS} ms`)
 });
 
 const delayOutSchema = baseSchema.extend({
@@ -151,7 +190,7 @@ const delayOutSchema = baseSchema.extend({
   value: z
     .number()
     .min(DELAY_MIN_MS, `delayOut must be >= ${DELAY_MIN_MS} ms`)
-    .max(DELAY_OUT_MAX_MS, `delayOut must be <= ${DELAY_OUT_MAX_MS} ms`),
+    .max(DELAY_OUT_MAX_MS, `delayOut must be <= ${DELAY_OUT_MAX_MS} ms`)
 });
 
 const powerModeOutSchema = baseSchema.extend({
@@ -160,7 +199,7 @@ const powerModeOutSchema = baseSchema.extend({
     .number()
     .int("powerModeOut must be an integer")
     .min(0, "powerModeOut must be between 0 and 2")
-    .max(2, "powerModeOut must be between 0 and 2"),
+    .max(2, "powerModeOut must be between 0 and 2")
 });
 
 const bridgePairSchema = z.object({
@@ -171,7 +210,7 @@ const bridgePairSchema = z.object({
     .int("bridge pair must be an integer")
     .min(0, "bridge pair must be 0 or 1")
     .max(1, "bridge pair must be 0 or 1"),
-  value: z.boolean(),
+  value: z.boolean()
 });
 
 const crossoverEnabledSchema = baseSchema.extend({
@@ -179,23 +218,17 @@ const crossoverEnabledSchema = baseSchema.extend({
   value: z.boolean(),
   target: crossoverTargetSchema,
   kind: crossoverKindSchema,
-  filterType: crossoverFilterTypeSchema,
+  filterType: crossoverFilterTypeSchema
 });
 
 const crossoverFreqSchema = baseSchema.extend({
   action: z.literal("crossoverFreq"),
   value: z
     .number()
-    .min(
-      CROSSOVER_FREQ_MIN_HZ,
-      `crossoverFreq must be >= ${CROSSOVER_FREQ_MIN_HZ} Hz`,
-    )
-    .max(
-      CROSSOVER_FREQ_MAX_HZ,
-      `crossoverFreq must be <= ${CROSSOVER_FREQ_MAX_HZ} Hz`,
-    ),
+    .min(CROSSOVER_FREQ_MIN_HZ, `crossoverFreq must be >= ${CROSSOVER_FREQ_MIN_HZ} Hz`)
+    .max(CROSSOVER_FREQ_MAX_HZ, `crossoverFreq must be <= ${CROSSOVER_FREQ_MAX_HZ} Hz`),
   target: crossoverTargetSchema,
-  kind: crossoverKindSchema,
+  kind: crossoverKindSchema
 });
 
 const eqTargetSchema = z.enum(["input", "output"]);
@@ -211,23 +244,17 @@ const eqBandTypeSchema = baseSchema.extend({
   value: z.number().int().min(0).max(10),
   target: eqTargetSchema,
   band: eqBandIndexSchema,
-  bypass: z.boolean(),
+  bypass: z.boolean()
 });
 
 const eqBandFreqSchema = baseSchema.extend({
   action: z.literal("eqBandFreq"),
   value: z
     .number()
-    .min(
-      CROSSOVER_FREQ_MIN_HZ,
-      `eqBandFreq must be >= ${CROSSOVER_FREQ_MIN_HZ} Hz`,
-    )
-    .max(
-      CROSSOVER_FREQ_MAX_HZ,
-      `eqBandFreq must be <= ${CROSSOVER_FREQ_MAX_HZ} Hz`,
-    ),
+    .min(CROSSOVER_FREQ_MIN_HZ, `eqBandFreq must be >= ${CROSSOVER_FREQ_MIN_HZ} Hz`)
+    .max(CROSSOVER_FREQ_MAX_HZ, `eqBandFreq must be <= ${CROSSOVER_FREQ_MAX_HZ} Hz`),
   target: eqTargetSchema,
-  band: eqBandIndexSchema,
+  band: eqBandIndexSchema
 });
 
 const eqBandGainSchema = baseSchema.extend({
@@ -235,12 +262,9 @@ const eqBandGainSchema = baseSchema.extend({
   value: z
     .number()
     .min(EQ_BAND_GAIN_MIN_DB, `eqBandGain must be >= ${EQ_BAND_GAIN_MIN_DB} dB`)
-    .max(
-      EQ_BAND_GAIN_MAX_DB,
-      `eqBandGain must be <= +${EQ_BAND_GAIN_MAX_DB} dB`,
-    ),
+    .max(EQ_BAND_GAIN_MAX_DB, `eqBandGain must be <= +${EQ_BAND_GAIN_MAX_DB} dB`),
   target: eqTargetSchema,
-  band: eqBandIndexSchema,
+  band: eqBandIndexSchema
 });
 
 const eqBandQSchema = baseSchema.extend({
@@ -250,7 +274,7 @@ const eqBandQSchema = baseSchema.extend({
     .min(EQ_BAND_Q_MIN, `eqBandQ must be >= ${EQ_BAND_Q_MIN}`)
     .max(EQ_BAND_Q_MAX, `eqBandQ must be <= ${EQ_BAND_Q_MAX}`),
   target: eqTargetSchema,
-  band: eqBandIndexSchema,
+  band: eqBandIndexSchema
 });
 
 export const ampActionRequestSchema = z.union([
@@ -263,6 +287,10 @@ export const ampActionRequestSchema = z.union([
   peakLimiterOutSchema,
   matrixGainSchema,
   matrixActiveSchema,
+  sourceTypeSchema,
+  sourceDelaySchema,
+  sourceTrimSchema,
+  analogTypeSchema,
   delayInSchema,
   delayOutSchema,
   powerModeOutSchema,
@@ -272,7 +300,7 @@ export const ampActionRequestSchema = z.union([
   eqBandTypeSchema,
   eqBandFreqSchema,
   eqBandGainSchema,
-  eqBandQSchema,
+  eqBandQSchema
 ]);
 
 export type AmpActionRequest = z.infer<typeof ampActionRequestSchema>;
