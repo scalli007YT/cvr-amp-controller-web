@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Moon, Sun } from "lucide-react";
+import { Check, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useI18n } from "@/components/layout/i18n-provider";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export function ModeToggle() {
-  const { setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
+  const dict = useI18n();
 
   return (
     <DropdownMenu>
@@ -25,9 +27,18 @@ export function ModeToggle() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>Light</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>Dark</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")}>System</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("light")} className="gap-2">
+          <Check className={`h-3.5 w-3.5 ${theme === "light" ? "opacity-100" : "opacity-0"}`} />
+          {dict.header.light}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("dark")} className="gap-2">
+          <Check className={`h-3.5 w-3.5 ${theme === "dark" ? "opacity-100" : "opacity-0"}`} />
+          {dict.header.dark}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme("system")} className="gap-2">
+          <Check className={`h-3.5 w-3.5 ${theme === "system" ? "opacity-100" : "opacity-0"}`} />
+          {dict.header.system}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

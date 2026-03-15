@@ -23,6 +23,7 @@ import {
   DialogTitle,
   DialogTrigger
 } from "@/components/ui/dialog";
+import { useI18n } from "@/components/layout/i18n-provider";
 
 type SourceKey = "analog" | "dante" | "aes3" | "backup";
 
@@ -60,6 +61,7 @@ export function SourceConfigDialog({
   mac: string;
   capabilities?: SourceCapabilities;
 }) {
+  const dict = useI18n();
   const { setSourceType, setSourceDelay, setSourceTrim, setAnalogType } = useAmpActions();
   const [pendingKey, setPendingKey] = useState<string | null>(null);
 
@@ -105,20 +107,20 @@ export function SourceConfigDialog({
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="h-7 text-xs">
-          Source
+          {dict.dialogs.sourceConfig.trigger}
         </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[980px]">
         <DialogHeader>
-          <DialogTitle>Source</DialogTitle>
-          <DialogDescription>Per channel source selection with delay and trim values.</DialogDescription>
+          <DialogTitle>{dict.dialogs.sourceConfig.title}</DialogTitle>
+          <DialogDescription>{dict.dialogs.sourceConfig.description}</DialogDescription>
         </DialogHeader>
 
         <CustomAlert
           tone="amber"
-          title="Not Included In Device Presets"
-          description="Source selection, delay, and trim shown here are not covered by the device preset store/recall flow in this app."
+          title={dict.dialogs.sourceConfig.alertTitle}
+          description={dict.dialogs.sourceConfig.alertDescription}
         />
 
         <div className="max-h-[70vh] overflow-auto p-3">
@@ -213,7 +215,7 @@ export function SourceConfigDialog({
                             <span className="text-xs font-semibold">{source.type}</span>
                             {!enabled && (
                               <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
-                                Off
+                                {dict.dialogs.sourceConfig.off}
                               </span>
                             )}
                           </div>
@@ -221,9 +223,11 @@ export function SourceConfigDialog({
 
                         <div className="space-y-1 text-xs text-muted-foreground">
                           <div className="flex items-center justify-between gap-2 rounded border border-border/50 px-2 py-1">
-                            <span>Delay</span>
+                            <span>{dict.dialogs.sourceConfig.delay}</span>
                             {isBackup ? (
-                              <span className="font-medium text-muted-foreground">N/A</span>
+                              <span className="font-medium text-muted-foreground">
+                                {dict.dialogs.sourceConfig.notAvailable}
+                              </span>
                             ) : (
                               <Input
                                 key={`delay-${channel.channel}-${source.key}-${source.delay}`}
@@ -265,9 +269,11 @@ export function SourceConfigDialog({
                           </div>
 
                           <div className="flex items-center justify-between gap-2 rounded border border-border/50 px-2 py-1">
-                            <span>Trim</span>
+                            <span>{dict.dialogs.sourceConfig.trim}</span>
                             {isBackup ? (
-                              <span className="font-medium text-muted-foreground">N/A</span>
+                              <span className="font-medium text-muted-foreground">
+                                {dict.dialogs.sourceConfig.notAvailable}
+                              </span>
                             ) : (
                               <Input
                                 key={`trim-${channel.channel}-${source.key}-${source.trim}`}

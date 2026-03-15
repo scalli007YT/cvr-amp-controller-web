@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { useI18n } from "@/components/layout/i18n-provider";
 
 interface EditProjectDialogProps {
   project: Project | null;
@@ -24,6 +25,7 @@ interface EditProjectDialogProps {
 
 export function EditProjectDialog({ project, open, onOpenChange }: EditProjectDialogProps) {
   const { renameProject } = useProjectStore();
+  const dict = useI18n();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -42,10 +44,12 @@ export function EditProjectDialog({ project, open, onOpenChange }: EditProjectDi
     setIsSaving(true);
     try {
       await renameProject(project.id, name.trim(), description.trim());
-      toast.success("Project updated");
+      toast.success(dict.dialogs.editProject.toastUpdated);
       onOpenChange(false);
     } catch (error) {
-      toast.error(`Failed to update project: ${error instanceof Error ? error.message : "Unknown error"}`);
+      toast.error(
+        `${dict.dialogs.editProject.toastUpdateFailed}: ${error instanceof Error ? error.message : dict.dialogs.common.unknownError}`
+      );
     } finally {
       setIsSaving(false);
     }
@@ -61,13 +65,13 @@ export function EditProjectDialog({ project, open, onOpenChange }: EditProjectDi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Project</DialogTitle>
-          <DialogDescription>Update the name and description of this project.</DialogDescription>
+          <DialogTitle>{dict.dialogs.editProject.title}</DialogTitle>
+          <DialogDescription>{dict.dialogs.editProject.description}</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
           <div className="grid gap-2">
-            <Label htmlFor="edit-project-name">Name *</Label>
+            <Label htmlFor="edit-project-name">{dict.dialogs.editProject.nameLabel}</Label>
             <Input
               id="edit-project-name"
               value={name}
@@ -78,10 +82,10 @@ export function EditProjectDialog({ project, open, onOpenChange }: EditProjectDi
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="edit-project-description">Description</Label>
+            <Label htmlFor="edit-project-description">{dict.dialogs.editProject.descriptionLabel}</Label>
             <Input
               id="edit-project-description"
-              placeholder="Optional description"
+              placeholder={dict.dialogs.editProject.descriptionPlaceholder}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -93,11 +97,11 @@ export function EditProjectDialog({ project, open, onOpenChange }: EditProjectDi
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" disabled={isSaving}>
-              Cancel
+              {dict.dialogs.common.cancel}
             </Button>
           </DialogClose>
           <Button onClick={handleSave} disabled={!name.trim() || isSaving}>
-            {isSaving ? "Saving…" : "Save"}
+            {isSaving ? dict.dialogs.editProject.saving : dict.dialogs.editProject.save}
           </Button>
         </DialogFooter>
       </DialogContent>

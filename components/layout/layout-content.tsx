@@ -5,9 +5,17 @@ import { Header } from "@/components/layout/header";
 import { useProjectStore } from "@/stores/ProjectStore";
 import { useAmpPoller } from "@/hooks/useAmpPoller";
 import { useAmpChannelData } from "@/hooks/useAmpChannelData";
+import type { Locale } from "@/lib/i18n/config";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 
-export function LayoutContent({ children }: { children: ReactNode }) {
-  const { projects, loading, setProjects, setLoading, setSelectedProject } = useProjectStore();
+interface LayoutContentProps {
+  children: ReactNode;
+  lang: Locale;
+  dictionary: Dictionary["header"];
+}
+
+export function LayoutContent({ children, lang, dictionary }: LayoutContentProps) {
+  const { projects, loading, setProjects, setLoading } = useProjectStore();
 
   // Start polling globally on layout mount — runs regardless of which page is active
   useAmpPoller();
@@ -20,10 +28,6 @@ export function LayoutContent({ children }: { children: ReactNode }) {
         const data = await res.json();
         if (data.success) {
           setProjects(data.projects);
-          // Auto-select the first project
-          if (data.projects.length > 0) {
-            setSelectedProject(data.projects[0]);
-          }
         }
       } catch (err) {
         console.error("Failed to load projects:", err);
@@ -33,13 +37,13 @@ export function LayoutContent({ children }: { children: ReactNode }) {
     };
 
     fetchProjects();
-  }, [setProjects, setLoading, setSelectedProject]);
+  }, [setProjects, setLoading]);
 
   return (
     <div className="flex h-screen min-h-0 flex-col overflow-hidden">
-      <Header projects={projects} loading={loading} />
+      <Header lang={lang} dictionary={dictionary} projects={projects} loading={loading} />
       <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-        <div className="px-3 py-3">{children}</div>
+        <div className="flex h-full flex-col px-3 py-3">{children}</div>
       </main>
     </div>
   );

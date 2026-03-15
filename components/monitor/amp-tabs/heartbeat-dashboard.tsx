@@ -22,6 +22,7 @@ import { VerticalDbMeter } from "@/components/monitor/vertical-db-meter";
 import { COLORS } from "@/lib/colors";
 import { voltageToMeterDb, rmsToPeakVoltage, formatDbfs } from "@/lib/generic";
 import { getPowerModeName } from "@/lib/parse-channel-data";
+import { useI18n } from "@/components/layout/i18n-provider";
 
 const CH_LABELS = ["A", "B", "C", "D"];
 const POWER_MODE_OPTIONS = [0, 1, 2] as const;
@@ -200,6 +201,7 @@ function PowerModePill({
   channelLabel: string;
   onConfirm: (mode: number) => void | Promise<void>;
 }) {
+  const dict = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingMode, setPendingMode] = useState<number | null>(null);
@@ -241,11 +243,11 @@ function PowerModePill({
                 : "border-border/40 bg-muted/20 text-muted-foreground/80 hover:border-primary/40 hover:text-foreground"
             }`}
           >
-            {mode === undefined ? "Power Mode" : getPowerModeName(currentMode)}
+            {mode === undefined ? dict.dialogs.heartbeat.powerMode : getPowerModeName(currentMode)}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="center" className="w-44">
-          <DropdownMenuLabel>Output Power Mode</DropdownMenuLabel>
+          <DropdownMenuLabel>{dict.dialogs.heartbeat.outputPowerMode}</DropdownMenuLabel>
           <DropdownMenuRadioGroup value={String(currentMode)} onValueChange={requestModeChange}>
             {POWER_MODE_OPTIONS.map((option) => (
               <DropdownMenuRadioItem key={option} value={String(option)}>
@@ -259,9 +261,11 @@ function PowerModePill({
       <ConfirmActionDialog
         open={confirmOpen}
         onOpenChange={handleConfirmOpen}
-        title="Change Power Mode"
-        description={`Are you sure you want to switch output ${channelLabel} to ${getPowerModeName(nextMode)}?`}
-        confirmLabel="Are you sure?"
+        title={dict.dialogs.heartbeat.changePowerModeTitle}
+        description={dict.dialogs.heartbeat.changePowerModeDescription
+          .replace("{channel}", channelLabel)
+          .replace("{mode}", getPowerModeName(nextMode))}
+        confirmLabel={dict.dialogs.heartbeat.changePowerModeConfirm}
         onConfirm={handleConfirm}
       />
     </>
@@ -301,6 +305,7 @@ export function HeartbeatDashboard({
   channelParams?: ChannelParams;
   bridgePairs?: BridgeReadback[];
 }) {
+  const dict = useI18n();
   const f1 = (n: number) => n.toFixed(1);
   const f0 = (n: number) => n.toFixed(0);
 
@@ -386,7 +391,7 @@ export function HeartbeatDashboard({
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)] gap-4 xl:gap-3 text-xs select-none w-full">
         <section className="flex min-h-[360px] flex-col gap-2">
           <h3 className="text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Volume / Source
+            Input
           </h3>
           <div className="flex flex-1 items-center justify-center overflow-auto">
             <div className="flex gap-3 items-start">
@@ -748,13 +753,19 @@ export function HeartbeatDashboard({
       <ConfirmActionDialog
         open={bridgeConfirmOpen}
         onOpenChange={handleBridgeDialogOpen}
-        title="Change Bridge Mode"
+        title={dict.dialogs.heartbeat.changeBridgeModeTitle}
         description={
           pendingBridgePair !== null && pendingBridgeNext !== null
-            ? `Are you sure you want to turn bridge ${pendingBridgeNext ? "ON" : "OFF"} for output pair ${CH_LABELS[pendingBridgePair * 2]} / ${CH_LABELS[pendingBridgePair * 2 + 1]}?`
-            : "Are you sure you want to change bridge mode?"
+            ? dict.dialogs.heartbeat.changeBridgeModeDescription
+                .replace(
+                  "{state}",
+                  pendingBridgeNext ? dict.dialogs.limiterDetails.on : dict.dialogs.limiterDetails.off
+                )
+                .replace("{pairA}", CH_LABELS[pendingBridgePair * 2])
+                .replace("{pairB}", CH_LABELS[pendingBridgePair * 2 + 1])
+            : dict.dialogs.heartbeat.changeBridgeModeFallback
         }
-        confirmLabel={bridgeBusy ? "Applying..." : "Apply Bridge Change"}
+        confirmLabel={bridgeBusy ? dict.dialogs.heartbeat.applying : dict.dialogs.heartbeat.applyBridgeChange}
         confirmDisabled={bridgeBusy || pendingBridgePair === null || pendingBridgeNext === null}
         onConfirm={handleConfirmBridge}
       />

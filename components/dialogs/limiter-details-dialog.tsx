@@ -8,6 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { VerticalDbMeter } from "@/components/monitor/vertical-db-meter";
 import { Separator } from "@/components/ui/separator";
 import { COLORS } from "@/lib/colors";
+import { useI18n } from "@/components/layout/i18n-provider";
 import {
   bridgeVoltageMultiplier,
   fromLimiterDisplayVoltage,
@@ -127,7 +128,7 @@ function CenteredEditableField({
   return (
     <div className="flex flex-col items-center gap-1">
       <p className="text-xs">{label}</p>
-      <div className="flex items-center justify-center gap-2">
+      <div className="relative flex items-center justify-center">
         <Input
           type="number"
           inputMode={inputMode}
@@ -144,7 +145,7 @@ function CenteredEditableField({
           }}
           className="h-8 w-24 text-center font-mono tabular-nums"
         />
-        <span className="text-[10px] leading-none text-muted-foreground">{unit ?? ""}</span>
+        <span className="absolute left-full ml-1 text-[10px] leading-none text-muted-foreground">{unit ?? ""}</span>
       </div>
     </div>
   );
@@ -325,6 +326,7 @@ export function LimiterDetailsDialog({
   ) => Promise<void>;
   onSetOhms: (mac: string, channel: 0 | 1 | 2 | 3, ohms: number) => Promise<void>;
 }) {
+  const dict = useI18n();
   const METER_H = 220;
   const METER_W = 36;
   const bridgeMultiplier = bridgeVoltageMultiplier(bridgeMode);
@@ -368,7 +370,7 @@ export function LimiterDetailsDialog({
       thresholdLines.push({
         db: d,
         color: COLORS.RMS_LIMITER,
-        label: `RMS ${rmsSliderV.toFixed(2)} Vrms - ${liveRmsPrmsW} W (${d.toFixed(1)} dB)`
+        label: `${dict.dialogs.limiterDetails.rms} ${rmsSliderV.toFixed(2)} Vrms - ${liveRmsPrmsW} W (${d.toFixed(1)} dB)`
       });
     }
   }
@@ -379,7 +381,7 @@ export function LimiterDetailsDialog({
       thresholdLines.push({
         db: d,
         color: COLORS.PEAK_LIMITER,
-        label: `Peak ${peakSliderV.toFixed(2)} Vp - ${livePeakPpeakW} W (${d.toFixed(1)} dB)`
+        label: `${dict.dialogs.limiterDetails.peak} ${peakSliderV.toFixed(2)} Vp - ${livePeakPpeakW} W (${d.toFixed(1)} dB)`
       });
     }
   }
@@ -493,7 +495,7 @@ export function LimiterDetailsDialog({
 
         <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-4">
           <div className="flex h-full flex-col items-center">
-            <p className="text-center text-xs">RMS</p>
+            <p className="text-center text-xs">{dict.dialogs.limiterDetails.rms}</p>
             <div className="flex flex-1 items-center justify-center py-3">
               <Slider
                 orientation="vertical"
@@ -523,15 +525,15 @@ export function LimiterDetailsDialog({
                     : "w-full h-auto py-1 text-[11px] font-semibold transition-colors border-red-500/60 bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-400"
                 }
               >
-                {rms.enabled ? "ON" : "OFF"}
+                {rms.enabled ? dict.dialogs.limiterDetails.on : dict.dialogs.limiterDetails.off}
               </Button>
             </div>
           </div>
 
           <div className="flex min-w-[180px] flex-col items-center justify-center gap-3">
             <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col items-center gap-1">
-                <p className="text-xs">Out dB</p>
+              <div className="flex w-20 flex-col items-center gap-1">
+                <p className="text-xs">{dict.dialogs.limiterDetails.outDb}</p>
                 <MeterWithScale
                   value={outputDb}
                   dbTop={0}
@@ -544,8 +546,8 @@ export function LimiterDetailsDialog({
                 />
                 <p className="font-mono text-xs">{outputDb !== null ? `${outputDb.toFixed(1)} dB` : "---"}</p>
               </div>
-              <div className="flex flex-col items-center gap-1">
-                <p className="text-xs">Limit dB</p>
+              <div className="flex w-20 flex-col items-center gap-1">
+                <p className="text-xs">{dict.dialogs.limiterDetails.limitDb}</p>
                 <MeterWithScale
                   value={limiterCompDb}
                   dbTop={20}
@@ -559,7 +561,7 @@ export function LimiterDetailsDialog({
             </div>
             <Separator className="w-16" />
             <CenteredEditableField
-              label="Load"
+              label={dict.dialogs.limiterDetails.load}
               value={String(resolvedLoadOhm)}
               unit="Ω"
               inputMode="decimal"
@@ -568,7 +570,7 @@ export function LimiterDetailsDialog({
           </div>
 
           <div className="flex h-full flex-col items-center">
-            <p className="text-center text-xs">Peak</p>
+            <p className="text-center text-xs">{dict.dialogs.limiterDetails.peak}</p>
             <div className="flex flex-1 items-center justify-center py-3">
               <Slider
                 orientation="vertical"
@@ -598,7 +600,7 @@ export function LimiterDetailsDialog({
                     : "w-full h-auto py-1 text-[11px] font-semibold transition-colors border-red-500/60 bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-400"
                 }
               >
-                {peak.enabled ? "ON" : "OFF"}
+                {peak.enabled ? dict.dialogs.limiterDetails.on : dict.dialogs.limiterDetails.off}
               </Button>
             </div>
           </div>
@@ -609,21 +611,26 @@ export function LimiterDetailsDialog({
         <div className="grid grid-cols-[1fr_auto_1fr] gap-4">
           <div className="space-y-2">
             <EditableLimiterFieldRow
-              label="Threshold"
+              label={dict.dialogs.limiterDetails.threshold}
               value={rmsSliderV.toFixed(2)}
               unit="Vrms"
               onCommit={commitRmsThreshold}
             />
-            <EditableLimiterFieldRow label="Prms" value={String(liveRmsPrmsW)} unit="W" onCommit={commitRmsPower} />
             <EditableLimiterFieldRow
-              label="Attack"
+              label={dict.dialogs.limiterDetails.prms}
+              value={String(liveRmsPrmsW)}
+              unit="W"
+              onCommit={commitRmsPower}
+            />
+            <EditableLimiterFieldRow
+              label={dict.dialogs.limiterDetails.attack}
               value={String(rms.attackMs)}
               unit="ms"
               inputMode="numeric"
               onCommit={commitRmsAttack}
             />
             <EditableLimiterFieldRow
-              label="Release"
+              label={dict.dialogs.limiterDetails.release}
               value={String(rms.releaseMultiplier)}
               unit="xAtk"
               inputMode="numeric"
@@ -635,21 +642,26 @@ export function LimiterDetailsDialog({
 
           <div className="space-y-2">
             <EditableLimiterFieldRow
-              label="Threshold"
+              label={dict.dialogs.limiterDetails.threshold}
               value={peakSliderV.toFixed(2)}
               unit="Vpeak"
               onCommit={commitPeakThreshold}
             />
-            <EditableLimiterFieldRow label="Ppeak" value={String(livePeakPpeakW)} unit="W" onCommit={commitPeakPower} />
             <EditableLimiterFieldRow
-              label="Hold"
+              label={dict.dialogs.limiterDetails.ppeak}
+              value={String(livePeakPpeakW)}
+              unit="W"
+              onCommit={commitPeakPower}
+            />
+            <EditableLimiterFieldRow
+              label={dict.dialogs.limiterDetails.hold}
               value={String(peak.holdMs)}
               unit="ms"
               inputMode="numeric"
               onCommit={commitPeakHold}
             />
             <EditableLimiterFieldRow
-              label="Release"
+              label={dict.dialogs.limiterDetails.release}
               value={String(peak.releaseMs)}
               unit="ms"
               inputMode="numeric"

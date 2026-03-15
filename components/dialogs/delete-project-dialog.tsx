@@ -13,6 +13,7 @@ import {
   DialogTitle
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useI18n } from "@/components/layout/i18n-provider";
 
 interface DeleteProjectDialogProps {
   project: Project | null;
@@ -22,6 +23,7 @@ interface DeleteProjectDialogProps {
 
 export function DeleteProjectDialog({ project, open, onOpenChange }: DeleteProjectDialogProps) {
   const { deleteProject } = useProjectStore();
+  const dict = useI18n();
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
@@ -30,10 +32,12 @@ export function DeleteProjectDialog({ project, open, onOpenChange }: DeleteProje
     setIsDeleting(true);
     try {
       await deleteProject(project.id);
-      toast.success(`Project "${project.name}" deleted`);
+      toast.success(dict.dialogs.deleteProject.toastDeleted.replace("{name}", project.name));
       onOpenChange(false);
     } catch (error) {
-      toast.error(`Failed to delete project: ${error instanceof Error ? error.message : "Unknown error"}`);
+      toast.error(
+        `${dict.dialogs.deleteProject.toastDeleteFailed}: ${error instanceof Error ? error.message : dict.dialogs.common.unknownError}`
+      );
     } finally {
       setIsDeleting(false);
     }
@@ -43,21 +47,22 @@ export function DeleteProjectDialog({ project, open, onOpenChange }: DeleteProje
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Delete Project</DialogTitle>
+          <DialogTitle>{dict.dialogs.deleteProject.title}</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete <span className="font-medium text-foreground">{project?.name}</span>? This
-            action cannot be undone.
+            {dict.dialogs.deleteProject.confirmPrefix}{" "}
+            <span className="font-medium text-foreground">{project?.name}</span>?{" "}
+            {dict.dialogs.deleteProject.confirmSuffix}
           </DialogDescription>
         </DialogHeader>
 
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" disabled={isDeleting}>
-              Cancel
+              {dict.dialogs.common.cancel}
             </Button>
           </DialogClose>
           <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
-            {isDeleting ? "Deleting…" : "Delete"}
+            {isDeleting ? dict.dialogs.deleteProject.deleting : dict.dialogs.deleteProject.delete}
           </Button>
         </DialogFooter>
       </DialogContent>

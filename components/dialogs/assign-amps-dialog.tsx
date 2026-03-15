@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus, Wifi } from "lucide-react";
+import { useI18n } from "@/components/layout/i18n-provider";
 
 interface ScannedDevice {
   ip: string;
@@ -29,6 +30,7 @@ interface ScannedDevice {
 }
 
 export function AssignAmpsDialog() {
+  const dict = useI18n();
   const { selectedProject, projects, addAmpToProject, deleteAmpFromProject } = useProjectStore();
   const { amps, getDisplayName } = useAmpStore();
   const [macInput, setMacInput] = useState("");
@@ -46,7 +48,7 @@ export function AssignAmpsDialog() {
 
   const handleAddAmp = async () => {
     if (!macInput.trim()) {
-      alert("Please enter a MAC address");
+      alert(dict.dialogs.assignAmps.enterMac);
       return;
     }
 
@@ -55,7 +57,9 @@ export function AssignAmpsDialog() {
       await addAmpToProject(selectedProject.id, macInput);
       setMacInput("");
     } catch (error) {
-      alert(`Error adding amp: ${error instanceof Error ? error.message : "Unknown error"}`);
+      alert(
+        `${dict.dialogs.assignAmps.errorAddingAmp}: ${error instanceof Error ? error.message : dict.dialogs.common.unknownError}`
+      );
     } finally {
       setIsSaving(false);
     }
@@ -68,7 +72,9 @@ export function AssignAmpsDialog() {
       // Remove from scanned devices list after adding
       setScannedDevices(scannedDevices.filter((d) => d.mac !== mac));
     } catch (error) {
-      alert(`Error adding amp: ${error instanceof Error ? error.message : "Unknown error"}`);
+      alert(
+        `${dict.dialogs.assignAmps.errorAddingAmp}: ${error instanceof Error ? error.message : dict.dialogs.common.unknownError}`
+      );
     } finally {
       setIsSaving(false);
     }
@@ -79,7 +85,9 @@ export function AssignAmpsDialog() {
     try {
       await deleteAmpFromProject(selectedProject.id, mac);
     } catch (error) {
-      alert(`Error deleting amp: ${error instanceof Error ? error.message : "Unknown error"}`);
+      alert(
+        `${dict.dialogs.assignAmps.errorDeletingAmp}: ${error instanceof Error ? error.message : dict.dialogs.common.unknownError}`
+      );
     } finally {
       setIsSaving(false);
     }
@@ -91,7 +99,7 @@ export function AssignAmpsDialog() {
     try {
       const response = await fetch("/api/scan");
       if (!response.ok) {
-        setScanError("No devices found or scan failed");
+        setScanError(dict.dialogs.assignAmps.scanFailedNoDevices);
         setScannedDevices([]);
         return;
       }
@@ -105,13 +113,15 @@ export function AssignAmpsDialog() {
         );
         setScannedDevices(unassignedDevices);
         if (unassignedDevices.length === 0) {
-          setScanError("All discovered devices are already assigned");
+          setScanError(dict.dialogs.assignAmps.allDiscoveredAssigned);
         }
       } else {
-        setScanError("Invalid response format");
+        setScanError(dict.dialogs.assignAmps.invalidResponseFormat);
       }
     } catch (error) {
-      setScanError(`Scan error: ${error instanceof Error ? error.message : "Unknown error"}`);
+      setScanError(
+        `${dict.dialogs.assignAmps.scanError}: ${error instanceof Error ? error.message : dict.dialogs.common.unknownError}`
+      );
     } finally {
       setIsScanning(false);
     }
@@ -138,7 +148,7 @@ export function AssignAmpsDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
-          Manage Amps
+          {dict.dialogs.assignAmps.manageAmps}
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
             {reachableAmps}/{totalAmps}
             <span className={`inline-block w-2 h-2 rounded-full ${statusColor}`} />
@@ -147,14 +157,14 @@ export function AssignAmpsDialog() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Manage Assigned Amps</DialogTitle>
-          <DialogDescription>Add or remove amplifiers from this project</DialogDescription>
+          <DialogTitle>{dict.dialogs.assignAmps.title}</DialogTitle>
+          <DialogDescription>{dict.dialogs.assignAmps.description}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* List of assigned amps */}
           <div className="space-y-2">
-            <Label className="text-sm font-semibold">Assigned Amps</Label>
+            <Label className="text-sm font-semibold">{dict.dialogs.assignAmps.assignedAmps}</Label>
             {currentProject.assigned_amps.length > 0 ? (
               <div className="border rounded-lg divide-y max-h-64 overflow-y-auto">
                 {currentProject.assigned_amps.map((amp) => {
@@ -174,23 +184,36 @@ export function AssignAmpsDialog() {
                             {/* Amp info */}
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold">
-                                {ampInfo ? getDisplayName(ampInfo) : "Unknown Amp"}
+                                {ampInfo ? getDisplayName(ampInfo) : dict.dialogs.assignAmps.unknownAmp}
                               </p>
                               <p className="text-xs text-muted-foreground font-mono">{amp.mac}</p>
                             </div>
                           </div>
                         </TooltipTrigger>
                         <TooltipContent side="left">
-                          <p>Status: {ampInfo?.reachable ? "Reachable" : "Unreachable"}</p>
-                          <p>MAC: {amp.mac}</p>
-                          <p>Name: {ampInfo ? getDisplayName(ampInfo) : "—"}</p>
-                          <p>Version: {ampInfo?.version ?? "—"}</p>
-                          <p>ID: {ampInfo?.id ?? "—"}</p>
                           <p>
-                            Runtime:{" "}
+                            {dict.dialogs.assignAmps.status}:{" "}
+                            {ampInfo?.reachable
+                              ? dict.dialogs.assignAmps.reachable
+                              : dict.dialogs.assignAmps.unreachable}
+                          </p>
+                          <p>
+                            {dict.dialogs.assignAmps.mac}: {amp.mac}
+                          </p>
+                          <p>
+                            {dict.dialogs.assignAmps.name}: {ampInfo ? getDisplayName(ampInfo) : "-"}
+                          </p>
+                          <p>
+                            {dict.dialogs.assignAmps.version}: {ampInfo?.version ?? "-"}
+                          </p>
+                          <p>
+                            {dict.dialogs.assignAmps.id}: {ampInfo?.id ?? "-"}
+                          </p>
+                          <p>
+                            {dict.dialogs.assignAmps.runtime}:
                             {ampInfo?.run_time !== undefined
                               ? `${Math.floor(ampInfo.run_time / 60)}h ${ampInfo.run_time % 60}min`
-                              : "—"}
+                              : "-"}
                           </p>
                         </TooltipContent>
                       </Tooltip>
@@ -209,13 +232,13 @@ export function AssignAmpsDialog() {
                 })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground py-4 text-center">No amps assigned yet</p>
+              <p className="text-sm text-muted-foreground py-4 text-center">{dict.dialogs.assignAmps.noAmpsAssigned}</p>
             )}
           </div>
 
           {/* Add new amp section */}
           <div className="border-t pt-4 space-y-3">
-            <Label className="text-sm font-semibold">Add New Amp</Label>
+            <Label className="text-sm font-semibold">{dict.dialogs.assignAmps.addNewAmp}</Label>
 
             {/* Mode selector */}
             <div className="flex gap-2">
@@ -228,7 +251,7 @@ export function AssignAmpsDialog() {
                 }}
                 className="flex-1"
               >
-                Manual Entry
+                {dict.dialogs.assignAmps.manualEntry}
               </Button>
               <Button
                 variant={mode === "scan" ? "default" : "outline"}
@@ -240,7 +263,7 @@ export function AssignAmpsDialog() {
                 className="flex-1"
               >
                 <Wifi className="h-4 w-4 mr-2" />
-                Scan Network
+                {dict.dialogs.assignAmps.scanNetwork}
               </Button>
             </div>
 
@@ -249,11 +272,11 @@ export function AssignAmpsDialog() {
               <div className="space-y-2">
                 <div>
                   <Label htmlFor="mac-input" className="text-xs">
-                    MAC Address
+                    {dict.dialogs.assignAmps.macAddress}
                   </Label>
                   <Input
                     id="mac-input"
-                    placeholder="e.g., 6A:20:67:18:B5:8A"
+                    placeholder={dict.dialogs.assignAmps.macPlaceholder}
                     value={macInput}
                     onChange={(e) => setMacInput(e.target.value)}
                     className="font-mono text-sm"
@@ -261,7 +284,7 @@ export function AssignAmpsDialog() {
                 </div>
                 <Button onClick={handleAddAmp} disabled={isSaving} className="w-full" size="sm">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Amp
+                  {dict.dialogs.assignAmps.addAmp}
                 </Button>
               </div>
             )}
@@ -271,12 +294,10 @@ export function AssignAmpsDialog() {
               <div className="space-y-2">
                 <Button onClick={handleScan} disabled={isScanning || isSaving} className="w-full" size="sm">
                   <Wifi className="h-4 w-4 mr-2" />
-                  {isScanning ? "Scanning..." : "Start Scan"}
+                  {isScanning ? dict.dialogs.assignAmps.scanning : dict.dialogs.assignAmps.startScan}
                 </Button>
 
-                <p className="text-xs text-muted-foreground text-center italic">
-                  Note: Other devices may become unreachable for a few seconds during scanning.
-                </p>
+                <p className="text-xs text-muted-foreground text-center italic">{dict.dialogs.assignAmps.scanNote}</p>
 
                 {scanError && <p className="text-xs text-destructive text-center">{scanError}</p>}
 
@@ -310,11 +331,11 @@ export function AssignAmpsDialog() {
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" disabled={isSaving || isScanning}>
-              Cancel
+              {dict.dialogs.common.cancel}
             </Button>
           </DialogClose>
           <Button onClick={handleSave} disabled={isSaving || isScanning}>
-            {isSaving ? "Saving..." : "Done"}
+            {isSaving ? dict.dialogs.common.saving : dict.dialogs.common.done}
           </Button>
         </DialogFooter>
       </DialogContent>

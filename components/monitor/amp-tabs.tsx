@@ -17,10 +17,12 @@ import { LimiterBlock } from "@/components/monitor/amp-tabs/limiter-panel";
 import { MatrixGrid } from "@/components/monitor/amp-tabs/matrix-grid";
 import { SourceConfigDialog } from "@/components/dialogs/source-config-dialog";
 import { CopyJsonButton, JsonTree, type JsonValue } from "@/components/monitor/amp-tabs/json-viewer";
+import { useI18n } from "@/components/layout/i18n-provider";
 
 type AmpSection = "main" | "matrix" | "preferences";
 
 export function AmpTabs() {
+  const dict = useI18n();
   const { amps, getDisplayName } = useAmpStore();
   const {
     fetchPresets,
@@ -101,21 +103,25 @@ export function AmpTabs() {
   if (!amps || amps.length === 0) {
     return (
       <div className="rounded-xl border border-border/50 bg-muted/20 px-6 py-12 text-center text-sm text-muted-foreground">
-        No amps assigned. Add amps to start monitoring.
+        {dict.monitor.ampTabs.noAmpsAssigned}
       </div>
     );
   }
 
   return (
-    <div className="grid w-full gap-3 xl:grid-cols-[190px_minmax(0,1fr)]">
+    <div className="grid w-full gap-3 xl:grid-cols-[220px_minmax(0,1fr)]">
       <aside className="rounded-lg border border-border/50 bg-card/25 p-2">
         <div className="mb-2 flex items-center justify-between border-b border-border/50 px-2 pb-2">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Amp Rack</p>
-            <p className="text-sm font-semibold">{amps.length} Devices</p>
+          <div className="min-w-0">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              {dict.monitor.ampTabs.ampRack}
+            </p>
+            <p className="text-sm font-semibold">
+              {dict.monitor.ampTabs.devicesCount.replace("{count}", String(amps.length))}
+            </p>
           </div>
           <span className="rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-500">
-            {onlineCount} online
+            {onlineCount} {dict.monitor.online}
           </span>
         </div>
 
@@ -159,13 +165,13 @@ export function AmpTabs() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                    {selectedAmp.reachable ? "Connected" : "Offline"}
+                    {selectedAmp.reachable ? dict.monitor.ampTabs.connected : dict.monitor.ampTabs.offline}
                   </p>
                   <h2 className="truncate text-lg font-semibold leading-tight">{getDisplayName(selectedAmp)}</h2>
                 </div>
                 <div className="flex items-center gap-2 text-[11px]">
                   <Badge variant="outline" className="rounded border-border/50 bg-muted/20 font-mono">
-                    {selectedAmp.ip ?? "no ip"}
+                    {selectedAmp.ip ?? dict.monitor.ampTabs.noIp}
                   </Badge>
                 </div>
               </div>
@@ -176,30 +182,30 @@ export function AmpTabs() {
                   className="h-7 w-full justify-center border border-transparent px-3 data-active:border-primary/45 data-active:bg-primary/18 data-active:text-foreground"
                 >
                   <LayoutDashboardIcon className="size-4" />
-                  Main
+                  {dict.monitor.ampTabs.tabMain}
                 </TabsTrigger>
                 <TabsTrigger
                   value="matrix"
                   className="h-7 w-full justify-center border border-transparent px-3 data-active:border-primary/45 data-active:bg-primary/18 data-active:text-foreground"
                 >
                   <GridIcon className="size-4" />
-                  Matrix / Limiter
+                  {dict.monitor.ampTabs.tabMatrixLimiter}
                 </TabsTrigger>
                 <TabsTrigger
                   value="preferences"
                   className="h-7 w-full justify-center border border-transparent px-3 data-active:border-primary/45 data-active:bg-primary/18 data-active:text-foreground"
                 >
                   <SlidersHorizontalIcon className="size-4" />
-                  Preferences
+                  {dict.monitor.ampTabs.tabPreferences}
                 </TabsTrigger>
               </TabsList>
             </div>
 
             <TabsContent value="main" className="p-4 mt-0">
               {!selectedAmp.reachable ? (
-                <p className="text-sm text-muted-foreground">Amp is unreachable.</p>
+                <p className="text-sm text-muted-foreground">{dict.monitor.ampTabs.ampUnreachable}</p>
               ) : !selectedAmp.heartbeat ? (
-                <p className="text-sm text-muted-foreground animate-pulse">Waiting for data</p>
+                <p className="text-sm text-muted-foreground animate-pulse">{dict.monitor.ampTabs.waitingForData}</p>
               ) : (
                 <div className="overflow-hidden rounded-md border border-border/50 bg-background/30 p-2.5">
                   <HeartbeatDashboard
@@ -215,13 +221,13 @@ export function AmpTabs() {
 
             <TabsContent value="matrix" className="p-4 mt-0">
               {!selectedAmp.channelParams ? (
-                <p className="text-sm text-muted-foreground animate-pulse">Waiting for data</p>
+                <p className="text-sm text-muted-foreground animate-pulse">{dict.monitor.ampTabs.waitingForData}</p>
               ) : (
                 <div className="overflow-hidden rounded-md border border-border/50 bg-background/30 p-2.5">
                   <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)] xl:gap-3">
                     <section className="flex min-h-[360px] flex-col gap-2">
                       <h3 className="text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                        Crosspoint Matrix
+                        {dict.monitor.ampTabs.matrix}
                       </h3>
                       <div className="flex justify-center">
                         <SourceConfigDialog
@@ -243,7 +249,7 @@ export function AmpTabs() {
 
                     <section className="flex min-h-[360px] flex-col gap-2">
                       <h3 className="text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                        Limiters
+                        {dict.monitor.ampTabs.limiters}
                       </h3>
                       <div className="flex flex-1 items-center justify-center">
                         <LimiterBlock
@@ -332,11 +338,17 @@ export function AmpTabs() {
                 <ConfirmActionDialog
                   open={recallDialogOpen}
                   onOpenChange={setRecallDialogOpen}
-                  title="Recall Preset"
+                  title={dict.dialogs.presets.recallTitle}
                   description={
-                    activePreset ? `Recall preset ${activePreset.slot}: ${activePreset.name}?` : "Recall this preset?"
+                    activePreset
+                      ? dict.dialogs.presets.recallDescription
+                          .replace("{slot}", String(activePreset.slot))
+                          .replace("{name}", activePreset.name)
+                      : dict.dialogs.presets.recallFallbackDescription
                   }
-                  confirmLabel={recallingSlot === activePreset?.slot ? "Recalling..." : "Recall"}
+                  confirmLabel={
+                    recallingSlot === activePreset?.slot ? dict.dialogs.presets.recalling : dict.dialogs.presets.recall
+                  }
                   confirmDisabled={!selectedAmp?.reachable || activePreset === null || recallingSlot !== null}
                   onConfirm={async () => {
                     if (!selectedAmp || !activePreset) return;
@@ -351,13 +363,15 @@ export function AmpTabs() {
                     setStoreDialogOpen(open);
                     if (!open && activePreset) setStorePresetName(activePreset.name);
                   }}
-                  title="Store Preset"
+                  title={dict.dialogs.presets.storeTitle}
                   description={
                     activePreset
-                      ? `Store current device state to preset ${activePreset.slot}.`
-                      : "Choose a name for this preset."
+                      ? dict.dialogs.presets.storeDescription.replace("{slot}", String(activePreset.slot))
+                      : dict.dialogs.presets.storeFallbackDescription
                   }
-                  confirmLabel={storingSlot === activePreset?.slot ? "Storing..." : "Store"}
+                  confirmLabel={
+                    storingSlot === activePreset?.slot ? dict.dialogs.presets.storing : dict.dialogs.presets.store
+                  }
                   confirmDisabled={
                     !selectedAmp?.reachable ||
                     activePreset === null ||
@@ -371,11 +385,13 @@ export function AmpTabs() {
                   }}
                 >
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground">Preset Name</label>
+                    <label className="text-xs font-medium text-muted-foreground">
+                      {dict.dialogs.presets.presetName}
+                    </label>
                     <Input
                       value={storePresetName}
                       onChange={(e) => setStorePresetName(e.target.value)}
-                      placeholder="Enter preset name"
+                      placeholder={dict.dialogs.presets.presetNamePlaceholder}
                       maxLength={32}
                     />
                     <p className="text-[11px] text-muted-foreground text-right">{storePresetName.length}/32</p>
@@ -383,10 +399,14 @@ export function AmpTabs() {
                 </ConfirmActionDialog>
 
                 <div className="flex items-center gap-2 mb-3">
-                  <h3 className="text-sm font-semibold">Presets</h3>
-                  {fetching && <span className="text-xs text-muted-foreground animate-pulse">Loading...</span>}
+                  <h3 className="text-sm font-semibold">{dict.monitor.ampTabs.presets}</h3>
+                  {fetching && (
+                    <span className="text-xs text-muted-foreground animate-pulse">{dict.monitor.ampTabs.loading}</span>
+                  )}
                   {!fetching && selectedAmp.presets !== undefined && (
-                    <span className="text-xs text-muted-foreground">{selectedAmp.presets.length} used</span>
+                    <span className="text-xs text-muted-foreground">
+                      {dict.monitor.ampTabs.usedCount.replace("{count}", String(selectedAmp.presets.length))}
+                    </span>
                   )}
                 </div>
 
@@ -394,12 +414,14 @@ export function AmpTabs() {
 
                 {!fetching && !selectedAmp.presets && !presetsError && (
                   <p className="text-xs text-muted-foreground">
-                    {selectedAmp.reachable ? "Loading presets..." : "Amp is unreachable - presets unavailable."}
+                    {selectedAmp.reachable
+                      ? dict.monitor.ampTabs.loadingPresets
+                      : dict.monitor.ampTabs.presetsUnavailable}
                   </p>
                 )}
 
                 {selectedAmp.presets?.length === 0 && (
-                  <p className="text-xs text-muted-foreground">No presets saved on this device.</p>
+                  <p className="text-xs text-muted-foreground">{dict.monitor.ampTabs.noPresetsSaved}</p>
                 )}
 
                 {selectedAmp.presets && selectedAmp.presets.length > 0 && (
@@ -439,7 +461,7 @@ export function AmpTabs() {
                                   setStoreDialogOpen(true);
                                 }}
                               >
-                                Store
+                                {dict.dialogs.presets.store}
                               </Button>
                               <Button
                                 size="sm"
@@ -448,7 +470,7 @@ export function AmpTabs() {
                                   setRecallDialogOpen(true);
                                 }}
                               >
-                                Recall
+                                {dict.dialogs.presets.recall}
                               </Button>
                             </div>
                           )}
@@ -464,7 +486,7 @@ export function AmpTabs() {
                   <div className="flex items-center justify-between">
                     <CollapsibleTrigger className="flex items-center gap-1.5 rounded-md px-1 py-1 text-left hover:bg-muted/50 transition-colors [&[data-state=open]>svg]:rotate-90">
                       <ChevronRight className="shrink-0 h-3.5 w-3.5 text-muted-foreground transition-transform duration-200" />
-                      <span className="text-sm font-semibold">Channel Data</span>
+                      <span className="text-sm font-semibold">{dict.monitor.ampTabs.channelData}</span>
                     </CollapsibleTrigger>
                     <CopyJsonButton data={preferenceChannelTrees ?? selectedAmp.channelParams.channels} />
                   </div>
@@ -473,7 +495,10 @@ export function AmpTabs() {
                       {selectedAmp.channelParams.channels.map((channel, idx) => (
                         <JsonTree
                           key={channel.channel}
-                          label={`Channel ${channel.channel} - ${channel.inputName} -> ${channel.outputName}`}
+                          label={dict.monitor.ampTabs.channelLabel
+                            .replace("{channel}", String(channel.channel))
+                            .replace("{input}", channel.inputName)
+                            .replace("{output}", channel.outputName)}
                           value={(preferenceChannelTrees?.[idx] ?? channel) as unknown as JsonValue}
                         />
                       ))}

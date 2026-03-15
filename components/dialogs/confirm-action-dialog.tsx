@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
+import { useI18n } from "@/components/layout/i18n-provider";
 
 export function ConfirmActionDialog({
   open,
@@ -29,6 +30,8 @@ export function ConfirmActionDialog({
   onConfirm?: () => void | Promise<void>;
   children?: React.ReactNode;
 }) {
+  const dict = useI18n();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
@@ -39,7 +42,7 @@ export function ConfirmActionDialog({
         {children}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {dict.dialogs.common.cancel}
           </Button>
           <Button disabled={confirmDisabled} onClick={() => void onConfirm?.()}>
             {confirmLabel}

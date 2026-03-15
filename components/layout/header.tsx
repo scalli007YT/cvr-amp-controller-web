@@ -20,15 +20,18 @@ import { NewProjectDialog } from "@/components/dialogs/new-project-dialog";
 import { EditProjectDialog } from "@/components/dialogs/edit-project-dialog";
 import { DeleteProjectDialog } from "@/components/dialogs/delete-project-dialog";
 import { ModeToggle } from "@/components/custom/color-mode-toggle";
+import { LanguageModeToggle } from "@/components/custom/language-mode-toggle";
+import type { Locale } from "@/lib/i18n/config";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 interface HeaderProps {
+  lang: Locale;
+  dictionary: Dictionary["header"];
   projects?: Project[];
   loading?: boolean;
 }
 
-const NAV_LINKS = [{ label: "Monitor", href: "/monitor" }];
-
-export function Header({ projects = [], loading = false }: HeaderProps) {
+export function Header({ lang, dictionary, projects = [], loading = false }: HeaderProps) {
   const { selectedProject, selectProjectById } = useProjectStore();
   const pathname = usePathname();
   const router = useRouter();
@@ -37,6 +40,10 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [deleteProject, setDeleteProject] = useState<Project | null>(null);
+
+  const monitorHref = `/${lang}/monitor`;
+  const scannerHref = `/${lang}/scanner`;
+  const navLinks = [{ label: dictionary.monitor, href: monitorHref }];
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.electronWindow?.isDesktop) {
@@ -94,25 +101,25 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
                   <DropdownMenuItem asChild>
-                    <Link href="/monitor">Monitor</Link>
+                    <Link href={monitorHref}>{dictionary.monitor}</Link>
                   </DropdownMenuItem>
                   <Separator />
                   <DropdownMenuItem asChild>
-                    <Link href="/scanner">Device Scanner</Link>
+                    <Link href={scannerHref}>{dictionary.deviceScanner}</Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
 
             {isDesktop ? (
-              <Link href="/monitor" className="app-region-no-drag flex min-w-0 items-center gap-2">
+              <Link href={monitorHref} className="app-region-no-drag flex min-w-0 items-center gap-2">
                 <Image src="/logo.ico" alt="CK Logo" width={24} height={24} className="shrink-0" />
-                <span className="text-sm font-semibold truncate hidden sm:block">AMP Controller</span>
+                <span className="text-sm font-semibold truncate hidden sm:block">{dictionary.appTitle}</span>
               </Link>
             ) : (
-              <Link href="/monitor" className="app-region-no-drag flex min-w-0 items-center gap-2">
+              <Link href={monitorHref} className="app-region-no-drag flex min-w-0 items-center gap-2">
                 <Image src="/logo.ico" alt="CK Logo" width={24} height={24} className="shrink-0" />
-                <span className="text-sm font-semibold truncate hidden sm:block">AMP Controller</span>
+                <span className="text-sm font-semibold truncate hidden sm:block">{dictionary.appTitle}</span>
               </Link>
             )}
           </div>
@@ -128,7 +135,7 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
                 if (v) router.push(v);
               }}
             >
-              {NAV_LINKS.map(({ label, href }) => (
+              {navLinks.map(({ label, href }) => (
                 <ToggleGroupItem key={href} value={href} aria-label={`Go to ${label}`} className="px-4">
                   {label}
                 </ToggleGroupItem>
@@ -140,6 +147,12 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
           <div className="relative z-10 flex items-center justify-end gap-2">
             <div className="app-region-no-drag flex items-center gap-2">
               <ModeToggle />
+              <LanguageModeToggle
+                lang={lang}
+                label={dictionary.language}
+                englishLabel={dictionary.english}
+                germanLabel={dictionary.german}
+              />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -149,7 +162,7 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
                     disabled={loading}
                   >
                     <span className="truncate">
-                      {loading ? "Loading..." : (selectedProject?.name ?? "Select Project")}
+                      {loading ? dictionary.loading : (selectedProject?.name ?? dictionary.selectProject)}
                     </span>
                     <ChevronDown className="ml-1 size-4 shrink-0 text-muted-foreground" />
                   </Button>
@@ -193,7 +206,7 @@ export function Header({ projects = [], loading = false }: HeaderProps) {
                   {projects.length > 0 && <DropdownMenuSeparator />}
                   <DropdownMenuItem onSelect={() => setNewProjectOpen(true)} className="text-muted-foreground">
                     <Plus className="mr-1 size-4" />
-                    New Project
+                    {dictionary.newProject}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

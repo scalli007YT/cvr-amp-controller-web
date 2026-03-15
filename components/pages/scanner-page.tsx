@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 interface AmpDevice {
   ip: string;
@@ -15,7 +16,13 @@ interface AmpDevice {
   runtime: string;
 }
 
-export default function ScannerPage() {
+interface ScannerPageProps {
+  dictionary: Dictionary["scanner"];
+}
+
+const formatCount = (text: string, count: number) => text.replace("{count}", String(count));
+
+export function ScannerPage({ dictionary }: ScannerPageProps) {
   const [ampDevices, setAmpDevices] = useState<AmpDevice[]>([]);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -37,10 +44,10 @@ export default function ScannerPage() {
         setSubnet(data.subnet);
         setAmpDevices(data.devices || []);
       } else {
-        setError(data.error || "Failed to find AMP devices");
+        setError(data.error || dictionary.scanFailedFind);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Scan failed");
+      setError(err instanceof Error ? err.message : dictionary.scanFailed);
     } finally {
       setLoading(false);
     }
@@ -48,30 +55,30 @@ export default function ScannerPage() {
 
   return (
     <>
-      {/* Scanner Card */}
       <Card className="mb-8">
         <div className="p-6">
           <div className="mb-6">
-            <h2 className="text-lg font-semibold">Network Scanner</h2>
-            <p className="text-sm text-muted-foreground mt-1">Discover AMP devices on your network</p>
+            <h2 className="text-lg font-semibold">{dictionary.title}</h2>
+            <p className="text-sm text-muted-foreground mt-1">{dictionary.description}</p>
           </div>
 
           <div className="space-y-4">
             <Button onClick={() => handleScan()} disabled={loading} size="lg">
-              {loading ? "Scanning..." : "Start Scan"}
+              {loading ? dictionary.scanning : dictionary.startScan}
             </Button>
 
             {subnet && (
               <div className="text-sm text-muted-foreground">
-                Scanning subnet: <Badge>{subnet}.0/24</Badge>
+                {dictionary.scanningSubnet} <Badge>{subnet}.0/24</Badge>
               </div>
             )}
 
-            {ampDevices.length > 0 && <div className="text-sm">Found {ampDevices.length} device(s)</div>}
+            {ampDevices.length > 0 && (
+              <div className="text-sm">{formatCount(dictionary.foundDevices, ampDevices.length)}</div>
+            )}
 
-            {/* Manual IP Input */}
             <div className="pt-4 border-t">
-              <label className="text-sm font-medium mb-2 block">Query specific IP:</label>
+              <label className="text-sm font-medium mb-2 block">{dictionary.querySpecificIp}</label>
               <div className="flex gap-2">
                 <Input
                   type="text"
@@ -81,7 +88,7 @@ export default function ScannerPage() {
                   disabled={loading}
                 />
                 <Button onClick={() => handleScan(manualIp)} disabled={loading || !manualIp} variant="outline">
-                  Query
+                  {dictionary.query}
                 </Button>
               </div>
             </div>
@@ -89,17 +96,15 @@ export default function ScannerPage() {
         </div>
       </Card>
 
-      {/* Error */}
       {error && !loading && (
         <Card className="mb-8 border-destructive bg-destructive/5">
           <div className="p-6 text-sm text-destructive">{error}</div>
         </Card>
       )}
 
-      {/* Devices */}
       {ampDevices.length > 0 && !loading && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Discovered Devices ({ampDevices.length})</h2>
+          <h2 className="text-lg font-semibold">{formatCount(dictionary.discoveredDevices, ampDevices.length)}</h2>
           {ampDevices.map((device) => (
             <Card key={device.ip}>
               <div className="p-6">
@@ -110,19 +115,19 @@ export default function ScannerPage() {
 
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="font-medium text-muted-foreground">MAC</p>
+                    <p className="font-medium text-muted-foreground">{dictionary.mac}</p>
                     <p className="font-mono">{device.mac}</p>
                   </div>
                   <div>
-                    <p className="font-medium text-muted-foreground">Version</p>
+                    <p className="font-medium text-muted-foreground">{dictionary.version}</p>
                     <p className="font-mono text-xs">{device.deviceVersion}</p>
                   </div>
                   <div>
-                    <p className="font-medium text-muted-foreground">Identifier</p>
+                    <p className="font-medium text-muted-foreground">{dictionary.identifier}</p>
                     <p className="font-mono text-xs break-all">{device.identifier}</p>
                   </div>
                   <div>
-                    <p className="font-medium text-muted-foreground">Runtime</p>
+                    <p className="font-medium text-muted-foreground">{dictionary.runtime}</p>
                     <p className="font-semibold">{device.runtime}</p>
                   </div>
                 </div>
@@ -132,12 +137,11 @@ export default function ScannerPage() {
         </div>
       )}
 
-      {/* Empty State */}
       {ampDevices.length === 0 && !loading && !error && (
         <Card>
           <div className="p-12 text-center text-muted-foreground">
-            <p className="font-medium mb-1">No devices found yet</p>
-            <p className="text-sm">Click "Start Scan" to discover AMP devices</p>
+            <p className="font-medium mb-1">{dictionary.noDevicesTitle}</p>
+            <p className="text-sm">{dictionary.noDevicesDescription}</p>
           </div>
         </Card>
       )}
