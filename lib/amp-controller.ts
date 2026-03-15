@@ -25,7 +25,6 @@
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
-import os from "os";
 import { EventEmitter } from "events";
 import { FuncCode, parseHeartbeat } from "./amp-device";
 import type { BridgeReadback, HeartbeatData } from "@/stores/AmpStore";
@@ -91,7 +90,7 @@ interface FragmentState {
 
 function getDirectedBroadcasts(): string[] {
   const broadcasts: string[] = [];
-  for (const iface of Object.values(os.networkInterfaces())) {
+  for (const iface of Object.values(ampController.network.getNetworkInterfaces())) {
     if (!iface) continue;
     for (const addr of iface) {
       if (addr.family !== "IPv4" || addr.internal) continue;
@@ -109,7 +108,7 @@ function getDirectedBroadcasts(): string[] {
 
 function getLocalBindCandidates(): string[] {
   const out: string[] = [];
-  for (const iface of Object.values(os.networkInterfaces())) {
+  for (const iface of Object.values(ampController.network.getNetworkInterfaces())) {
     if (!iface) continue;
     for (const addr of iface) {
       if (addr.family !== "IPv4" || addr.internal) continue;
@@ -250,7 +249,7 @@ function parseDiscoveryPacket(raw: Buffer, ip: string): DiscoveryEvent | null {
 // AmpController
 // ---------------------------------------------------------------------------
 class AmpController extends EventEmitter {
-  private readonly network = new NetworkAdapter({
+  readonly network = new NetworkAdapter({
     recvPort: PC_RECV_PORT,
     sendPort: AMP_PORT
   });

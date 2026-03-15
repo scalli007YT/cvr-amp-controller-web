@@ -1,5 +1,6 @@
 import dgram, { RemoteInfo, Socket } from "dgram";
 import { EventEmitter } from "events";
+import os from "os";
 
 export interface NetworkAdapterConfig {
   recvPort: number;
@@ -86,6 +87,10 @@ export class NetworkAdapter extends EventEmitter {
         else reject(error);
       });
     });
+  }
+
+  getNetworkInterfaces() {
+    return os.networkInterfaces();
   }
 
   emit<K extends keyof NetworkEmitter>(event: K, ...args: NetworkEmitter[K]): boolean {
