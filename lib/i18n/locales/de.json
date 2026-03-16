@@ -77,7 +77,9 @@
       "cancel": "Abbrechen",
       "done": "Fertig",
       "saving": "Speichern...",
-      "unknownError": "Unbekannter Fehler"
+      "unknownError": "Unbekannter Fehler",
+      "copy": "Kopieren",
+      "paste": "Einfügen"
     },
     "newProject": {
       "title": "Neues Projekt",
