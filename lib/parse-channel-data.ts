@@ -1,8 +1,8 @@
 /**
- * Parser for FC=27 (Synchronous_data) packets from DSP-2004 amp
+ * Parser for FC=27 (Synchronous_data) packets from amplifier channel data
  *
- * Response Structure (2232 bytes total for 4 channels):
- *   2232 bytes = 4 channels × 515 bytes per channel + padding/header
+ * Response Structure:
+ *   N channels × 515 bytes per channel + trailer/padding
  *
  * Each Channel Body (515 bytes) — Absolute offsets in full response:
  *   Channel 0: starts at byte 0
@@ -232,36 +232,25 @@ const CHANNEL_FIELDS = [
 ] as const;
 
 /**
- * muteIn lives in the 172-byte trailer that follows the 4 × 515-byte channel bodies.
+ * muteIn lives in the trailer that follows the channel bodies.
  * Empirically confirmed by diffing live snapshots with known mute states.
  *
- * Trailer byte layout (relative to trailer start = 4 × 515 = 2060):
- *   rel 132 = ch0 (A)
- *   rel 133 = ch1 (B)
- *   rel 134 = ch2 (C)
- *   rel 135 = ch3 (D)
+ * Trailer byte layout (relative to trailer start = channelCount × 515):
+ *   rel 132 + ch = muteIn for channel index ch
  *
  * Wire encoding: 0 = muted, 1 = unmuted (active-low / inverted).
  */
-const TRAILER_BASE = 4 * BYTES_PER_CHANNEL;
-const TRAILER_MUTE_IN_OFFSET = TRAILER_BASE + 132; // abs 2192
-const TRAILER_ANALOG_MATRIX_OFFSET = TRAILER_BASE + 136;
-// Maps channel index → absolute byte offset of its muteIn flag in the trailer
-const MUTE_IN_ABS: Record<number, number> = {
-  0: TRAILER_MUTE_IN_OFFSET + 0, // ch0 (A) at rel 132
-  1: TRAILER_MUTE_IN_OFFSET + 1, // ch1 (B) at rel 133
-  2: TRAILER_MUTE_IN_OFFSET + 2, // ch2 (C) at rel 134
-  3: TRAILER_MUTE_IN_OFFSET + 3 // ch3 (D) at rel 135
-};
+const TRAILER_MUTE_IN_REL_OFFSET = 132;
+const TRAILER_ANALOG_MATRIX_REL_OFFSET = 136;
 
-function clampSourceCode(code: number): 0 | 1 | 2 | 3 {
+function clampSourceCode(code: number): number {
   if (code <= 0) return 0;
   if (code === 1) return 1;
   if (code === 2) return 2;
   return 3;
 }
 
-function sourceNameFromCode(code: 0 | 1 | 2 | 3): "analog" | "dante" | "aes3" | "backup" {
+function sourceNameFromCode(code: number): "analog" | "dante" | "aes3" | "backup" {
   switch (code) {
     case 1:
       return "dante";
@@ -287,10 +276,10 @@ function buildSourceTypeLabel(key: "analog" | "dante" | "aes3" | "backup", index
 // ---------------------------------------------------------------------------
 
 /**
- * Parse FC=27 response (4 consecutive channel bodies, each 515 bytes)
+ * Parse FC=27 response (N consecutive channel bodies, each 515 bytes)
  *
  * @param hexData - Raw hex string from FC=27 response
- * @returns Array of 4 ChannelData objects (one per channel)
+ * @returns Array of ChannelData objects (one per parsed channel)
  */
 export function parseFC27Channels(hexData: string): ChannelData[] {
   if (!hexData || hexData.length < 200) {
@@ -301,16 +290,18 @@ export function parseFC27Channels(hexData: string): ChannelData[] {
   try {
     const buffer = Buffer.from(hexData, "hex");
     const channels: ChannelData[] = [];
+    const channelCount = Math.max(0, Math.floor(buffer.length / BYTES_PER_CHANNEL));
+    const trailerBase = channelCount * BYTES_PER_CHANNEL;
 
-    const analogMatrix = [0, 1, 2, 3].map((ch) => {
-      const abs = TRAILER_ANALOG_MATRIX_OFFSET + ch;
+    const analogMatrix = Array.from({ length: channelCount }, (_, ch) => {
+      const abs = trailerBase + TRAILER_ANALOG_MATRIX_REL_OFFSET + ch;
       const raw = abs < buffer.length ? buffer.readUInt8(abs) : ch;
       return raw + 1;
     });
 
-    for (let ch = 0; ch < 4; ch++) {
+    for (let ch = 0; ch < channelCount; ch++) {
       // Read muteIn from the trailer (not from the per-channel body)
-      const muteInAbs = MUTE_IN_ABS[ch];
+      const muteInAbs = trailerBase + TRAILER_MUTE_IN_REL_OFFSET + ch;
       const muteIn = muteInAbs < buffer.length ? buffer.readUInt8(muteInAbs) === 0 : true;
 
       const channelData = parseChannelFromBuffer(
@@ -318,7 +309,8 @@ export function parseFC27Channels(hexData: string): ChannelData[] {
         buffer,
         ch * BYTES_PER_CHANNEL,
         muteIn,
-        analogMatrix[ch] ?? ch + 1
+        analogMatrix[ch] ?? ch + 1,
+        channelCount
       );
       if (channelData) channels.push(channelData);
     }
@@ -335,7 +327,8 @@ function parseChannelFromBuffer(
   buffer: Buffer,
   base: number,
   muteIn: boolean,
-  analogInputIndex: number
+  analogInputIndex: number,
+  matrixSourceCount: number
 ): ChannelData | null {
   try {
     // Accumulate raw values by reading each field definition
@@ -368,7 +361,7 @@ function parseChannelFromBuffer(
     // Matrix: 4 sources × 5-byte struct [float32 gain][uint8 active] starting at offset 60
     const MATRIX_BASE = 60;
     const MATRIX_STRIDE = 5;
-    const matrix: MatrixSource[] = [0, 1, 2, 3].map((src) => {
+    const matrix: MatrixSource[] = Array.from({ length: matrixSourceCount }, (_, src) => {
       const off = base + MATRIX_BASE + src * MATRIX_STRIDE;
       return {
         source: src,

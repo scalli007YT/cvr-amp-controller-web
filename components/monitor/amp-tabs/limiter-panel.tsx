@@ -13,8 +13,7 @@ import {
   normalizeLimiterLoadOhm,
   toLimiterDisplayVoltage
 } from "@/lib/generic";
-
-const CH_LABELS = ["A", "B", "C", "D"];
+import { getChannelLabels } from "@/lib/channel-labels";
 
 export function LimiterBlock({
   mac,
@@ -35,6 +34,7 @@ export function LimiterBlock({
   limiters: number[];
   showTitle?: boolean;
 }) {
+  const channelLabels = getChannelLabels(channels.length);
   const vu = useVuMeters(mac);
   const {
     rmsLimiterOut,
@@ -65,11 +65,11 @@ export function LimiterBlock({
           const pairBridged = bridgePairs?.[pairIndex]?.bridged === true;
           const isSecondInPair = i % 2 === 1;
           const disabledByBridge = pairBridged && isSecondInPair;
-          const pairLabel = `${CH_LABELS[pairIndex * 2]}+${CH_LABELS[pairIndex * 2 + 1]}`;
+          const pairLabel = `${channelLabels[pairIndex * 2] ?? pairIndex * 2}+${channelLabels[pairIndex * 2 + 1] ?? pairIndex * 2 + 1}`;
           const bridgeMaster = pairBridged && !isSecondInPair;
           const bridgeMultiplier = bridgeVoltageMultiplier(bridgeMaster);
           const enabled = rms.enabled || peak.enabled;
-          const channelName = bridgeMaster ? pairLabel : `Out${CH_LABELS[i]}`;
+          const channelName = bridgeMaster ? pairLabel : `Out${channelLabels[i] ?? i + 1}`;
           const loadOhm = pairBridged
             ? normalizeLimiterLoadOhm(channelOhms[pairIndex * 2], true)
             : normalizeLimiterLoadOhm(channelOhms[i], false);
@@ -129,7 +129,7 @@ export function LimiterBlock({
             <LimiterDetailsDialog
               key={i}
               mac={mac}
-              channel={i as 0 | 1 | 2 | 3}
+              channel={i}
               channelName={channelName}
               bridgeMode={pairBridged && !isSecondInPair}
               disabled={disabledByBridge}

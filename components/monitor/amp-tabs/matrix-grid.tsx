@@ -156,13 +156,8 @@ export function MatrixGrid({
                       gain={cell.gain}
                       active={cell.active}
                       disabled={!enabled}
-                      onToggleActive={() =>
-                        enabled &&
-                        setMatrixActive(mac, ch.channel as 0 | 1 | 2 | 3, cell.source as 0 | 1 | 2 | 3, !cell.active)
-                      }
-                      onGainChange={(db) =>
-                        enabled && setMatrixGain(mac, ch.channel as 0 | 1 | 2 | 3, cell.source as 0 | 1 | 2 | 3, db)
-                      }
+                      onToggleActive={() => enabled && setMatrixActive(mac, ch.channel, cell.source, !cell.active)}
+                      onGainChange={(db) => enabled && setMatrixGain(mac, ch.channel, cell.source, db)}
                     />
                   </td>
                 );

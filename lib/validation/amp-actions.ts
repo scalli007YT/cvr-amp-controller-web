@@ -26,11 +26,7 @@ export const SOURCE_DELAY_MAX_MS = 10;
 export const SOURCE_TRIM_MIN_DB = 0;
 export const SOURCE_TRIM_MAX_DB = 18;
 
-const channelSchema = z
-  .number()
-  .int("channel/source must be an integer")
-  .min(0, "channel/source must be between 0 and 3")
-  .max(3, "channel/source must be between 0 and 3");
+const channelSchema = z.number().int("channel/source must be an integer").min(0, "channel/source must be >= 0");
 
 const baseSchema = z.object({
   mac: z.string().trim().min(1, "Missing mac"),
@@ -215,11 +211,7 @@ const powerModeOutSchema = baseSchema.extend({
 const bridgePairSchema = z.object({
   mac: z.string().trim().min(1, "Missing mac"),
   action: z.literal("bridgePair"),
-  channel: z
-    .number()
-    .int("bridge pair must be an integer")
-    .min(0, "bridge pair must be 0 or 1")
-    .max(1, "bridge pair must be 0 or 1"),
+  channel: z.number().int("bridge pair must be an integer").min(0, "bridge pair must be >= 0"),
   value: z.boolean()
 });
 

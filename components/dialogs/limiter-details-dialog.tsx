@@ -234,7 +234,7 @@ export function LimiterDetailsDialog({
 }: {
   trigger: ReactNode;
   mac: string;
-  channel: 0 | 1 | 2 | 3;
+  channel: number;
   channelName: string;
   bridgeMode?: boolean;
   disabled?: boolean;
@@ -256,11 +256,11 @@ export function LimiterDetailsDialog({
   };
   gr: number;
   outputDb: number | null;
-  onToggleRms: (mac: string, channel: 0 | 1 | 2 | 3, enabled: boolean) => Promise<void>;
-  onTogglePeak: (mac: string, channel: 0 | 1 | 2 | 3, enabled: boolean) => Promise<void>;
+  onToggleRms: (mac: string, channel: number, enabled: boolean) => Promise<void>;
+  onTogglePeak: (mac: string, channel: number, enabled: boolean) => Promise<void>;
   onSetRmsAttack: (
     mac: string,
-    channel: 0 | 1 | 2 | 3,
+    channel: number,
     attackMs: number,
     config: {
       enabled: boolean;
@@ -271,7 +271,7 @@ export function LimiterDetailsDialog({
   ) => Promise<void>;
   onSetRmsReleaseMultiplier: (
     mac: string,
-    channel: 0 | 1 | 2 | 3,
+    channel: number,
     releaseMultiplier: number,
     config: {
       enabled: boolean;
@@ -282,7 +282,7 @@ export function LimiterDetailsDialog({
   ) => Promise<void>;
   onSetRmsThreshold: (
     mac: string,
-    channel: 0 | 1 | 2 | 3,
+    channel: number,
     thresholdVrms: number,
     config: {
       enabled: boolean;
@@ -293,7 +293,7 @@ export function LimiterDetailsDialog({
   ) => Promise<void>;
   onSetPeakHold: (
     mac: string,
-    channel: 0 | 1 | 2 | 3,
+    channel: number,
     holdMs: number,
     config: {
       enabled: boolean;
@@ -304,7 +304,7 @@ export function LimiterDetailsDialog({
   ) => Promise<void>;
   onSetPeakRelease: (
     mac: string,
-    channel: 0 | 1 | 2 | 3,
+    channel: number,
     releaseMs: number,
     config: {
       enabled: boolean;
@@ -315,7 +315,7 @@ export function LimiterDetailsDialog({
   ) => Promise<void>;
   onSetPeakThreshold: (
     mac: string,
-    channel: 0 | 1 | 2 | 3,
+    channel: number,
     thresholdVp: number,
     config: {
       enabled: boolean;
@@ -324,7 +324,7 @@ export function LimiterDetailsDialog({
       thresholdVp: number;
     }
   ) => Promise<void>;
-  onSetOhms: (mac: string, channel: 0 | 1 | 2 | 3, ohms: number) => Promise<void>;
+  onSetOhms: (mac: string, channel: number, ohms: number) => Promise<void>;
 }) {
   const dict = useI18n();
   const METER_H = 220;

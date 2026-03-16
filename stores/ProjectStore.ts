@@ -22,7 +22,7 @@ export interface AssignedAmpConstants {
 const defaultAmpLinking: AmpLinkConfig = createDefaultAmpLinkConfig();
 
 export const DEFAULT_AMP_CONSTANTS: AssignedAmpConstants = {
-  channels: Array.from({ length: 4 }, () => ({ ohms: 8 })),
+  channels: [],
   linking: defaultAmpLinking
 };
 

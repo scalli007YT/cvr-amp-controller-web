@@ -322,7 +322,10 @@ export function AmpTabs() {
                 </CollapsibleContent>
               </Collapsible>
 
-              <LinkingPanel mac={selectedAmp.mac} />
+              <LinkingPanel
+                mac={selectedAmp.mac}
+                channelCount={selectedAmp.channelParams?.channels.length ?? selectedAmp.constants.channels.length}
+              />
 
               <div>
                 <ConfirmActionDialog

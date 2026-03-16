@@ -33,8 +33,8 @@ import { getStoredAmpLinkConfig, useAmpActionLinkStore } from "@/stores/AmpActio
 // Types
 // ---------------------------------------------------------------------------
 
-type Channel = 0 | 1 | 2 | 3;
-type BridgePair = 0 | 1;
+type Channel = number;
+type BridgePair = number;
 type SourceType = 0 | 1 | 2;
 type SourceFamily = 0 | 1 | 2;
 type CrossoverTarget = "input" | "output";

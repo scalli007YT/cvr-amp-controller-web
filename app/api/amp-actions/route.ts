@@ -22,7 +22,7 @@
  * {
  *   mac:    string,           // target amp MAC e.g. "6A:20:67:18:B5:8A"
  *   action: AmpAction,        // see type below
- *   channel: 0 | 1 | 2 | 3,  // channel index (A=0 B=1 C=2 D=3)
+ *   channel: number,         // channel index (0-based)
  *   value:  boolean | number  // action-specific payload
  * }
  *

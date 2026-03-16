@@ -15,8 +15,7 @@ import {
   type LinkScope
 } from "@/lib/amp-action-linking";
 import { useI18n } from "@/components/layout/i18n-provider";
-
-const CH_LABELS = ["A", "B", "C", "D"];
+import { getChannelLabels } from "@/lib/channel-labels";
 
 type LinkingCopy = {
   triggerLabel: string;
@@ -44,12 +43,14 @@ function ScopeLinkingDialog({
   mac,
   scope,
   groups,
-  copy
+  copy,
+  channelLabels
 }: {
   mac: string;
   scope: LinkScope;
   groups: LinkGroup[];
   copy: LinkingCopy;
+  channelLabels: string[];
 }) {
   const dict = useI18n();
   const byMac = useAmpActionLinkStore((state) => state.byMac);
@@ -60,7 +61,6 @@ function ScopeLinkingDialog({
   return (
     <LinkingGroupsDialog
       triggerLabel={copy.triggerLabel}
-      triggerDescription={copy.description}
       triggerMode="card"
       title={copy.title}
       description={copy.description}
@@ -82,19 +82,26 @@ function ScopeLinkingDialog({
         invalidLinkableCount: linkDict.validation.invalidLinkableCount,
         invalidLink: linkDict.validation.invalidLink
       }}
-      channelLabels={CH_LABELS}
+      channelLabels={channelLabels}
       value={groups}
       onSave={(nextGroups) => updateAmpLinking(mac, withScopeGroups(linking, scope, nextGroups))}
     />
   );
 }
 
-export function LinkingPanel({ mac }: { mac: string }) {
+export function LinkingPanel({ mac, channelCount }: { mac: string; channelCount: number }) {
   const [open, setOpen] = useState(false);
   const dict = useI18n();
   const byMac = useAmpActionLinkStore((state) => state.byMac);
   const linking = getStoredAmpLinkConfig(byMac, mac);
   const linkDict = dict.dialogs.linkingGroups;
+
+  const maxGroupChannel = Object.values(linking.scopes)
+    .flatMap((scope) => scope.groups)
+    .flatMap((group) => group.channels)
+    .reduce((max, channel) => Math.max(max, channel), -1);
+  const effectiveChannelCount = Math.max(channelCount, maxGroupChannel + 1);
+  const channelLabels = getChannelLabels(effectiveChannelCount);
 
   return (
     <>
@@ -123,6 +130,7 @@ export function LinkingPanel({ mac }: { mac: string }) {
               mac={mac}
               scope="muteIn"
               groups={linking.scopes.muteIn.groups}
+              channelLabels={channelLabels}
               copy={{
                 triggerLabel: linkDict.inputMuteTrigger,
                 title: linkDict.inputMuteTitle,
@@ -134,6 +142,7 @@ export function LinkingPanel({ mac }: { mac: string }) {
               mac={mac}
               scope="volumeIn"
               groups={linking.scopes.volumeIn.groups}
+              channelLabels={channelLabels}
               copy={{
                 triggerLabel: linkDict.inputVolumeTrigger,
                 title: linkDict.inputVolumeTitle,
@@ -145,6 +154,7 @@ export function LinkingPanel({ mac }: { mac: string }) {
               mac={mac}
               scope="inputEq"
               groups={linking.scopes.inputEq.groups}
+              channelLabels={channelLabels}
               copy={{
                 triggerLabel: linkDict.inputEqTrigger,
                 title: linkDict.inputEqTitle,
@@ -159,6 +169,7 @@ export function LinkingPanel({ mac }: { mac: string }) {
               mac={mac}
               scope="muteOut"
               groups={linking.scopes.muteOut.groups}
+              channelLabels={channelLabels}
               copy={{
                 triggerLabel: linkDict.outputMuteTrigger,
                 title: linkDict.outputMuteTitle,
@@ -170,6 +181,7 @@ export function LinkingPanel({ mac }: { mac: string }) {
               mac={mac}
               scope="noiseGateOut"
               groups={linking.scopes.noiseGateOut.groups}
+              channelLabels={channelLabels}
               copy={{
                 triggerLabel: linkDict.noiseGateTrigger,
                 title: linkDict.noiseGateTitle,
@@ -181,6 +193,7 @@ export function LinkingPanel({ mac }: { mac: string }) {
               mac={mac}
               scope="polarityOut"
               groups={linking.scopes.polarityOut.groups}
+              channelLabels={channelLabels}
               copy={{
                 triggerLabel: linkDict.polarityTrigger,
                 title: linkDict.polarityTitle,
@@ -192,6 +205,7 @@ export function LinkingPanel({ mac }: { mac: string }) {
               mac={mac}
               scope="trimOut"
               groups={linking.scopes.trimOut.groups}
+              channelLabels={channelLabels}
               copy={{
                 triggerLabel: linkDict.trimOutTrigger,
                 title: linkDict.trimOutTitle,
@@ -203,6 +217,7 @@ export function LinkingPanel({ mac }: { mac: string }) {
               mac={mac}
               scope="delayOut"
               groups={linking.scopes.delayOut.groups}
+              channelLabels={channelLabels}
               copy={{
                 triggerLabel: linkDict.delayOutTrigger,
                 title: linkDict.delayOutTitle,
@@ -214,6 +229,7 @@ export function LinkingPanel({ mac }: { mac: string }) {
               mac={mac}
               scope="outputEq"
               groups={linking.scopes.outputEq.groups}
+              channelLabels={channelLabels}
               copy={{
                 triggerLabel: linkDict.outputEqTrigger,
                 title: linkDict.outputEqTitle,

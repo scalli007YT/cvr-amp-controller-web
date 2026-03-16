@@ -61,14 +61,19 @@ interface SensorWindows {
 function makeWindows(): SensorWindows {
   return {
     temperatures: channels(5),
-    outputVoltages: channels(4),
-    outputCurrents: channels(4),
-    outputImpedance: channels(4),
-    inputVoltages: channels(4),
-    limiters: channels(4),
-    outputStates: channels(4),
+    outputVoltages: [],
+    outputCurrents: [],
+    outputImpedance: [],
+    inputVoltages: [],
+    limiters: [],
+    outputStates: [],
     fanVoltage: new ChannelWindow()
   };
+}
+
+function ensureWindowCount(current: ChannelWindow[], count: number): ChannelWindow[] {
+  if (current.length === count) return current;
+  return channels(count);
 }
 
 class MedianSmoother {
@@ -76,6 +81,12 @@ class MedianSmoother {
 
   smooth(raw: HeartbeatData, maxDb: number): HeartbeatData {
     const { w } = this;
+    w.outputVoltages = ensureWindowCount(w.outputVoltages, raw.outputVoltages.length);
+    w.outputCurrents = ensureWindowCount(w.outputCurrents, raw.outputCurrents.length);
+    w.outputImpedance = ensureWindowCount(w.outputImpedance, raw.outputImpedance.length);
+    w.inputVoltages = ensureWindowCount(w.inputVoltages, raw.inputVoltages.length);
+    w.limiters = ensureWindowCount(w.limiters, raw.limiters.length);
+    w.outputStates = ensureWindowCount(w.outputStates, raw.outputStates.length);
     const arr = (wins: ChannelWindow[], vals: number[]) => wins.map((win, i) => win.push(vals[i]) ?? vals[i]);
 
     const outputVoltages = arr(w.outputVoltages, raw.outputVoltages);
@@ -157,12 +168,21 @@ export interface VuState {
 }
 
 class VuSmoother {
-  private out = Array.from({ length: 4 }, () => new VuChannel());
-  private ins = Array.from({ length: 4 }, () => new VuChannel());
+  private out: VuChannel[] = [];
+  private ins: VuChannel[] = [];
+
+  private ensureLength(kind: "out" | "ins", count: number): VuChannel[] {
+    const current = kind === "out" ? this.out : this.ins;
+    if (current.length === count) return current;
+    const next = Array.from({ length: count }, (_, index) => current[index] ?? new VuChannel());
+    if (kind === "out") this.out = next;
+    else this.ins = next;
+    return next;
+  }
 
   setTargets(outDbu: number[], inDbfs: (number | null)[]): void {
-    this.out.forEach((ch, i) => ch.setTarget(outDbu[i]));
-    this.ins.forEach((ch, i) => ch.setTarget(inDbfs[i]));
+    this.ensureLength("out", outDbu.length).forEach((ch, i) => ch.setTarget(outDbu[i]));
+    this.ensureLength("ins", inDbfs.length).forEach((ch, i) => ch.setTarget(inDbfs[i]));
   }
 
   tick(dt: number): VuState {

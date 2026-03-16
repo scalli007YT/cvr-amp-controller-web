@@ -63,7 +63,7 @@ function CrossoverBandCell({
   idx: number;
   band: EqBand;
   mac: string;
-  channel: 0 | 1 | 2 | 3;
+  channel: number;
   target: CrossoverTarget;
 }) {
   const kind: CrossoverKind = idx === 0 ? "hp" : "lp";
@@ -177,7 +177,7 @@ function EqBandCell({
   idx: number;
   band: EqBand;
   mac: string;
-  channel: 0 | 1 | 2 | 3;
+  channel: number;
   target: CrossoverTarget;
 }) {
   const { setEqBandType, setEqBandFreq, setEqBandGain, setEqBandQ } = useAmpActions();
@@ -381,7 +381,7 @@ function EqParamStrip({
 }: {
   bands: EqBand[];
   mac?: string;
-  channel?: 0 | 1 | 2 | 3;
+  channel?: number;
   target?: CrossoverTarget;
 }) {
   const hasInteractive = mac !== undefined && channel !== undefined && target !== undefined;
@@ -416,7 +416,7 @@ function EqParamStrip({
                   idx={idx}
                   band={band}
                   mac={mac as string}
-                  channel={channel as 0 | 1 | 2 | 3}
+                  channel={channel as number}
                   target={target as CrossoverTarget}
                 />
               ) : (
@@ -424,7 +424,7 @@ function EqParamStrip({
                   idx={idx}
                   band={band}
                   mac={mac as string}
-                  channel={channel as 0 | 1 | 2 | 3}
+                  channel={channel as number}
                   target={target as CrossoverTarget}
                 />
               )
@@ -475,14 +475,24 @@ export function EqBandDialog({
   bands,
   mac,
   channel,
-  target
+  target,
+  triggerClassName,
+  onTriggerMouseEnter,
+  onTriggerMouseLeave,
+  onTriggerFocus,
+  onTriggerBlur
 }: {
   triggerLabel: string;
   title: string;
   bands?: EqBand[];
   mac?: string;
-  channel?: 0 | 1 | 2 | 3;
+  channel?: number;
   target?: CrossoverTarget;
+  triggerClassName?: string;
+  onTriggerMouseEnter?: () => void;
+  onTriggerMouseLeave?: () => void;
+  onTriggerFocus?: () => void;
+  onTriggerBlur?: () => void;
 }) {
   return (
     <Dialog>
@@ -491,11 +501,15 @@ export function EqBandDialog({
           disabled={!bands}
           size="sm"
           variant="outline"
+          onMouseEnter={onTriggerMouseEnter}
+          onMouseLeave={onTriggerMouseLeave}
+          onFocus={onTriggerFocus}
+          onBlur={onTriggerBlur}
           className={`w-full h-auto py-1 text-[11px] font-semibold transition-colors ${
             !bands
               ? "border-border/30 bg-muted/10 text-muted-foreground/30"
               : "border-border/40 bg-muted/20 text-muted-foreground/50 hover:border-border/60 hover:text-foreground/70"
-          }`}
+          } ${triggerClassName ?? ""}`}
         >
           {triggerLabel}
         </Button>

@@ -71,7 +71,7 @@ export interface HeartbeatData {
 }
 
 export interface BridgeReadback {
-  pair: 0 | 1;
+  pair: number;
   raw: number | null;
   bridged: boolean | null;
 }

@@ -1,4 +1,4 @@
-export type LinkChannel = 0 | 1 | 2 | 3;
+export type LinkChannel = number;
 
 export type LinkScope =
   | "muteIn"
@@ -80,13 +80,13 @@ export function createDefaultAmpLinkConfig(): AmpLinkConfig {
 export const DEFAULT_AMP_LINK_CONFIG = createDefaultAmpLinkConfig();
 
 function isLinkChannel(value: unknown): value is LinkChannel {
-  return value === 0 || value === 1 || value === 2 || value === 3;
+  return Number.isInteger(value) && Number(value) >= 0;
 }
 
 function normalizeChannels(raw: unknown): LinkChannel[] {
   if (!Array.isArray(raw)) return [];
 
-  return Array.from(new Set(raw.filter(isLinkChannel))).sort((left, right) => left - right) as LinkChannel[];
+  return Array.from(new Set(raw.filter(isLinkChannel))).sort((left, right) => left - right);
 }
 
 function normalizeGroup(raw: unknown, index: number): LinkGroup | null {
@@ -195,7 +195,5 @@ export function getLinkedChannels(config: AmpLinkConfig, scope: LinkScope, chann
     return [channel];
   }
 
-  return Array.from(new Set(matchingGroups.flatMap((group) => group.channels))).sort(
-    (left, right) => left - right
-  ) as LinkChannel[];
+  return Array.from(new Set(matchingGroups.flatMap((group) => group.channels))).sort((left, right) => left - right);
 }

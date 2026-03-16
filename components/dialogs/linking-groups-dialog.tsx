@@ -27,7 +27,7 @@ function toLinkGroups(channelLabels: string[], groups: LinkingGroup[]): LinkGrou
   return groups.map((group, index) => ({
     id: `group-${index + 1}`,
     name: formatChannelList(channelLabels, group.channels),
-    channels: group.channels as Array<0 | 1 | 2 | 3>
+    channels: group.channels
   }));
 }
 
@@ -46,7 +46,6 @@ function normalizeInitialGroups(channelLabels: string[], groups: LinkGroup[]): L
 
 export function LinkingGroupsDialog({
   triggerLabel,
-  triggerDescription,
   triggerMode = "compact",
   title,
   description,
@@ -67,7 +66,6 @@ export function LinkingGroupsDialog({
   onSave
 }: {
   triggerLabel: string;
-  triggerDescription?: string;
   triggerMode?: "compact" | "card";
   title: string;
   description: string;

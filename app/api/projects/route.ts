@@ -19,7 +19,7 @@ interface AssignedAmpConstants {
 }
 
 const DEFAULT_AMP_CONSTANTS: AssignedAmpConstants = {
-  channels: Array.from({ length: 4 }, () => ({ ohms: 8 })),
+  channels: [],
   linking: normalizeAmpLinkConfig(DEFAULT_AMP_LINK_CONFIG)
 };
 
@@ -52,7 +52,7 @@ function normalizeProject(project: Project): Project {
       const fallbackOhms = amp.loadOhm ?? 8;
       const linking = normalizeAmpLinkConfig(amp.constants?.linking);
       const constants =
-        amp.constants?.channels?.length === 4
+        amp.constants?.channels?.length > 0
           ? {
               channels: amp.constants.channels.map((channel) => ({
                 ohms: channel?.ohms ?? fallbackOhms
@@ -60,9 +60,7 @@ function normalizeProject(project: Project): Project {
               linking
             }
           : {
-              channels: Array.from({ length: 4 }, () => ({
-                ohms: fallbackOhms
-              })),
+              channels: [],
               linking
             };
 

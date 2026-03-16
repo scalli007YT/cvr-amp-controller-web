@@ -163,7 +163,7 @@ export function SourceConfigDialog({
                           const target = e.target as HTMLElement;
                           if (target.closest("button,input,[role='option'],[role='listbox']")) return;
                           void runWithPending(`mode-${channel.channel}-${source.key}`, async () => {
-                            await setSourceType(mac, channel.channel as 0 | 1 | 2 | 3, sourceCode);
+                            await setSourceType(mac, channel.channel, sourceCode);
                           });
                         }}
                         onKeyDown={(e) => {
@@ -172,7 +172,7 @@ export function SourceConfigDialog({
                           if (e.key !== "Enter" && e.key !== " ") return;
                           e.preventDefault();
                           void runWithPending(`mode-${channel.channel}-${source.key}`, async () => {
-                            await setSourceType(mac, channel.channel as 0 | 1 | 2 | 3, sourceCode);
+                            await setSourceType(mac, channel.channel, sourceCode);
                           });
                         }}
                       >
@@ -184,7 +184,7 @@ export function SourceConfigDialog({
                                 const parsed = Number.parseInt(next, 10);
                                 if (Number.isNaN(parsed)) return;
                                 void runWithPending(`analog-${channel.channel}`, async () => {
-                                  await setAnalogType(mac, channel.channel as 0 | 1 | 2 | 3, Math.max(0, parsed - 1));
+                                  await setAnalogType(mac, channel.channel, Math.max(0, parsed - 1));
                                 });
                               }}
                               disabled={!enabled || analogPending}
@@ -250,13 +250,7 @@ export function SourceConfigDialog({
                                     const ok = await runWithPending(
                                       `delay-${channel.channel}-${source.key}`,
                                       async () => {
-                                        await setSourceDelay(
-                                          mac,
-                                          channel.channel as 0 | 1 | 2 | 3,
-                                          sourceFamily,
-                                          clamped,
-                                          source.trim
-                                        );
+                                        await setSourceDelay(mac, channel.channel, sourceFamily, clamped, source.trim);
                                       }
                                     );
                                     if (!ok) {
@@ -296,13 +290,7 @@ export function SourceConfigDialog({
                                     const ok = await runWithPending(
                                       `trim-${channel.channel}-${source.key}`,
                                       async () => {
-                                        await setSourceTrim(
-                                          mac,
-                                          channel.channel as 0 | 1 | 2 | 3,
-                                          sourceFamily,
-                                          clamped,
-                                          source.delay
-                                        );
+                                        await setSourceTrim(mac, channel.channel, sourceFamily, clamped, source.delay);
                                       }
                                     );
                                     if (!ok) {
