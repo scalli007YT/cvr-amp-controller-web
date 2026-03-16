@@ -22,7 +22,19 @@ export function LanguageModeToggle({ lang, label, englishLabel, germanLabel }: L
   const pathname = usePathname();
   const router = useRouter();
 
+  const persistLocalePreference = (nextLocale: Locale) => {
+    try {
+      localStorage.setItem("preferred-locale", nextLocale);
+    } catch {
+      // Ignore storage write failures and still try cookie + route change.
+    }
+
+    document.cookie = `preferred-locale=${nextLocale}; Path=/; Max-Age=31536000; SameSite=Lax`;
+  };
+
   const changeLocale = (nextLocale: Locale) => {
+    persistLocalePreference(nextLocale);
+
     const path = pathname || "/";
     const segments = path.split("/").filter(Boolean);
 

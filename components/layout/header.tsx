@@ -212,7 +212,7 @@ export function Header({ lang, dictionary, projects = [], loading = false }: Hea
               </DropdownMenu>
 
               {isDesktop ? (
-                <div className="flex items-center overflow-hidden rounded-[min(var(--radius-md),10px)] border border-border bg-card/85 shadow-xs backdrop-blur-sm dark:bg-muted/50">
+                <div className="flex items-center overflow-hidden rounded-[min(var(--radius-md),10px)] border border-border bg-card/85 dark:bg-muted/50">
                   <WindowButton
                     label="Minimize"
                     position="start"
@@ -263,16 +263,16 @@ function WindowButton({
       className={
         danger
           ? [
-              "h-8 w-9 border-0 rounded-none bg-transparent text-muted-foreground shadow-none transition-colors",
+              "h-8 w-9 rounded-none border-0 shadow-none text-muted-foreground",
               position === "start" ? "rounded-l-[min(var(--radius-md),10px)]" : "",
               position === "end" ? "rounded-r-[min(var(--radius-md),10px)]" : "",
               "hover:bg-destructive/10 hover:text-destructive"
             ].join(" ")
           : [
-              "h-8 w-9 border-0 rounded-none bg-transparent text-muted-foreground shadow-none transition-colors",
+              "h-8 w-9 rounded-none border-0 shadow-none text-muted-foreground",
               position === "start" ? "rounded-l-[min(var(--radius-md),10px)]" : "",
               position === "end" ? "rounded-r-[min(var(--radius-md),10px)]" : "",
-              "hover:bg-muted/80 hover:text-foreground dark:hover:bg-background/80"
+              "hover:bg-muted hover:text-foreground"
             ].join(" ")
       }
     >

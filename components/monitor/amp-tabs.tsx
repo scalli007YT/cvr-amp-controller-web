@@ -13,6 +13,7 @@ import { ConfirmActionDialog } from "@/components/dialogs/confirm-action-dialog"
 import { formatRuntime } from "@/lib/generic";
 import { LayoutDashboardIcon, GridIcon, SlidersHorizontalIcon, ChevronRight } from "lucide-react";
 import { HeartbeatDashboard } from "@/components/monitor/amp-tabs/heartbeat-dashboard";
+import { LinkingPanel } from "@/components/monitor/amp-tabs/linking-panel";
 import { LimiterBlock } from "@/components/monitor/amp-tabs/limiter-panel";
 import { MatrixGrid } from "@/components/monitor/amp-tabs/matrix-grid";
 import { SourceConfigDialog } from "@/components/dialogs/source-config-dialog";
@@ -131,14 +132,10 @@ export function AmpTabs() {
             return (
               <Button
                 key={amp.mac}
-                variant="ghost"
+                variant={selected ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => setSelectedMac(amp.mac)}
-                className={`h-11 w-full justify-start gap-2.5 whitespace-nowrap border px-2.5 font-medium transition-colors ${
-                  selected
-                    ? "border-primary/40 bg-primary/10 text-foreground"
-                    : "border-border/50 bg-card/30 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-                }`}
+                className="h-11 w-full justify-start gap-2.5 whitespace-nowrap px-2.5 font-medium"
               >
                 <div
                   className={`h-2 w-2 flex-shrink-0 rounded-full ${amp.reachable ? "bg-emerald-500" : "bg-rose-500"}`}
@@ -170,31 +167,22 @@ export function AmpTabs() {
                   <h2 className="truncate text-lg font-semibold leading-tight">{getDisplayName(selectedAmp)}</h2>
                 </div>
                 <div className="flex items-center gap-2 text-[11px]">
-                  <Badge variant="outline" className="rounded border-border/50 bg-muted/20 font-mono">
+                  <Badge variant="outline" className="font-mono">
                     {selectedAmp.ip ?? dict.monitor.ampTabs.noIp}
                   </Badge>
                 </div>
               </div>
 
-              <TabsList className="mt-2 grid h-9 w-full grid-cols-3 gap-1 rounded-md border border-border/50 bg-background/35 px-1">
-                <TabsTrigger
-                  value="main"
-                  className="h-7 w-full justify-center border border-transparent px-3 data-active:border-primary/45 data-active:bg-primary/18 data-active:text-foreground"
-                >
+              <TabsList className="mt-2 grid h-9 w-full grid-cols-3 gap-1 px-1">
+                <TabsTrigger value="main" className="h-7 w-full justify-center px-3">
                   <LayoutDashboardIcon className="size-4" />
                   {dict.monitor.ampTabs.tabMain}
                 </TabsTrigger>
-                <TabsTrigger
-                  value="matrix"
-                  className="h-7 w-full justify-center border border-transparent px-3 data-active:border-primary/45 data-active:bg-primary/18 data-active:text-foreground"
-                >
+                <TabsTrigger value="matrix" className="h-7 w-full justify-center px-3">
                   <GridIcon className="size-4" />
                   {dict.monitor.ampTabs.tabMatrixLimiter}
                 </TabsTrigger>
-                <TabsTrigger
-                  value="preferences"
-                  className="h-7 w-full justify-center border border-transparent px-3 data-active:border-primary/45 data-active:bg-primary/18 data-active:text-foreground"
-                >
+                <TabsTrigger value="preferences" className="h-7 w-full justify-center px-3">
                   <SlidersHorizontalIcon className="size-4" />
                   {dict.monitor.ampTabs.tabPreferences}
                 </TabsTrigger>
@@ -333,6 +321,8 @@ export function AmpTabs() {
                   </dl>
                 </CollapsibleContent>
               </Collapsible>
+
+              <LinkingPanel mac={selectedAmp.mac} />
 
               <div>
                 <ConfirmActionDialog

@@ -2,6 +2,12 @@ import { promises as fs } from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
+import {
+  DEFAULT_AMP_LINK_CONFIG,
+  normalizeAmpLinkConfig,
+  serializeAmpLinkConfig,
+  type AmpLinkConfig
+} from "@/lib/amp-action-linking";
 
 interface AmpChannelConstants {
   ohms: number;
@@ -9,10 +15,12 @@ interface AmpChannelConstants {
 
 interface AssignedAmpConstants {
   channels: AmpChannelConstants[];
+  linking: AmpLinkConfig;
 }
 
 const DEFAULT_AMP_CONSTANTS: AssignedAmpConstants = {
-  channels: Array.from({ length: 4 }, () => ({ ohms: 8 }))
+  channels: Array.from({ length: 4 }, () => ({ ohms: 8 })),
+  linking: normalizeAmpLinkConfig(DEFAULT_AMP_LINK_CONFIG)
 };
 
 /** Resolves the persistent storage directory.
@@ -42,17 +50,20 @@ function normalizeProject(project: Project): Project {
     ...project,
     assigned_amps: project.assigned_amps.map((amp) => {
       const fallbackOhms = amp.loadOhm ?? 8;
+      const linking = normalizeAmpLinkConfig(amp.constants?.linking);
       const constants =
         amp.constants?.channels?.length === 4
           ? {
               channels: amp.constants.channels.map((channel) => ({
                 ohms: channel?.ohms ?? fallbackOhms
-              }))
+              })),
+              linking
             }
           : {
               channels: Array.from({ length: 4 }, () => ({
                 ohms: fallbackOhms
-              }))
+              })),
+              linking
             };
 
       return {
@@ -61,6 +72,19 @@ function normalizeProject(project: Project): Project {
         constants
       };
     })
+  };
+}
+
+function serializeProjectForPersistence(project: Project): Project {
+  return {
+    ...project,
+    assigned_amps: project.assigned_amps.map((amp) => ({
+      ...amp,
+      constants: {
+        ...amp.constants,
+        linking: serializeAmpLinkConfig(amp.constants.linking) as unknown as AmpLinkConfig
+      }
+    }))
   };
 }
 
@@ -119,7 +143,7 @@ export async function PUT(request: Request) {
     };
 
     // Write the updated project to file
-    await fs.writeFile(filePath, JSON.stringify(updatedProject, null, 2));
+    await fs.writeFile(filePath, JSON.stringify(serializeProjectForPersistence(updatedProject), null, 2));
 
     return NextResponse.json({
       success: true,

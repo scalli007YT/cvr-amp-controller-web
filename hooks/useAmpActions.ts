@@ -24,8 +24,10 @@ import {
   PEAK_LIMITER_HOLD_MAX_MS,
   PEAK_LIMITER_RELEASE_MAX_MS
 } from "@/lib/constants";
+import { getLinkedChannels, type LinkScope } from "@/lib/amp-action-linking";
 import { useAmpStore } from "@/stores/AmpStore";
 import { rmsToPeakVoltage } from "@/lib/generic";
+import { getStoredAmpLinkConfig, useAmpActionLinkStore } from "@/stores/AmpActionLinkStore";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -157,6 +159,11 @@ export function useAmpActions(): AmpActionsHook {
   /** Returns the rated RMS voltage for a given mac, or undefined if unknown. */
   const getRatedRmsV = useCallback((mac: string) => amps.find((a) => a.mac === mac)?.ratedRmsV, [amps]);
 
+  const getLinkedTargets = useCallback((mac: string, channel: Channel, scope: LinkScope) => {
+    const config = getStoredAmpLinkConfig(useAmpActionLinkStore.getState().byMac, mac);
+    return getLinkedChannels(config, scope, channel);
+  }, []);
+
   /** Send a POST to /api/amp-actions. UI updates from polled amp state. */
   const send = useCallback(
     async (
@@ -165,7 +172,7 @@ export function useAmpActions(): AmpActionsHook {
       channel: Channel,
       value: boolean | number,
       extra?: Record<string, unknown>,
-      opts?: { throwOnError?: boolean }
+      opts?: { suppressToast?: boolean; throwOnError?: boolean }
     ) => {
       try {
         const res = await fetch("/api/amp-actions", {
@@ -183,7 +190,9 @@ export function useAmpActions(): AmpActionsHook {
         return true;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        toast.error(`Command failed: ${msg}`);
+        if (!opts?.suppressToast) {
+          toast.error(`Command failed: ${msg}`);
+        }
         if (opts?.throwOnError) {
           throw err instanceof Error ? err : new Error(msg);
         }
@@ -191,6 +200,47 @@ export function useAmpActions(): AmpActionsHook {
       }
     },
     []
+  );
+
+  const runLinked = useCallback(
+    async (mac: string, channel: Channel, scope: LinkScope, task: (targetChannel: Channel) => Promise<boolean>) => {
+      const targets = getLinkedTargets(mac, channel, scope);
+      const results = await Promise.allSettled(targets.map((targetChannel) => task(targetChannel)));
+      const failedCount = results.filter((result) => result.status === "rejected" || result.value !== true).length;
+
+      if (failedCount > 0) {
+        const linkedCount = targets.length;
+        const firstRejected = results.find((result) => result.status === "rejected");
+        const reason =
+          firstRejected?.status === "rejected"
+            ? firstRejected.reason instanceof Error
+              ? firstRejected.reason.message
+              : String(firstRejected.reason)
+            : null;
+        const baseMessage =
+          linkedCount > 1
+            ? `Linked command partially failed (${linkedCount - failedCount}/${linkedCount})`
+            : "Command failed";
+        toast.error(reason ? `${baseMessage}: ${reason}` : baseMessage);
+      }
+    },
+    [getLinkedTargets]
+  );
+
+  const sendLinked = useCallback(
+    async (
+      mac: string,
+      action: string,
+      channel: Channel,
+      value: boolean | number,
+      scope: LinkScope,
+      extra?: Record<string, unknown>
+    ) => {
+      await runLinked(mac, channel, scope, (targetChannel) =>
+        send(mac, action, targetChannel, value, extra, { suppressToast: true, throwOnError: true })
+      );
+    },
+    [runLinked, send]
   );
 
   // ---------------------------------------------------------------------------
@@ -208,9 +258,9 @@ export function useAmpActions(): AmpActionsHook {
   // ---------------------------------------------------------------------------
   const muteIn = useCallback(
     async (mac: string, channel: Channel, muted: boolean) => {
-      await send(mac, "muteIn", channel, muted);
+      await sendLinked(mac, "muteIn", channel, muted, "muteIn");
     },
-    [send]
+    [sendLinked]
   );
 
   // ---------------------------------------------------------------------------
@@ -218,9 +268,9 @@ export function useAmpActions(): AmpActionsHook {
   // ---------------------------------------------------------------------------
   const setVolumeIn = useCallback(
     async (mac: string, channel: Channel, db: number) => {
-      await send(mac, "volumeIn", channel, db);
+      await sendLinked(mac, "volumeIn", channel, db, "volumeIn");
     },
-    [send]
+    [sendLinked]
   );
 
   // ---------------------------------------------------------------------------
@@ -228,9 +278,9 @@ export function useAmpActions(): AmpActionsHook {
   // ---------------------------------------------------------------------------
   const muteOut = useCallback(
     async (mac: string, channel: Channel, muted: boolean) => {
-      await send(mac, "muteOut", channel, muted);
+      await sendLinked(mac, "muteOut", channel, muted, "muteOut");
     },
-    [send]
+    [sendLinked]
   );
 
   // ---------------------------------------------------------------------------
@@ -238,9 +288,9 @@ export function useAmpActions(): AmpActionsHook {
   // ---------------------------------------------------------------------------
   const invertPolarityOut = useCallback(
     async (mac: string, channel: Channel, inverted: boolean) => {
-      await send(mac, "invertPolarityOut", channel, inverted);
+      await sendLinked(mac, "invertPolarityOut", channel, inverted, "polarityOut");
     },
-    [send]
+    [sendLinked]
   );
 
   // ---------------------------------------------------------------------------
@@ -248,28 +298,28 @@ export function useAmpActions(): AmpActionsHook {
   // ---------------------------------------------------------------------------
   const noiseGateOut = useCallback(
     async (mac: string, channel: Channel, enabled: boolean) => {
-      await send(mac, "noiseGateOut", channel, enabled);
+      await sendLinked(mac, "noiseGateOut", channel, enabled, "noiseGateOut");
     },
-    [send]
+    [sendLinked]
   );
 
   const rmsLimiterOut = useCallback(
     async (mac: string, channel: Channel, enabled: boolean, params?: RmsLimiterParams) => {
-      await send(mac, "rmsLimiterOut", channel, enabled, params);
+      await sendLinked(mac, "rmsLimiterOut", channel, enabled, "limiters", params);
     },
-    [send]
+    [sendLinked]
   );
 
   const setRmsLimiterAttack = useCallback(
     async (mac: string, channel: Channel, attackMs: number, config: RmsLimiterParams & { enabled: boolean }) => {
       const clampedAttack = Math.max(0, Math.min(RMS_LIMITER_ATTACK_MAX_MS, attackMs));
-      await send(mac, "rmsLimiterOut", channel, config.enabled, {
+      await sendLinked(mac, "rmsLimiterOut", channel, config.enabled, "limiters", {
         attackMs: clampedAttack,
         releaseMultiplier: config.releaseMultiplier,
         thresholdVrms: config.thresholdVrms
       });
     },
-    [send]
+    [sendLinked]
   );
 
   const setRmsLimiterReleaseMultiplier = useCallback(
@@ -280,13 +330,13 @@ export function useAmpActions(): AmpActionsHook {
       config: RmsLimiterParams & { enabled: boolean }
     ) => {
       const clamped = Math.max(0, Math.min(RMS_LIMITER_RELEASE_MAX_MULTIPLIER, releaseMultiplier));
-      await send(mac, "rmsLimiterOut", channel, config.enabled, {
+      await sendLinked(mac, "rmsLimiterOut", channel, config.enabled, "limiters", {
         attackMs: config.attackMs,
         releaseMultiplier: clamped,
         thresholdVrms: config.thresholdVrms
       });
     },
-    [send]
+    [sendLinked]
   );
 
   const setRmsLimiterThreshold = useCallback(
@@ -296,44 +346,44 @@ export function useAmpActions(): AmpActionsHook {
         maxVrms != null
           ? Math.max(RMS_LIMITER_THRESHOLD_MIN_VRMS, Math.min(maxVrms, thresholdVrms))
           : Math.max(RMS_LIMITER_THRESHOLD_MIN_VRMS, thresholdVrms);
-      await send(mac, "rmsLimiterOut", channel, config.enabled, {
+      await sendLinked(mac, "rmsLimiterOut", channel, config.enabled, "limiters", {
         attackMs: config.attackMs,
         releaseMultiplier: config.releaseMultiplier,
         thresholdVrms: clamped
       });
     },
-    [send, getRatedRmsV]
+    [sendLinked, getRatedRmsV]
   );
 
   const peakLimiterOut = useCallback(
     async (mac: string, channel: Channel, enabled: boolean, params?: PeakLimiterParams) => {
-      await send(mac, "peakLimiterOut", channel, enabled, params);
+      await sendLinked(mac, "peakLimiterOut", channel, enabled, "limiters", params);
     },
-    [send]
+    [sendLinked]
   );
 
   const setPeakLimiterHold = useCallback(
     async (mac: string, channel: Channel, holdMs: number, config: PeakLimiterParams & { enabled: boolean }) => {
       const clamped = Math.max(0, Math.min(PEAK_LIMITER_HOLD_MAX_MS, holdMs));
-      await send(mac, "peakLimiterOut", channel, config.enabled, {
+      await sendLinked(mac, "peakLimiterOut", channel, config.enabled, "limiters", {
         holdMs: clamped,
         releaseMs: config.releaseMs,
         thresholdVp: config.thresholdVp
       });
     },
-    [send]
+    [sendLinked]
   );
 
   const setPeakLimiterRelease = useCallback(
     async (mac: string, channel: Channel, releaseMs: number, config: PeakLimiterParams & { enabled: boolean }) => {
       const clamped = Math.max(0, Math.min(PEAK_LIMITER_RELEASE_MAX_MS, releaseMs));
-      await send(mac, "peakLimiterOut", channel, config.enabled, {
+      await sendLinked(mac, "peakLimiterOut", channel, config.enabled, "limiters", {
         holdMs: config.holdMs,
         releaseMs: clamped,
         thresholdVp: config.thresholdVp
       });
     },
-    [send]
+    [sendLinked]
   );
 
   const setPeakLimiterThreshold = useCallback(
@@ -343,13 +393,13 @@ export function useAmpActions(): AmpActionsHook {
         maxVp != null
           ? Math.max(PEAK_LIMITER_THRESHOLD_MIN_VP, Math.min(maxVp, thresholdVp))
           : Math.max(PEAK_LIMITER_THRESHOLD_MIN_VP, thresholdVp);
-      await send(mac, "peakLimiterOut", channel, config.enabled, {
+      await sendLinked(mac, "peakLimiterOut", channel, config.enabled, "limiters", {
         holdMs: config.holdMs,
         releaseMs: config.releaseMs,
         thresholdVp: clamped
       });
     },
-    [send, getRatedRmsV]
+    [sendLinked, getRatedRmsV]
   );
 
   const setMatrixGain = useCallback(
@@ -446,17 +496,17 @@ export function useAmpActions(): AmpActionsHook {
   const setDelayOut = useCallback(
     async (mac: string, channel: Channel, ms: number) => {
       const clamped = Math.max(DELAY_MIN_MS, Math.min(DELAY_OUT_MAX_MS, ms));
-      await send(mac, "delayOut", channel, clamped);
+      await sendLinked(mac, "delayOut", channel, clamped, "delayOut");
     },
-    [send]
+    [sendLinked]
   );
 
   const setTrimOut = useCallback(
     async (mac: string, channel: Channel, db: number) => {
       const clamped = Math.max(OUTPUT_TRIM_MIN_DB, Math.min(OUTPUT_TRIM_MAX_DB, db));
-      await send(mac, "outputTrim", channel, clamped);
+      await sendLinked(mac, "outputTrim", channel, clamped, "trimOut");
     },
-    [send]
+    [sendLinked]
   );
 
   const setPowerModeOut = useCallback(
@@ -477,52 +527,68 @@ export function useAmpActions(): AmpActionsHook {
       enabled: boolean,
       filterType: number
     ) => {
-      await send(mac, "crossoverEnabled", channel, enabled, {
+      await sendLinked(mac, "crossoverEnabled", channel, enabled, target === "input" ? "inputEq" : "outputEq", {
         target,
         kind,
         filterType
       });
     },
-    [send]
+    [sendLinked]
   );
 
   const setCrossoverFreq = useCallback(
     async (mac: string, channel: Channel, target: CrossoverTarget, kind: CrossoverKind, hz: number) => {
       const clamped = Math.max(CROSSOVER_FREQ_MIN_HZ, Math.min(CROSSOVER_FREQ_MAX_HZ, hz));
-      await send(mac, "crossoverFreq", channel, clamped, { target, kind });
+      await sendLinked(mac, "crossoverFreq", channel, clamped, target === "input" ? "inputEq" : "outputEq", {
+        target,
+        kind
+      });
     },
-    [send]
+    [sendLinked]
   );
 
   const setEqBandType = useCallback(
     async (mac: string, channel: Channel, target: CrossoverTarget, band: number, type: number, bypass: boolean) => {
-      await send(mac, "eqBandType", channel, type, { target, band, bypass });
+      await sendLinked(mac, "eqBandType", channel, type, target === "input" ? "inputEq" : "outputEq", {
+        target,
+        band,
+        bypass
+      });
     },
-    [send]
+    [sendLinked]
   );
 
   const setEqBandFreq = useCallback(
     async (mac: string, channel: Channel, target: CrossoverTarget, band: number, hz: number) => {
       const clamped = Math.max(CROSSOVER_FREQ_MIN_HZ, Math.min(CROSSOVER_FREQ_MAX_HZ, hz));
-      await send(mac, "eqBandFreq", channel, clamped, { target, band });
+      await sendLinked(mac, "eqBandFreq", channel, clamped, target === "input" ? "inputEq" : "outputEq", {
+        target,
+        band
+      });
     },
-    [send]
+    [sendLinked]
   );
 
   const setEqBandGain = useCallback(
     async (mac: string, channel: Channel, target: CrossoverTarget, band: number, db: number) => {
       const clamped = Math.max(EQ_BAND_GAIN_MIN_DB, Math.min(EQ_BAND_GAIN_MAX_DB, db));
-      await send(mac, "eqBandGain", channel, clamped, { target, band });
+      await sendLinked(mac, "eqBandGain", channel, clamped, target === "input" ? "inputEq" : "outputEq", {
+        target,
+        band
+      });
     },
-    [send]
+    [sendLinked]
   );
 
   const setEqBandQ = useCallback(
     async (mac: string, channel: Channel, target: CrossoverTarget, band: number, q: number) => {
       const clamped = Math.max(EQ_BAND_Q_MIN, Math.min(EQ_BAND_Q_MAX, q));
-      await send(mac, "eqBandQ", channel, clamped, { target, band });
+      await sendLinked(mac, "eqBandQ", channel, clamped, target === "input" ? "inputEq" : "outputEq", {
+        target,
+        band
+      });
     },
-    [send]
+    [sendLinked]
   );
 
   return {

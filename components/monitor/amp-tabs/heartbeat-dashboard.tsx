@@ -21,6 +21,7 @@ import { EqBandDialog } from "@/components/monitor/amp-tabs/eq-controls";
 import { VerticalDbMeter } from "@/components/monitor/vertical-db-meter";
 import { COLORS } from "@/lib/colors";
 import { OUTPUT_TRIM_MAX_DB, OUTPUT_TRIM_MIN_DB } from "@/lib/constants";
+import type { AmpLinkConfig, LinkGroup } from "@/lib/amp-action-linking";
 import { voltageToMeterDb, rmsToPeakVoltage, formatDbfs } from "@/lib/generic";
 import { getPowerModeName } from "@/lib/parse-channel-data";
 import { useI18n } from "@/components/layout/i18n-provider";

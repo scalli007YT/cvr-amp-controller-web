@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { limiterPowerFromLoad } from "@/lib/generic";
 import type { SourceCapabilities } from "@/lib/source-capabilities";
+import type { AmpLinkConfig } from "@/lib/amp-action-linking";
 
 export interface AmpChannelConstants {
   ohms: number;
@@ -8,6 +9,7 @@ export interface AmpChannelConstants {
 
 export interface AssignedAmpConstants {
   channels: AmpChannelConstants[];
+  linking: AmpLinkConfig;
 }
 
 // ---------------------------------------------------------------------------
@@ -451,7 +453,13 @@ export const useAmpStore = create<AmpStore>((set) => ({
       amps: state.amps.map((amp) => {
         if (amp.mac !== mac) return amp;
         const channels = amp.constants.channels.map((ch, i) => (i === channelIndex ? { ...ch, ohms } : ch));
-        return { ...amp, constants: { channels } };
+        return {
+          ...amp,
+          constants: {
+            channels,
+            linking: amp.constants.linking
+          }
+        };
       })
     })),
 

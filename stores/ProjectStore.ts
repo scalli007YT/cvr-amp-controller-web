@@ -1,6 +1,14 @@
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
 import { useAmpStore } from "./AmpStore";
+import {
+  createDefaultAmpLinkConfig,
+  DEFAULT_AMP_LINK_CONFIG,
+  normalizeAmpLinkConfig,
+  serializeAmpLinkConfig,
+  type AmpLinkConfig
+} from "@/lib/amp-action-linking";
+import { useAmpActionLinkStore } from "./AmpActionLinkStore";
 
 export interface AmpChannelConstants {
   ohms: number;
@@ -8,10 +16,14 @@ export interface AmpChannelConstants {
 
 export interface AssignedAmpConstants {
   channels: AmpChannelConstants[];
+  linking: AmpLinkConfig;
 }
 
+const defaultAmpLinking: AmpLinkConfig = createDefaultAmpLinkConfig();
+
 export const DEFAULT_AMP_CONSTANTS: AssignedAmpConstants = {
-  channels: Array.from({ length: 4 }, () => ({ ohms: 8 }))
+  channels: Array.from({ length: 4 }, () => ({ ohms: 8 })),
+  linking: defaultAmpLinking
 };
 
 export interface Project {
@@ -40,6 +52,34 @@ interface ProjectStore {
   addAmpToProject: (projectId: string, mac: string) => Promise<void>;
   deleteAmpFromProject: (projectId: string, mac: string) => Promise<void>;
   updateAmpChannelOhms: (mac: string, channelIndex: number, ohms: number) => Promise<void>;
+  updateAmpLinking: (mac: string, linking: AmpLinkConfig) => Promise<void>;
+}
+
+function serializeProjectForPersistence(project: Project): Project {
+  return {
+    ...project,
+    assigned_amps: project.assigned_amps.map((amp) => ({
+      ...amp,
+      constants: {
+        ...amp.constants,
+        linking: serializeAmpLinkConfig(amp.constants.linking) as unknown as AmpLinkConfig
+      }
+    }))
+  };
+}
+
+function syncAmpLinkingFromProject(project: Project | null) {
+  if (!project) {
+    useAmpActionLinkStore.getState().clear();
+    return;
+  }
+
+  useAmpActionLinkStore.getState().hydrateMany(
+    project.assigned_amps.map((amp) => ({
+      mac: amp.mac,
+      profile: amp.constants.linking
+    }))
+  );
 }
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -62,6 +102,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } else {
       useAmpStore.getState().clearAmps();
     }
+
+    syncAmpLinkingFromProject(project);
   },
 
   setLoading: (loading) => set({ loading }),
@@ -106,7 +148,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await fetch("/api/projects", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedProject)
+      body: JSON.stringify(serializeProjectForPersistence(updatedProject))
     });
   },
 
@@ -146,7 +188,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         {
           id: uuidv4(),
           mac: mac.toUpperCase(),
-          constants: DEFAULT_AMP_CONSTANTS
+          constants: {
+            ...DEFAULT_AMP_CONSTANTS,
+            linking: normalizeAmpLinkConfig(DEFAULT_AMP_LINK_CONFIG)
+          }
         }
       ]
     };
@@ -165,13 +210,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         constants: amp.constants
       }));
       useAmpStore.getState().seedAmps(configs);
+      syncAmpLinkingFromProject(updatedProject);
     }
 
     // Persist to API
     await fetch("/api/projects", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedProject)
+      body: JSON.stringify(serializeProjectForPersistence(updatedProject))
     });
   },
 
@@ -203,13 +249,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         constants: amp.constants
       }));
       useAmpStore.getState().seedAmps(configs);
+      syncAmpLinkingFromProject(updatedProject);
     }
 
     // Persist to API
     await fetch("/api/projects", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedProject)
+      body: JSON.stringify(serializeProjectForPersistence(updatedProject))
     });
   },
 
@@ -224,7 +271,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         return {
           ...amp,
           constants: {
-            channels: amp.constants.channels.map((ch, i) => (i === channelIndex ? { ...ch, ohms } : ch))
+            channels: amp.constants.channels.map((ch, i) => (i === channelIndex ? { ...ch, ohms } : ch)),
+            linking: normalizeAmpLinkConfig(amp.constants.linking)
           }
         };
       })
@@ -241,7 +289,41 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     await fetch("/api/projects", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedProject)
+      body: JSON.stringify(serializeProjectForPersistence(updatedProject))
+    });
+  },
+
+  updateAmpLinking: async (mac, linking) => {
+    const { projects, selectedProject } = get();
+    if (!selectedProject) return;
+
+    const normalizedMac = mac.toUpperCase();
+    const normalizedLinking = normalizeAmpLinkConfig(linking);
+    const updatedProject: Project = {
+      ...selectedProject,
+      assigned_amps: selectedProject.assigned_amps.map((amp) => {
+        if (amp.mac.toUpperCase() !== normalizedMac) return amp;
+        return {
+          ...amp,
+          constants: {
+            ...amp.constants,
+            linking: normalizedLinking
+          }
+        };
+      })
+    };
+
+    set({
+      projects: projects.map((project) => (project.id === selectedProject.id ? updatedProject : project)),
+      selectedProject: updatedProject
+    });
+
+    useAmpActionLinkStore.getState().setAmpConfig(mac, normalizedLinking);
+
+    await fetch("/api/projects", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(serializeProjectForPersistence(updatedProject))
     });
   }
 }));

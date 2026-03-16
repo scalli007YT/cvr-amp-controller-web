@@ -85,13 +85,28 @@ function createWindow() {
 
   const emitWindowState = () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
-    mainWindow.webContents.send("window:maximized-changed", mainWindow.isMaximized());
+    const wc = mainWindow.webContents;
+    if (!wc || wc.isDestroyed() || wc.isCrashed()) return;
+
+    try {
+      wc.send("window:maximized-changed", mainWindow.isMaximized());
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      // Happens when window/frame is torn down between event emission and send.
+      if (!message.includes("Render frame was disposed")) {
+        console.error("Failed to emit window state:", err);
+      }
+    }
   };
 
   mainWindow.on("maximize", emitWindowState);
   mainWindow.on("unmaximize", emitWindowState);
   mainWindow.on("enter-full-screen", emitWindowState);
   mainWindow.on("leave-full-screen", emitWindowState);
+
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
 
   mainWindow.loadFile(path.join(__dirname, "splash.html"));
 }

@@ -1,30 +1,13 @@
-import { match } from "@formatjs/intl-localematcher";
-import Negotiator from "negotiator";
 import { NextResponse, type NextRequest } from "next/server";
 import { defaultLocale, locales } from "@/lib/i18n/config";
 
-function isValidLanguageTag(locale: string) {
-  try {
-    return Intl.getCanonicalLocales(locale).length > 0;
-  } catch {
-    return false;
-  }
-}
-
 function getLocale(request: NextRequest) {
-  const negotiatorHeaders: Record<string, string> = {};
-  request.headers.forEach((value, key) => {
-    negotiatorHeaders[key] = value;
-  });
-
-  const languages = new Negotiator({ headers: negotiatorHeaders }).languages();
-  const safeLanguages = languages.filter((language) => language !== "*" && isValidLanguageTag(language));
-
-  if (safeLanguages.length === 0) {
-    return defaultLocale;
+  const preferred = request.cookies.get("preferred-locale")?.value;
+  if (preferred && locales.includes(preferred as (typeof locales)[number])) {
+    return preferred;
   }
 
-  return match(safeLanguages, locales, defaultLocale);
+  return defaultLocale;
 }
 
 export function proxy(request: NextRequest) {
