@@ -1,5 +1,6 @@
-import dgram, { RemoteInfo, Socket } from "dgram";
-import { EventEmitter } from "events";
+import { RemoteInfo } from "dgram";
+import { NetworkSocket } from "@/lib/network/network-socket";
+import { TypedEventEmitter } from "@/lib/utils";
 import {
   UdpFragmentReassembler,
   buildAckPacket,
@@ -11,75 +12,31 @@ import {
   type ProtocolPacketParams
 } from "./protocol";
 
-export interface NetworkAdapterConfig {
-  recvPort: number;
-  sendPort: number;
-}
+type NetworkAdapterEvents = {
+  message: [Buffer, RemoteInfo];
+  error: [Error];
+};
 
-export class NetworkAdapter extends EventEmitter {
-  private started = false;
-  private socket: Socket | null = null;
-  private bindAddress = "0.0.0.0";
+export class NetworkAdapter extends TypedEventEmitter<NetworkAdapterEvents> {
+  private readonly networkSocket = new NetworkSocket(45454, 45455);
   private readonly reassembler = new UdpFragmentReassembler();
-  private readonly recvPort: number;
-  private readonly sendPort: number;
 
-  constructor(config: NetworkAdapterConfig) {
+  constructor() {
     super();
-    this.recvPort = config.recvPort;
-    this.sendPort = config.sendPort;
+    this.networkSocket.on("message", (msg, rinfo) => this.onReceivePacket(msg, rinfo));
+    this.networkSocket.on("error", (err) => this.emit("error", err));
   }
 
   get isStarted(): boolean {
-    return this.started;
+    return this.networkSocket.isStarted;
   }
 
   async start(bindAddress = "0.0.0.0"): Promise<void> {
-    if (this.started && this.bindAddress === bindAddress) return;
-
-    if (this.started) {
-      await this.stop();
-    }
-
-    this.bindAddress = bindAddress;
-    this.socket = dgram.createSocket("udp4");
-
-    this.socket.on("message", (msg, rinfo) => this.emit("message", msg, rinfo));
-    this.socket.on("error", (err) => {
-      this.started = false;
-      this.emit("error", err);
-    });
-
-    await new Promise<void>((resolve, reject) => {
-      const onError = (err: Error) => {
-        this.socket?.removeListener("error", onError);
-        reject(err);
-      };
-
-      this.socket!.once("error", onError);
-      this.socket!.bind({ port: this.recvPort, address: bindAddress, exclusive: false }, () => {
-        this.socket?.removeListener("error", onError);
-        this.socket?.setBroadcast(true);
-        this.started = true;
-        resolve();
-      });
-    });
+    await this.networkSocket.start(bindAddress);
   }
 
   async stop(): Promise<void> {
-    if (!this.socket) {
-      this.started = false;
-      return;
-    }
-
-    const socket = this.socket;
-    this.socket = null;
-
-    await new Promise<void>((resolve) => {
-      socket.close(() => resolve());
-    });
-
-    this.started = false;
+    await this.networkSocket.stop();
   }
 
   async send(
@@ -89,18 +46,24 @@ export class NetworkAdapter extends EventEmitter {
     address: string,
     broadcast: boolean
   ): Promise<number> {
-    if (!this.started || !this.socket) {
-      throw new Error("NetworkAdapter is not started");
-    }
+    return this.sendRaw_shouldBeReplacedWithSendPacket(msg, offset, length, address, broadcast);
+  }
 
-    this.socket.setBroadcast(broadcast);
+  /**
+   * @deprecated Use sendPacket instead.
+   */
+  async sendRaw_shouldBeReplacedWithSendPacket(
+    msg: NodeJS.ArrayBufferView,
+    offset: number,
+    length: number,
+    address: string,
+    broadcast: boolean
+  ): Promise<number> {
+    return this.networkSocket.send(msg, offset, length, address, broadcast);
+  }
 
-    return new Promise((resolve, reject) => {
-      this.socket!.send(msg, offset, length, this.sendPort, address, (error: Error | null, bytes: number) => {
-        if (error === null) resolve(bytes);
-        else reject(error);
-      });
-    });
+  async getNetworkInterfaces() {
+    return this.networkSocket.getNetworkInterfaces();
   }
 
   buildProtocolPacket(params: ProtocolPacketParams): Buffer {
@@ -127,30 +90,22 @@ export class NetworkAdapter extends EventEmitter {
     this.reassembler.clear(ip);
   }
 
-  emit(event: "message", ...args: [Buffer, RemoteInfo]): boolean;
-  emit(event: "error", ...args: [Error]): boolean;
-  emit(event: string, ...args: any[]): boolean {
-    return super.emit(event, ...args);
+  /**
+   * @todo implement structured packet sending.
+   */
+  async sendPacket(packet: object, address: string): Promise<void> {
+    void packet;
+    void address;
   }
 
-  on(event: "message", listener: (msg: Buffer, rinfo: RemoteInfo) => void): this;
-  on(event: "error", listener: (err: Error) => void): this;
-  on(event: string, listener: (...args: any[]) => void): this {
-    super.on(event, listener);
-    return this;
+  /**
+   * @todo implement structured broadcast sending.
+   */
+  async broadcastPacket(packet: object): Promise<void> {
+    void packet;
   }
 
-  once(event: "message", listener: (msg: Buffer, rinfo: RemoteInfo) => void): this;
-  once(event: "error", listener: (err: Error) => void): this;
-  once(event: string, listener: (...args: any[]) => void): this {
-    super.once(event, listener);
-    return this;
-  }
-
-  removeListener(event: "message", listener: (msg: Buffer, rinfo: RemoteInfo) => void): this;
-  removeListener(event: "error", listener: (err: Error) => void): this;
-  removeListener(event: string, listener: (...args: any[]) => void): this {
-    super.removeListener(event, listener);
-    return this;
+  private onReceivePacket(buffer: Buffer, rinfo: RemoteInfo): void {
+    this.emit("message", buffer, rinfo);
   }
 }
