@@ -16,10 +16,10 @@ export function formatRuntime(minutes: number): string {
 
 /**
  * Format a dBFS value for display.
- * Returns "---" for null or values at/below the noise floor (≤ -100 dBFS).
+ * Returns "---" for null/undefined/non-finite values or at/below the noise floor (≤ -100 dBFS).
  */
-export function formatDbfs(v: number | null): string {
-  return v === null || v <= -100 ? "---" : v.toFixed(0);
+export function formatDbfs(v: number | null | undefined): string {
+  return v == null || !Number.isFinite(v) || v <= -100 ? "---" : v.toFixed(0);
 }
 
 /**

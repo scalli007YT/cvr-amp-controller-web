@@ -18,10 +18,37 @@ interface AssignedAmpConstants {
   linking: AmpLinkConfig;
 }
 
-const DEFAULT_AMP_CONSTANTS: AssignedAmpConstants = {
-  channels: [],
-  linking: normalizeAmpLinkConfig(DEFAULT_AMP_LINK_CONFIG)
-};
+const DEFAULT_CHANNEL_OHMS = 8;
+const DEFAULT_PROJECT_CHANNEL_COUNT = 4;
+
+function inferLinkedChannelCount(linking: AmpLinkConfig): number {
+  let maxLinkedChannel = -1;
+
+  for (const scope of Object.values(linking.scopes)) {
+    for (const group of scope.groups) {
+      for (const channel of group.channels) {
+        if (channel > maxLinkedChannel) {
+          maxLinkedChannel = channel;
+        }
+      }
+    }
+  }
+
+  return maxLinkedChannel + 1;
+}
+
+function createNormalizedChannels(
+  rawChannels: AmpChannelConstants[] | undefined,
+  fallbackOhms: number,
+  linking: AmpLinkConfig
+) {
+  const linkedChannelCount = inferLinkedChannelCount(linking);
+  const targetChannelCount = Math.max(rawChannels?.length ?? 0, linkedChannelCount, DEFAULT_PROJECT_CHANNEL_COUNT);
+
+  return Array.from({ length: targetChannelCount }, (_, index) => ({
+    ohms: rawChannels?.[index]?.ohms ?? fallbackOhms
+  }));
+}
 
 /** Resolves the persistent storage directory.
  *  In the Electron production build, APP_USER_DATA is set by main.js to
@@ -50,20 +77,12 @@ function normalizeProject(project: Project): Project {
   return {
     ...project,
     assigned_amps: project.assigned_amps.map((amp) => {
-      const fallbackOhms = amp.loadOhm ?? 8;
+      const fallbackOhms = amp.loadOhm ?? DEFAULT_CHANNEL_OHMS;
       const linking = normalizeAmpLinkConfig(amp.constants?.linking);
-      const constants =
-        amp.constants?.channels?.length > 0
-          ? {
-              channels: amp.constants.channels.map((channel) => ({
-                ohms: channel?.ohms ?? fallbackOhms
-              })),
-              linking
-            }
-          : {
-              channels: [],
-              linking
-            };
+      const constants = {
+        channels: createNormalizedChannels(amp.constants?.channels, fallbackOhms, linking),
+        linking
+      };
 
       return {
         id: amp.id,

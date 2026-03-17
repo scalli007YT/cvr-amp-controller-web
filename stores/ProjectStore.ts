@@ -21,9 +21,16 @@ export interface AssignedAmpConstants {
 }
 
 const defaultAmpLinking: AmpLinkConfig = createDefaultAmpLinkConfig();
+const DEFAULT_CHANNEL_OHMS = 8;
+const DEFAULT_PROJECT_CHANNEL_COUNT = 4;
+
+function createDefaultChannels(count: number, ohms = DEFAULT_CHANNEL_OHMS): AmpChannelConstants[] {
+  const safeCount = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : DEFAULT_PROJECT_CHANNEL_COUNT;
+  return Array.from({ length: safeCount }, () => ({ ohms }));
+}
 
 export const DEFAULT_AMP_CONSTANTS: AssignedAmpConstants = {
-  channels: [],
+  channels: createDefaultChannels(DEFAULT_PROJECT_CHANNEL_COUNT),
   linking: defaultAmpLinking
 };
 
@@ -201,15 +208,23 @@ export const useProjectStore = create<ProjectStore>()(
       addAmpToProject: async (projectId: string, mac: string) => {
         const { projects, selectedProject } = get();
         const project = projects.find((p) => p.id === projectId);
+        const normalizedMac = mac.toUpperCase();
 
         if (!project) {
           throw new Error("Project not found");
         }
 
         // Check if already exists
-        if (project.assigned_amps.some((amp) => amp.mac.toUpperCase() === mac.toUpperCase())) {
+        if (project.assigned_amps.some((amp) => amp.mac.toUpperCase() === normalizedMac)) {
           throw new Error("This MAC address is already assigned");
         }
+
+        const runtimeAmp = useAmpStore.getState().amps.find((amp) => amp.mac.toUpperCase() === normalizedMac);
+        const detectedChannelCount =
+          runtimeAmp?.channelParams?.channels.length ??
+          runtimeAmp?.output_chx ??
+          runtimeAmp?.constants.channels.length ??
+          DEFAULT_PROJECT_CHANNEL_COUNT;
 
         // Update local state
         const updatedProject: Project = {
@@ -218,10 +233,11 @@ export const useProjectStore = create<ProjectStore>()(
             ...project.assigned_amps,
             {
               id: uuidv4(),
-              mac: mac.toUpperCase(),
+              mac: normalizedMac,
               lastKnownName: undefined,
               constants: {
                 ...DEFAULT_AMP_CONSTANTS,
+                channels: createDefaultChannels(detectedChannelCount),
                 linking: normalizeAmpLinkConfig(DEFAULT_AMP_LINK_CONFIG)
               }
             }
@@ -287,15 +303,27 @@ export const useProjectStore = create<ProjectStore>()(
       updateAmpChannelOhms: async (mac, channelIndex, ohms) => {
         const { projects, selectedProject } = get();
         if (!selectedProject) return;
+        const normalizedMac = mac.toUpperCase();
+        const runtimeAmp = useAmpStore.getState().amps.find((amp) => amp.mac.toUpperCase() === normalizedMac);
 
         const updatedProject: Project = {
           ...selectedProject,
           assigned_amps: selectedProject.assigned_amps.map((amp) => {
-            if (amp.mac.toUpperCase() !== mac.toUpperCase()) return amp;
+            if (amp.mac.toUpperCase() !== normalizedMac) return amp;
+
+            const targetChannelCount = Math.max(
+              amp.constants.channels.length,
+              runtimeAmp?.channelParams?.channels.length ?? 0,
+              runtimeAmp?.output_chx ?? 0,
+              channelIndex + 1
+            );
+
             return {
               ...amp,
               constants: {
-                channels: amp.constants.channels.map((ch, i) => (i === channelIndex ? { ...ch, ohms } : ch)),
+                channels: Array.from({ length: targetChannelCount }, (_, i) => ({
+                  ohms: i === channelIndex ? ohms : (amp.constants.channels[i]?.ohms ?? DEFAULT_CHANNEL_OHMS)
+                })),
                 linking: normalizeAmpLinkConfig(amp.constants.linking)
               }
             };

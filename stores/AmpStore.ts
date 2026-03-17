@@ -13,6 +13,8 @@ export interface AssignedAmpConstants {
   linking: AmpLinkConfig;
 }
 
+const DEFAULT_CHANNEL_OHMS = 8;
+
 // ---------------------------------------------------------------------------
 // Types — three clearly separated concerns
 // ---------------------------------------------------------------------------
@@ -434,7 +436,7 @@ export const useAmpStore = create<AmpStore>()(
             if (amp.mac !== mac) return amp;
             const nextChannelParams: ChannelParams = {
               channels: channels.map((ch) => {
-                const loadOhm = amp.constants.channels[ch.channel]?.ohms;
+                const loadOhm = amp.constants.channels[ch.channel]?.ohms ?? DEFAULT_CHANNEL_OHMS;
                 const { prmsW, ppeakW } = limiterPowerFromLoad(
                   ch.rmsLimiter.thresholdVrms,
                   ch.peakLimiter.thresholdVp,
@@ -480,7 +482,14 @@ export const useAmpStore = create<AmpStore>()(
         set((state) => ({
           amps: state.amps.map((amp) => {
             if (amp.mac !== mac) return amp;
-            const channels = amp.constants.channels.map((ch, i) => (i === channelIndex ? { ...ch, ohms } : ch));
+            const targetChannelCount = Math.max(
+              amp.constants.channels.length,
+              amp.channelParams?.channels.length ?? 0,
+              channelIndex + 1
+            );
+            const channels = Array.from({ length: targetChannelCount }, (_, i) => ({
+              ohms: i === channelIndex ? ohms : (amp.constants.channels[i]?.ohms ?? DEFAULT_CHANNEL_OHMS)
+            }));
             return {
               ...amp,
               constants: {
