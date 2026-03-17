@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { VerticalDbMeter } from "@/components/monitor/vertical-db-meter";
 import { Separator } from "@/components/ui/separator";
+import { Copy, Clipboard } from "lucide-react";
+import { toast } from "sonner";
 import { COLORS } from "@/lib/colors";
 import { useI18n } from "@/components/layout/i18n-provider";
+import { useClipboardStore } from "@/stores/ClipboardStore";
 import {
   bridgeVoltageMultiplier,
   fromLimiterDisplayVoltage,
@@ -481,6 +484,98 @@ export function LimiterDetailsDialog({
     void onSetOhms(mac, channel, Math.max(parsed, minLoadOhm));
   };
 
+  const {
+    copyRmsLimiter,
+    pasteRmsLimiter,
+    canPasteRmsLimiter,
+    copyPeakLimiter,
+    pastePeakLimiter,
+    canPastePeakLimiter,
+    lastError
+  } = useClipboardStore();
+
+  const handleCopyRms = () => {
+    copyRmsLimiter({
+      enabled: rms.enabled,
+      thresholdVrms: rms.thresholdVrms,
+      attackMs: rms.attackMs,
+      releaseMultiplier: rms.releaseMultiplier
+    });
+    toast.success("Copied RMS Limiter settings");
+  };
+
+  const handlePasteRms = () => {
+    const limiter = pasteRmsLimiter();
+    if (!limiter) {
+      if (lastError) {
+        toast.error(lastError);
+      }
+      return;
+    }
+
+    void onToggleRms(mac, channel, limiter.enabled);
+    void onSetRmsThreshold(mac, channel, limiter.thresholdVrms, {
+      enabled: limiter.enabled,
+      attackMs: limiter.attackMs,
+      releaseMultiplier: limiter.releaseMultiplier,
+      thresholdVrms: limiter.thresholdVrms
+    });
+    void onSetRmsAttack(mac, channel, limiter.attackMs, {
+      enabled: limiter.enabled,
+      attackMs: limiter.attackMs,
+      releaseMultiplier: limiter.releaseMultiplier,
+      thresholdVrms: limiter.thresholdVrms
+    });
+    void onSetRmsReleaseMultiplier(mac, channel, limiter.releaseMultiplier, {
+      enabled: limiter.enabled,
+      attackMs: limiter.attackMs,
+      releaseMultiplier: limiter.releaseMultiplier,
+      thresholdVrms: limiter.thresholdVrms
+    });
+    toast.success("Pasted RMS Limiter settings");
+  };
+
+  const handleCopyPeak = () => {
+    copyPeakLimiter({
+      enabled: peak.enabled,
+      thresholdVp: peak.thresholdVp,
+      holdMs: peak.holdMs,
+      releaseMs: peak.releaseMs
+    });
+    toast.success("Copied Peak Limiter settings");
+  };
+
+  const handlePastePeak = () => {
+    const limiter = pastePeakLimiter();
+    if (!limiter) {
+      if (lastError) {
+        toast.error(lastError);
+      }
+      return;
+    }
+
+    void onTogglePeak(mac, channel, limiter.enabled);
+    void onSetPeakThreshold(mac, channel, limiter.thresholdVp, {
+      enabled: limiter.enabled,
+      holdMs: limiter.holdMs,
+      releaseMs: limiter.releaseMs,
+      thresholdVp: limiter.thresholdVp
+    });
+    void onSetPeakHold(mac, channel, limiter.holdMs, {
+      enabled: limiter.enabled,
+      holdMs: limiter.holdMs,
+      releaseMs: limiter.releaseMs,
+      thresholdVp: limiter.thresholdVp
+    });
+    void onSetPeakRelease(mac, channel, limiter.releaseMs, {
+      enabled: limiter.enabled,
+      holdMs: limiter.holdMs,
+      releaseMs: limiter.releaseMs,
+      thresholdVp: limiter.thresholdVp
+    });
+    toast.success("Pasted Peak Limiter settings");
+  };
+
   if (disabled) {
     return <>{trigger}</>;
   }
@@ -489,8 +584,8 @@ export function LimiterDetailsDialog({
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sm:max-w-[680px]">
-        <DialogHeader>
-          <DialogTitle className="text-center">{channelName}</DialogTitle>
+        <DialogHeader className="flex flex-row items-center gap-2">
+          <DialogTitle className="text-center flex-1">{channelName}</DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-4">
@@ -513,7 +608,7 @@ export function LimiterDetailsDialog({
                 }
               />
             </div>
-            <div className="flex w-full justify-center pb-1">
+            <div className="flex w-full flex-col justify-center gap-1">
               <Button
                 type="button"
                 variant="outline"
@@ -527,6 +622,31 @@ export function LimiterDetailsDialog({
               >
                 {rms.enabled ? dict.dialogs.limiterDetails.on : dict.dialogs.limiterDetails.off}
               </Button>
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyRms}
+                  className="h-auto py-1 px-2 text-[9px] flex-1 gap-1"
+                  title="Copy RMS Limiter settings"
+                >
+                  <Copy className="w-3 h-3" />
+                  {dict.dialogs.common.copy}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePasteRms}
+                  disabled={!canPasteRmsLimiter()}
+                  className="h-auto py-1 px-2 text-[9px] flex-1 gap-1"
+                  title="Paste RMS Limiter settings"
+                >
+                  <Clipboard className="w-3 h-3" />
+                  {dict.dialogs.common.paste}
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -588,7 +708,7 @@ export function LimiterDetailsDialog({
                 }
               />
             </div>
-            <div className="flex w-full justify-center pb-1">
+            <div className="flex w-full flex-col justify-center gap-1">
               <Button
                 type="button"
                 variant="outline"
@@ -602,6 +722,31 @@ export function LimiterDetailsDialog({
               >
                 {peak.enabled ? dict.dialogs.limiterDetails.on : dict.dialogs.limiterDetails.off}
               </Button>
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyPeak}
+                  className="h-auto py-1 px-2 text-[9px] flex-1 gap-1"
+                  title="Copy Peak Limiter settings"
+                >
+                  <Copy className="w-3 h-3" />
+                  {dict.dialogs.common.copy}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePastePeak}
+                  disabled={!canPastePeakLimiter()}
+                  className="h-auto py-1 px-2 text-[9px] flex-1 gap-1"
+                  title="Paste Peak Limiter settings"
+                >
+                  <Clipboard className="w-3 h-3" />
+                  {dict.dialogs.common.paste}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

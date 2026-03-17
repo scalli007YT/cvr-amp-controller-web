@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { usePollingStore } from "@/stores/PollingStore";
 import { useAmpStore } from "@/stores/AmpStore";
+import { useProjectStore } from "@/stores/ProjectStore";
 import type { HeartbeatData } from "@/stores/AmpStore";
 import type { AmpBasicInfo } from "@/stores/AmpStore";
 import type { BridgeReadback } from "@/stores/AmpStore";
@@ -152,6 +153,9 @@ export function useAmpPoller(): UseAmpPollerReturn {
               machine_state: basicInfo.Machine_state,
               gain_max: basicInfo.Gain_max
             });
+            if (name.trim().length > 0) {
+              void useProjectStore.getState().updateAmpLastKnownName(amp.mac, name);
+            }
             usePollingStore.getState().setLastUpdated(amp.mac, Date.now());
             usePollingStore.getState().setError(amp.mac, null);
 

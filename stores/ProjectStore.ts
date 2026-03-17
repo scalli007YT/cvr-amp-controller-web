@@ -34,6 +34,7 @@ export interface Project {
   assigned_amps: Array<{
     id: string;
     mac: string;
+    lastKnownName?: string;
     constants: AssignedAmpConstants;
   }>;
 }
@@ -53,6 +54,16 @@ interface ProjectStore {
   deleteAmpFromProject: (projectId: string, mac: string) => Promise<void>;
   updateAmpChannelOhms: (mac: string, channelIndex: number, ohms: number) => Promise<void>;
   updateAmpLinking: (mac: string, linking: AmpLinkConfig) => Promise<void>;
+  updateAmpLastKnownName: (mac: string, lastKnownName: string) => Promise<void>;
+}
+
+function mapAssignedAmpToConfig(amp: Project["assigned_amps"][number]) {
+  return {
+    mac: amp.mac,
+    id: amp.id,
+    lastKnownName: amp.lastKnownName,
+    constants: amp.constants
+  };
 }
 
 function serializeProjectForPersistence(project: Project): Project {
@@ -93,11 +104,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     set({ selectedProject: project });
     // Seed AmpStore with config-only entries from the selected project
     if (project) {
-      const configs = project.assigned_amps.map((amp) => ({
-        mac: amp.mac,
-        id: amp.id,
-        constants: amp.constants
-      }));
+      const configs = project.assigned_amps.map(mapAssignedAmpToConfig);
       useAmpStore.getState().seedAmps(configs);
     } else {
       useAmpStore.getState().clearAmps();
@@ -188,6 +195,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         {
           id: uuidv4(),
           mac: mac.toUpperCase(),
+          lastKnownName: undefined,
           constants: {
             ...DEFAULT_AMP_CONSTANTS,
             linking: normalizeAmpLinkConfig(DEFAULT_AMP_LINK_CONFIG)
@@ -204,11 +212,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (selectedProject?.id === projectId) {
       set({ selectedProject: updatedProject });
       // Sync with AmpStore — seed new config, preserving live status of existing amps
-      const configs = updatedProject.assigned_amps.map((amp) => ({
-        mac: amp.mac,
-        id: amp.id,
-        constants: amp.constants
-      }));
+      const configs = updatedProject.assigned_amps.map(mapAssignedAmpToConfig);
       useAmpStore.getState().seedAmps(configs);
       syncAmpLinkingFromProject(updatedProject);
     }
@@ -243,11 +247,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (selectedProject?.id === projectId) {
       set({ selectedProject: updatedProject });
       // Sync with AmpStore — seed new config (removed amp is excluded)
-      const configs = updatedProject.assigned_amps.map((amp) => ({
-        mac: amp.mac,
-        id: amp.id,
-        constants: amp.constants
-      }));
+      const configs = updatedProject.assigned_amps.map(mapAssignedAmpToConfig);
       useAmpStore.getState().seedAmps(configs);
       syncAmpLinkingFromProject(updatedProject);
     }
@@ -319,6 +319,43 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     });
 
     useAmpActionLinkStore.getState().setAmpConfig(mac, normalizedLinking);
+
+    await fetch("/api/projects", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(serializeProjectForPersistence(updatedProject))
+    });
+  },
+
+  updateAmpLastKnownName: async (mac, lastKnownName) => {
+    const { projects, selectedProject } = get();
+    if (!selectedProject) return;
+
+    const normalizedMac = mac.toUpperCase();
+    const normalizedName = lastKnownName.trim();
+    if (!normalizedName) return;
+
+    const currentAmp = selectedProject.assigned_amps.find((amp) => amp.mac.toUpperCase() === normalizedMac);
+    if (!currentAmp) return;
+    if (currentAmp.lastKnownName === normalizedName) return;
+
+    const updatedProject: Project = {
+      ...selectedProject,
+      assigned_amps: selectedProject.assigned_amps.map((amp) => {
+        if (amp.mac.toUpperCase() !== normalizedMac) return amp;
+        return {
+          ...amp,
+          lastKnownName: normalizedName
+        };
+      })
+    };
+
+    set({
+      projects: projects.map((project) => (project.id === selectedProject.id ? updatedProject : project)),
+      selectedProject: updatedProject
+    });
+
+    useAmpStore.getState().updateAmpStatus(mac, { lastKnownName: normalizedName });
 
     await fetch("/api/projects", {
       method: "PUT",

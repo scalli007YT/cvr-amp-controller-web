@@ -29,7 +29,7 @@
  * Supported actions:
  *
  *   "muteIn"  — FC=10 MUTE, in_out_flag=0 (input)
- *   "volumeIn" — FC=9 VOL, in_out_flag=0 (input)
+ *   "volumeOut" — FC=9 VOL, observed output-volume control/readback on current amps
  *   "bridgePair" — FC=50 BRIDGE, pair channel=0 (A/B) or 1 (C/D)
  *   "muteOut" — FC=10 MUTE, in_out_flag=1 (Output)
  *   "invertPolarityOut" — FC=18 INVERTED, in_out_flag=1 (Output)
@@ -128,10 +128,12 @@ export async function POST(request: Request): Promise<Response> {
       }
 
       // -----------------------------------------------------------------------
-      // Input volume/attenuation — FC=9 VOL, in_out_flag=0 (input)
-      // Wire body: float32 LE (dB)
-      // FC=27 sync data reports the value back at body[405].
+      // Output volume — FC=9 VOL, read back from FC=27 body[405]
+      // Observed devices apply this control to the output path even though the
+      // working packet shape still uses in_out_flag=0.
+      // Legacy clients may still send "volumeIn".
       // -----------------------------------------------------------------------
+      case "volumeOut":
       case "volumeIn": {
         const payload = Buffer.alloc(4);
         payload.writeFloatLE(value, 0);

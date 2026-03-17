@@ -6,6 +6,8 @@ import { ampActionRequestSchema } from "@/lib/validation/amp-actions";
 import {
   MATRIX_GAIN_MAX_DB,
   MATRIX_GAIN_MIN_DB,
+  OUTPUT_VOLUME_MAX_DB,
+  OUTPUT_VOLUME_MIN_DB,
   OUTPUT_TRIM_MAX_DB,
   OUTPUT_TRIM_MIN_DB,
   DELAY_MIN_MS,
@@ -55,7 +57,7 @@ type PeakLimiterParams = {
 interface AmpActionsHook {
   setBridgePair: (mac: string, pair: BridgePair, bridged: boolean) => Promise<void>;
   muteIn: (mac: string, channel: Channel, muted: boolean) => Promise<void>;
-  setVolumeIn: (mac: string, channel: Channel, db: number) => Promise<void>;
+  setVolumeOut: (mac: string, channel: Channel, db: number) => Promise<void>;
   muteOut: (mac: string, channel: Channel, muted: boolean) => Promise<void>;
   setDelayIn: (mac: string, channel: Channel, ms: number) => Promise<void>;
   setDelayOut: (mac: string, channel: Channel, ms: number) => Promise<void>;
@@ -264,11 +266,24 @@ export function useAmpActions(): AmpActionsHook {
   );
 
   // ---------------------------------------------------------------------------
-  // setVolumeIn
+  // setVolumeOut
   // ---------------------------------------------------------------------------
-  const setVolumeIn = useCallback(
+  const setVolumeOut = useCallback(
     async (mac: string, channel: Channel, db: number) => {
-      await sendLinked(mac, "volumeIn", channel, db, "volumeIn");
+      const clamped = Math.max(OUTPUT_VOLUME_MIN_DB, Math.min(OUTPUT_VOLUME_MAX_DB, db));
+      const payload = {
+        mac,
+        action: "volumeOut" as const,
+        channel,
+        value: clamped
+      };
+      const parsed = ampActionRequestSchema.safeParse(payload);
+      if (!parsed.success) {
+        const message = parsed.error.issues[0]?.message ?? "Invalid volumeOut payload";
+        toast.error(message);
+        throw new Error(message);
+      }
+      await sendLinked(mac, "volumeOut", channel, clamped, "volumeOut");
     },
     [sendLinked]
   );
@@ -594,7 +609,7 @@ export function useAmpActions(): AmpActionsHook {
   return {
     setBridgePair,
     muteIn,
-    setVolumeIn,
+    setVolumeOut,
     muteOut,
     invertPolarityOut,
     noiseGateOut,

@@ -77,7 +77,9 @@
       "cancel": "Abbrechen",
       "done": "Fertig",
       "saving": "Speichern...",
-      "unknownError": "Unbekannter Fehler"
+      "unknownError": "Unbekannter Fehler",
+      "copy": "Kopieren",
+      "paste": "Einfügen"
     },
     "newProject": {
       "title": "Neues Projekt",
@@ -178,9 +180,9 @@
       "outputMuteTrigger": "Output-Mute-Link",
       "outputMuteTitle": "Output-Mute-Verknüpfung",
       "outputMuteDescription": "Erstelle Output-Mute-Verknüpfungsgruppen für diesen Verstärker, indem du gültige Kanalgruppen hinzufügst.",
-      "inputVolumeTrigger": "Input-Lautstärke-Link",
-      "inputVolumeTitle": "Input-Lautstärke-Verknüpfung",
-      "inputVolumeDescription": "Erstelle Input-Lautstärke-Verknüpfungsgruppen für diesen Verstärker, indem du gültige Kanalgruppen hinzufügst.",
+      "outputVolumeTrigger": "Output-Lautstärke-Link",
+      "outputVolumeTitle": "Output-Lautstärke-Verknüpfung",
+      "outputVolumeDescription": "Erstelle Output-Lautstärke-Verknüpfungsgruppen für diesen Verstärker, indem du gültige Kanalgruppen hinzufügst.",
       "noiseGateTrigger": "Noise-Gate-Link",
       "noiseGateTitle": "Noise-Gate-Verknüpfung",
       "noiseGateDescription": "Erstelle Noise-Gate-Verknüpfungsgruppen für diesen Verstärker, indem du gültige Kanalgruppen hinzufügst.",

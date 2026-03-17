@@ -77,7 +77,9 @@
       "cancel": "Cancel",
       "done": "Done",
       "saving": "Saving...",
-      "unknownError": "Unknown error"
+      "unknownError": "Unknown error",
+      "copy": "Copy",
+      "paste": "Paste"
     },
     "newProject": {
       "title": "New Project",
@@ -178,9 +180,9 @@
       "outputMuteTrigger": "Output Mute Link",
       "outputMuteTitle": "Output Mute Linking",
       "outputMuteDescription": "Build output mute link groups for this amp by adding valid channel groups.",
-      "inputVolumeTrigger": "Input Volume Link",
-      "inputVolumeTitle": "Input Volume Linking",
-      "inputVolumeDescription": "Build input volume link groups for this amp by adding valid channel groups.",
+      "outputVolumeTrigger": "Output Volume Link",
+      "outputVolumeTitle": "Output Volume Linking",
+      "outputVolumeDescription": "Build output volume link groups for this amp by adding valid channel groups.",
       "noiseGateTrigger": "Noise Gate Link",
       "noiseGateTitle": "Noise Gate Linking",
       "noiseGateDescription": "Build noise gate link groups for this amp by adding valid channel groups.",

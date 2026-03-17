@@ -25,7 +25,6 @@
  * └─────────────────────────────────────────────────────────────────────────┘
  */
 
-import os from "os";
 import { EventEmitter } from "events";
 import { FuncCode, parseHeartbeat } from "./amp-device";
 import type { BridgeReadback, HeartbeatData } from "@/stores/AmpStore";
@@ -35,8 +34,6 @@ import { prependNetworkHeaderToAssembled } from "@/lib/network/protocol";
 // ---------------------------------------------------------------------------
 // Constants — matching original C# values exactly
 // ---------------------------------------------------------------------------
-const AMP_PORT = 45455; // port amps listen on
-const PC_RECV_PORT = 45454; // port we bind to receive replies
 const BROADCAST_ADDR = "255.255.255.255";
 const HEARTBEAT_MS = 140; // queryT_V_A Thread.Sleep(140)
 const DISCOVERY_MS = 4000; // TimerRefresh.Interval = 4000
@@ -77,9 +74,9 @@ export interface OfflineEvent {
   mac: string;
 }
 
-function getDirectedBroadcasts(): string[] {
+async function getDirectedBroadcasts(): Promise<string[]> {
   const broadcasts: string[] = [];
-  for (const iface of Object.values(os.networkInterfaces())) {
+  for (const iface of Object.values(await ampController.network.getNetworkInterfaces())) {
     if (!iface) continue;
     for (const addr of iface) {
       if (addr.family !== "IPv4" || addr.internal) continue;
@@ -95,9 +92,9 @@ function getDirectedBroadcasts(): string[] {
   return Array.from(unique);
 }
 
-function getLocalBindCandidates(): string[] {
+async function getLocalBindCandidates(): Promise<string[]> {
   const out: string[] = [];
-  for (const iface of Object.values(os.networkInterfaces())) {
+  for (const iface of Object.values(await ampController.network.getNetworkInterfaces())) {
     if (!iface) continue;
     for (const addr of iface) {
       if (addr.family !== "IPv4" || addr.internal) continue;
@@ -176,10 +173,7 @@ function parseDiscoveryPacket(raw: Buffer, ip: string): DiscoveryEvent | null {
 // AmpController
 // ---------------------------------------------------------------------------
 class AmpController extends EventEmitter {
-  private readonly network = new NetworkAdapter({
-    recvPort: PC_RECV_PORT,
-    sendPort: AMP_PORT
-  });
+  readonly network = new NetworkAdapter();
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private discoveryTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -327,7 +321,7 @@ class AmpController extends EventEmitter {
         link: 0,
         inOutFlag
       });
-      void this.network.send(packet, 0, packet.length, ip, false).catch((err) => {
+      void this.network.sendRaw_shouldBeReplacedWithSendPacket(packet, 0, packet.length, ip, false).catch((err) => {
         console.error("[AmpController] sendCommand send error:", err);
       });
     } catch (err) {
@@ -381,7 +375,7 @@ class AmpController extends EventEmitter {
     this.bindingInProgress = true;
     this._clearTimers();
 
-    const candidates = getLocalBindCandidates();
+    const candidates = await getLocalBindCandidates();
     let chosenAddress: string | null = null;
 
     try {
@@ -398,7 +392,7 @@ class AmpController extends EventEmitter {
 
         if (found || isLast) {
           chosenAddress = bindAddress;
-          console.log(`[AmpController] Socket bound on ${bindAddress}:${PC_RECV_PORT} — starting loops`);
+          console.log(`[AmpController] Socket bound on ${bindAddress}:45454 — starting loops`);
           break;
         }
       }
@@ -478,10 +472,9 @@ class AmpController extends EventEmitter {
   // with data_state flipped to 1 as the handshake acknowledgement.
   // -------------------------------------------------------------------------
   private _sendAck(ip: string, originalPacket: Buffer): void {
-    if (!this.network.isStarted) return;
     const ack = this.network.buildAck(originalPacket);
     if (!ack) return;
-    void this.network.send(ack, 0, ack.length, ip, false).catch(() => {
+    void this.network.sendRaw_shouldBeReplacedWithSendPacket(ack, 0, ack.length, ip, false).catch(() => {
       /* ignore */
     });
   }
@@ -617,15 +610,29 @@ class AmpController extends EventEmitter {
       if (this.controlTargetIp) {
         // Focused control mode: unicast heartbeat to selected amp.
         void this.network
-          .send(this.heartbeatPacket, 0, this.heartbeatPacket.length, this.controlTargetIp, false)
+          .sendRaw_shouldBeReplacedWithSendPacket(
+            this.heartbeatPacket,
+            0,
+            this.heartbeatPacket.length,
+            this.controlTargetIp,
+            false
+          )
           .catch(() => {
             /* ignore */
           });
       } else {
         // Default mode: broadcast heartbeat to all amps.
-        void this.network.send(this.heartbeatPacket, 0, this.heartbeatPacket.length, BROADCAST_ADDR, true).catch(() => {
-          /* ignore */
-        });
+        void this.network
+          .sendRaw_shouldBeReplacedWithSendPacket(
+            this.heartbeatPacket,
+            0,
+            this.heartbeatPacket.length,
+            BROADCAST_ADDR,
+            true
+          )
+          .catch(() => {
+            /* ignore */
+          });
       }
 
       this.heartbeatCount++;
@@ -694,13 +701,14 @@ class AmpController extends EventEmitter {
     }, DISCOVERY_WINDOW_MS);
   }
 
-  private _sendDiscovery(): void {
+  private async _sendDiscovery(): Promise<void> {
     if (!this.network.isStarted) return;
-    const targets = getDirectedBroadcasts();
-    for (const target of targets) {
-      void this.network.send(this.discoveryPacket, 0, this.discoveryPacket.length, target, true).catch((err) => {
-        console.error("[AmpController] _sendDiscovery error:", err);
-      });
+    for (const target of await getDirectedBroadcasts()) {
+      void this.network
+        .sendRaw_shouldBeReplacedWithSendPacket(this.discoveryPacket, 0, this.discoveryPacket.length, target, true)
+        .catch((err) => {
+          console.error("[AmpController] _sendDiscovery error:", err);
+        });
     }
   }
 
@@ -752,7 +760,7 @@ class AmpController extends EventEmitter {
           chx: pair
         });
 
-        void this.network.send(packet, 0, packet.length, ip, false).catch(() => {
+        void this.network.sendRaw_shouldBeReplacedWithSendPacket(packet, 0, packet.length, ip, false).catch(() => {
           /* ignore */
         });
       }
@@ -784,7 +792,7 @@ class AmpController extends EventEmitter {
         chx: channel
       });
 
-      void this.network.send(packet, 0, packet.length, ip, false).catch((err) => {
+      void this.network.sendRaw_shouldBeReplacedWithSendPacket(packet, 0, packet.length, ip, false).catch((err) => {
         const pending = this.pendingFc27ByIp.get(ip);
         if (pending) {
           clearTimeout(pending.timeout);

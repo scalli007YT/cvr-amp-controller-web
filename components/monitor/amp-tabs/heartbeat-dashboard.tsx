@@ -21,7 +21,7 @@ import { ConfirmActionDialog } from "@/components/dialogs/confirm-action-dialog"
 import { EqBandDialog } from "@/components/monitor/amp-tabs/eq-controls";
 import { VerticalDbMeter } from "@/components/monitor/vertical-db-meter";
 import { COLORS } from "@/lib/colors";
-import { OUTPUT_TRIM_MAX_DB, OUTPUT_TRIM_MIN_DB } from "@/lib/constants";
+import { OUTPUT_TRIM_MAX_DB, OUTPUT_TRIM_MIN_DB, OUTPUT_VOLUME_MAX_DB, OUTPUT_VOLUME_MIN_DB } from "@/lib/constants";
 import { getLinkedChannels, type LinkScope } from "@/lib/amp-action-linking";
 import { getChannelLabels } from "@/lib/channel-labels";
 import { voltageToMeterDb, rmsToPeakVoltage, formatDbfs } from "@/lib/generic";
@@ -135,6 +135,9 @@ function DelayPopover({
 function VolumePopover({
   volumeDb,
   label,
+  title,
+  minDb,
+  maxDb,
   onSet,
   buttonClassName,
   onButtonMouseEnter,
@@ -144,6 +147,9 @@ function VolumePopover({
 }: {
   volumeDb: number | undefined;
   label: string;
+  title: string;
+  minDb: number;
+  maxDb: number;
   onSet: (db: number) => void | Promise<void>;
   buttonClassName?: string;
   onButtonMouseEnter?: () => void;
@@ -164,7 +170,9 @@ function VolumePopover({
   const commit = () => {
     const parsed = Number.parseFloat(inputVal.replace(",", "."));
     if (!Number.isFinite(parsed)) return;
-    void onSet(parsed);
+    const clamped = Math.max(minDb, Math.min(maxDb, parsed));
+    setInputVal(clamped.toLocaleString("en-US", { maximumFractionDigits: 1 }));
+    void onSet(clamped);
     setOpen(false);
   };
 
@@ -190,7 +198,7 @@ function VolumePopover({
       </PopoverTrigger>
       <PopoverContent className="w-44 p-0" side="right" align="center">
         <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
-          <span className="text-xs font-semibold">Input Volume</span>
+          <span className="text-xs font-semibold">{title}</span>
           <span className="text-[10px] text-muted-foreground">dB</span>
         </div>
         <div className="px-3 py-3 space-y-2">
@@ -198,6 +206,8 @@ function VolumePopover({
             <Input
               autoFocus
               type="number"
+              min={minDb}
+              max={maxDb}
               step={0.1}
               value={inputVal}
               onChange={(e) => setInputVal(e.target.value)}
@@ -470,7 +480,7 @@ export function HeartbeatDashboard({
     muteOut,
     invertPolarityOut,
     noiseGateOut,
-    setVolumeIn,
+    setVolumeOut,
     setDelayIn,
     setDelayOut,
     setTrimOut,
@@ -618,16 +628,6 @@ export function HeartbeatDashboard({
                           </span>
                           <span className="text-[9px] text-foreground/65 mt-0.5">dBFS</span>
                         </div>
-                        <VolumePopover
-                          volumeDb={channelParams?.channels[i]?.volumeIn}
-                          label="Vol dB"
-                          buttonClassName={linkedHoverClass("volumeIn", i, "border-primary/40 bg-muted/50")}
-                          onButtonMouseEnter={getLinkHoverProps("volumeIn", i).onMouseEnter}
-                          onButtonMouseLeave={getLinkHoverProps("volumeIn", i).onMouseLeave}
-                          onButtonFocus={getLinkHoverProps("volumeIn", i).onFocus}
-                          onButtonBlur={getLinkHoverProps("volumeIn", i).onBlur}
-                          onSet={(db) => setVolumeIn(mac, i, db)}
-                        />
                         <div className="flex flex-col items-center rounded border border-border/60 bg-muted/30 px-1.5 py-1">
                           <span className="font-mono text-[13px] font-semibold tabular-nums leading-none">
                             {channelParams?.channels[i]?.gainIn ?? "~"}
@@ -834,6 +834,19 @@ export function HeartbeatDashboard({
                           </span>
                           <span className="text-[9px] text-foreground/65 mt-0.5">°C</span>
                         </div>
+                        <VolumePopover
+                          volumeDb={channelParams?.channels[i]?.volumeOut}
+                          label="Vol dB"
+                          title="Output Volume"
+                          minDb={OUTPUT_VOLUME_MIN_DB}
+                          maxDb={OUTPUT_VOLUME_MAX_DB}
+                          buttonClassName={linkedHoverClass("volumeOut", i, "border-primary/40 bg-muted/50")}
+                          onButtonMouseEnter={getLinkHoverProps("volumeOut", i).onMouseEnter}
+                          onButtonMouseLeave={getLinkHoverProps("volumeOut", i).onMouseLeave}
+                          onButtonFocus={getLinkHoverProps("volumeOut", i).onFocus}
+                          onButtonBlur={getLinkHoverProps("volumeOut", i).onBlur}
+                          onSet={(db) => setVolumeOut(mac, i, db)}
+                        />
                         <DelayPopover
                           delayMs={channelParams?.channels[i]?.delayOut}
                           maxMs={20}

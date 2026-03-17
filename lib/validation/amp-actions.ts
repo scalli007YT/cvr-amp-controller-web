@@ -2,6 +2,8 @@ import { z } from "zod";
 import {
   MATRIX_GAIN_MAX_DB,
   MATRIX_GAIN_MIN_DB,
+  OUTPUT_VOLUME_MIN_DB,
+  OUTPUT_VOLUME_MAX_DB,
   OUTPUT_TRIM_MIN_DB,
   OUTPUT_TRIM_MAX_DB,
   DELAY_MIN_MS,
@@ -46,9 +48,20 @@ const muteInSchema = baseSchema.extend({
   value: z.boolean()
 });
 
-const volumeInSchema = baseSchema.extend({
+const volumeOutSchema = baseSchema.extend({
+  action: z.literal("volumeOut"),
+  value: z
+    .number()
+    .min(OUTPUT_VOLUME_MIN_DB, `volumeOut must be >= ${OUTPUT_VOLUME_MIN_DB} dB`)
+    .max(OUTPUT_VOLUME_MAX_DB, `volumeOut must be <= +${OUTPUT_VOLUME_MAX_DB} dB`)
+});
+
+const legacyVolumeInSchema = baseSchema.extend({
   action: z.literal("volumeIn"),
-  value: z.number()
+  value: z
+    .number()
+    .min(OUTPUT_VOLUME_MIN_DB, `volumeOut must be >= ${OUTPUT_VOLUME_MIN_DB} dB`)
+    .max(OUTPUT_VOLUME_MAX_DB, `volumeOut must be <= +${OUTPUT_VOLUME_MAX_DB} dB`)
 });
 
 const muteOutSchema = baseSchema.extend({
@@ -281,7 +294,8 @@ const eqBandQSchema = baseSchema.extend({
 
 export const ampActionRequestSchema = z.union([
   muteInSchema,
-  volumeInSchema,
+  volumeOutSchema,
+  legacyVolumeInSchema,
   muteOutSchema,
   invertPolarityOutSchema,
   noiseGateOutSchema,

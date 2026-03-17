@@ -3,7 +3,7 @@ export type LinkChannel = number;
 export type LinkScope =
   | "muteIn"
   | "muteOut"
-  | "volumeIn"
+  | "volumeOut"
   | "noiseGateOut"
   | "polarityOut"
   | "trimOut"
@@ -31,7 +31,7 @@ export interface AmpLinkConfig {
 export const LINK_SCOPES: LinkScope[] = [
   "muteIn",
   "muteOut",
-  "volumeIn",
+  "volumeOut",
   "noiseGateOut",
   "polarityOut",
   "trimOut",
@@ -43,7 +43,7 @@ export const LINK_SCOPES: LinkScope[] = [
 export const PERSISTED_LINK_SCOPES: LinkScope[] = [
   "muteIn",
   "muteOut",
-  "volumeIn",
+  "volumeOut",
   "noiseGateOut",
   "polarityOut",
   "trimOut",
@@ -65,7 +65,7 @@ export function createDefaultAmpLinkConfig(): AmpLinkConfig {
     scopes: {
       muteIn: createDefaultScopeConfig(),
       muteOut: createDefaultScopeConfig(),
-      volumeIn: createDefaultScopeConfig(),
+      volumeOut: createDefaultScopeConfig(),
       noiseGateOut: createDefaultScopeConfig(),
       polarityOut: createDefaultScopeConfig(),
       trimOut: createDefaultScopeConfig(),
@@ -131,15 +131,15 @@ export function normalizeAmpLinkConfig(raw: unknown): AmpLinkConfig {
   }
 
   const candidate = raw as Partial<AmpLinkConfig> &
-    Partial<Record<LinkScope, unknown>> & {
-      scopes?: Partial<Record<LinkScope, unknown>>;
+    Partial<Record<LinkScope | "volumeIn", unknown>> & {
+      scopes?: Partial<Record<LinkScope | "volumeIn", unknown>>;
     };
   const scopeSource = candidate.scopes && typeof candidate.scopes === "object" ? candidate.scopes : candidate;
 
   const scopes: Record<LinkScope, LinkScopeConfig> = {
     muteIn: normalizeScopeConfig(scopeSource.muteIn),
     muteOut: normalizeScopeConfig(scopeSource.muteOut),
-    volumeIn: normalizeScopeConfig(scopeSource.volumeIn),
+    volumeOut: normalizeScopeConfig(scopeSource.volumeOut ?? scopeSource.volumeIn),
     noiseGateOut: normalizeScopeConfig(scopeSource.noiseGateOut),
     polarityOut: normalizeScopeConfig(scopeSource.polarityOut),
     trimOut: normalizeScopeConfig(scopeSource.trimOut),

@@ -76,7 +76,6 @@ export function AmpTabs() {
       },
       input: {
         gainIn: channel.gainIn,
-        volumeIn: channel.volumeIn,
         muteIn: channel.muteIn,
         delayIn: channel.delayIn,
         source: {
@@ -88,6 +87,7 @@ export function AmpTabs() {
         }
       },
       output: {
+        volumeOut: channel.volumeOut,
         trimOut: channel.trimOut,
         muteOut: channel.muteOut,
         noiseGateOut: channel.noiseGateOut,

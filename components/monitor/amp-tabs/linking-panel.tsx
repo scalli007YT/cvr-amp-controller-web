@@ -140,18 +140,6 @@ export function LinkingPanel({ mac, channelCount }: { mac: string; channelCount:
 
             <ScopeLinkingDialog
               mac={mac}
-              scope="volumeIn"
-              groups={linking.scopes.volumeIn.groups}
-              channelLabels={channelLabels}
-              copy={{
-                triggerLabel: linkDict.inputVolumeTrigger,
-                title: linkDict.inputVolumeTitle,
-                description: linkDict.inputVolumeDescription
-              }}
-            />
-
-            <ScopeLinkingDialog
-              mac={mac}
               scope="inputEq"
               groups={linking.scopes.inputEq.groups}
               channelLabels={channelLabels}
@@ -186,6 +174,18 @@ export function LinkingPanel({ mac, channelCount }: { mac: string; channelCount:
                 triggerLabel: linkDict.noiseGateTrigger,
                 title: linkDict.noiseGateTitle,
                 description: linkDict.noiseGateDescription
+              }}
+            />
+
+            <ScopeLinkingDialog
+              mac={mac}
+              scope="volumeOut"
+              groups={linking.scopes.volumeOut.groups}
+              channelLabels={channelLabels}
+              copy={{
+                triggerLabel: linkDict.outputVolumeTrigger,
+                title: linkDict.outputVolumeTitle,
+                description: linkDict.outputVolumeDescription
               }}
             />
 

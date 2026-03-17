@@ -23,6 +23,8 @@ export interface AmpConfig {
   id: string;
   /** User-given name stored in the project (optional). */
   customName?: string;
+  /** Persisted cache of the last discovered device name. */
+  lastKnownName?: string;
   /** Project-defined per-channel constants. */
   constants: AssignedAmpConstants;
 }
@@ -140,7 +142,7 @@ export interface ChannelParam {
   inputName: string; // e.g., "AIn1" – "AIn4"
   outputName: string; // e.g., "OutA" – "OutD"
   gainIn: number; // dB (sbyte)
-  volumeIn: number; // dB (float32)
+  volumeOut: number; // dB (float32)
   muteIn: boolean; // true = muted
   delayIn: number; // ms (float32)
   trimOut: number; // dB (float32)
@@ -417,7 +419,7 @@ export const useAmpStore = create<AmpStore>((set) => ({
               inputName: ch.inputName,
               outputName: ch.outputName,
               gainIn: ch.gainIn,
-              volumeIn: ch.volumeIn,
+              volumeOut: ch.volumeOut,
               muteIn: ch.muteIn,
               delayIn: ch.delayIn,
               trimOut: ch.trimOut,

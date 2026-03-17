@@ -40,6 +40,7 @@ interface Project {
   assigned_amps: Array<{
     id: string;
     mac: string;
+    lastKnownName?: string;
     constants: AssignedAmpConstants;
     loadOhm?: number;
   }>;
@@ -67,6 +68,10 @@ function normalizeProject(project: Project): Project {
       return {
         id: amp.id,
         mac: amp.mac,
+        lastKnownName:
+          typeof amp.lastKnownName === "string" && amp.lastKnownName.trim().length > 0
+            ? amp.lastKnownName.trim()
+            : undefined,
         constants
       };
     })

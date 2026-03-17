@@ -1,12 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { EqBand } from "@/stores/AmpStore";
 import { useAmpActions } from "@/hooks/useAmpActions";
+import { useI18n } from "@/components/layout/i18n-provider";
+import { useClipboardStore } from "@/stores/ClipboardStore";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { EqCurveChart } from "@/components/monitor/eq-curve-chart";
+import { Copy, Clipboard } from "lucide-react";
 import {
   getFilterTypeName,
   HPLP_FILTER_TYPE_NAMES,
@@ -494,8 +498,58 @@ export function EqBandDialog({
   onTriggerFocus?: () => void;
   onTriggerBlur?: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const { copyEq, pasteEq, canPasteEq, lastError } = useClipboardStore();
+  const dict = useI18n();
+  const { setEqBandType, setEqBandFreq, setEqBandGain, setEqBandQ, setCrossoverEnabled, setCrossoverFreq } =
+    useAmpActions();
+
+  const handleCopy = () => {
+    if (bands) {
+      copyEq(bands);
+      toast.success("Copied EQ settings");
+    }
+  };
+
+  const handlePaste = () => {
+    const pastedBands = pasteEq();
+    if (!pastedBands) {
+      if (lastError) {
+        toast.error(lastError);
+      }
+      return;
+    }
+
+    if (mac === undefined || channel === undefined || target === undefined) {
+      toast.error("Cannot paste: invalid amp/channel");
+      return;
+    }
+
+    // Apply each pasted band
+    pastedBands.forEach((pastedBand, idx) => {
+      if (!bands || !bands[idx]) return;
+
+      const isHpLp = idx === 0 || idx === 9;
+
+      if (isHpLp) {
+        // HP/LP crossover
+        const kind: CrossoverKind = idx === 0 ? "hp" : "lp";
+        void setCrossoverEnabled(mac, channel, target, kind, !pastedBand.bypass, pastedBand.type);
+        void setCrossoverFreq(mac, channel, target, kind, pastedBand.freq);
+      } else {
+        // Parametric EQ band
+        void setEqBandType(mac, channel, target, idx, pastedBand.type, pastedBand.bypass);
+        void setEqBandFreq(mac, channel, target, idx, pastedBand.freq);
+        void setEqBandGain(mac, channel, target, idx, pastedBand.gain);
+        void setEqBandQ(mac, channel, target, idx, pastedBand.q);
+      }
+    });
+
+    toast.success("Pasted EQ settings");
+  };
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
           disabled={!bands}
@@ -515,6 +569,30 @@ export function EqBandDialog({
         </Button>
       </DialogTrigger>
       <DialogContent className="w-[min(64rem,95vw)] max-w-none sm:max-w-none gap-0">
+        <div className="absolute top-4 right-20 flex gap-2 z-10">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleCopy}
+            disabled={!bands}
+            className="h-8 px-2 text-xs gap-1.5"
+            title="Copy EQ settings to clipboard"
+          >
+            <Copy className="w-3.5 h-3.5" />
+            {dict.dialogs.common.copy}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handlePaste}
+            disabled={!canPasteEq()}
+            className="h-8 px-2 text-xs gap-1.5"
+            title="Paste EQ settings from clipboard"
+          >
+            <Clipboard className="w-3.5 h-3.5" />
+            {dict.dialogs.common.paste}
+          </Button>
+        </div>
         <DialogHeader className="pb-4">
           <DialogTitle className="text-sm font-semibold">{title}</DialogTitle>
         </DialogHeader>

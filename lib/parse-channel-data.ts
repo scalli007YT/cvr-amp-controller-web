@@ -151,7 +151,7 @@ export interface ChannelData {
   inputName: string; // e.g., "AIn1" – "AIn4"
   outputName: string; // e.g., "OutA" – "OutD"
   gainIn: number; // dB  (int8)
-  volumeIn: number; // dB  (float32)
+  volumeOut: number; // dB  (float32 @ 405)
   muteIn: boolean; // true = muted  (wire: 0=muted, 1=unmuted — inverted)
   delayIn: number; // ms  (float32 @ 86)
   trimOut: number; // dB  (float32 @ 80) — original 118/IAG path calls this vol_out / VolumeOut
@@ -226,7 +226,7 @@ const CHANNEL_FIELDS = [
   { field: "noiseGateOut", type: "uint8", offset: 409 }, // 0 = enabled, 1 = disabled
   { field: "delayOut", type: "float32", offset: 90 },
   { field: "invertedOut", type: "uint8", offset: 94 },
-  { field: "volumeIn", type: "float32", offset: 405 },
+  { field: "volumeOut", type: "float32", offset: 405 },
   { field: "inputName", type: "ascii", offset: 413, length: 16 },
   { field: "outputName", type: "ascii", offset: 430, length: 16 }
 ] as const;
@@ -484,7 +484,7 @@ function parseChannelFromBuffer(
       inputName: raw.inputName as string,
       outputName: raw.outputName as string,
       gainIn: raw.gainIn as number,
-      volumeIn: raw.volumeIn as number,
+      volumeOut: raw.volumeOut as number,
       muteIn,
       delayIn: round2(raw.delayIn as number),
       trimOut: raw.trimOut as number,
