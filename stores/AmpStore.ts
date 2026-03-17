@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { limiterPowerFromLoad } from "@/lib/generic";
 import type { SourceCapabilities } from "@/lib/source-capabilities";
 import type { AmpLinkConfig } from "@/lib/amp-action-linking";
@@ -285,6 +286,17 @@ function makeAmp(config: AmpConfig): Amp {
   return { ...config, reachable: false };
 }
 
+function mergeAmpConfig(config: AmpConfig, existing?: Amp): Amp {
+  if (!existing) return makeAmp(config);
+
+  return {
+    ...existing,
+    ...config,
+    lastKnownName: config.lastKnownName ?? existing.lastKnownName,
+    constants: config.constants
+  };
+}
+
 function getOutputStateLabel(state: number): string {
   switch (state) {
     case -1:
@@ -356,114 +368,135 @@ function deriveChannelFlags(
   });
 }
 
-export const useAmpStore = create<AmpStore>((set) => ({
-  amps: [],
+export const useAmpStore = create<AmpStore>()(
+  persist(
+    (set) => ({
+      amps: [],
 
-  seedAmps: (configs) => set({ amps: configs.map(makeAmp) }),
+      seedAmps: (configs) =>
+        set((state) => ({
+          amps: configs.map((config) => {
+            const existing = state.amps.find((amp) => amp.mac === config.mac);
+            return mergeAmpConfig(config, existing);
+          })
+        })),
 
-  seedAmp: (config) =>
-    set((state) => ({
-      amps: [...state.amps.filter((a) => a.mac !== config.mac), makeAmp(config)]
-    })),
+      seedAmp: (config) =>
+        set((state) => ({
+          amps: [
+            ...state.amps.filter((a) => a.mac !== config.mac),
+            mergeAmpConfig(
+              config,
+              state.amps.find((amp) => amp.mac === config.mac)
+            )
+          ]
+        })),
 
-  removeAmp: (mac) => set((state) => ({ amps: state.amps.filter((a) => a.mac !== mac) })),
+      removeAmp: (mac) => set((state) => ({ amps: state.amps.filter((a) => a.mac !== mac) })),
 
-  clearAmps: () => set({ amps: [] }),
+      clearAmps: () => set({ amps: [] }),
 
-  updateAmpStatus: (mac, status) =>
-    set((state) => ({
-      amps: state.amps.map((amp) => {
-        if (amp.mac !== mac) return amp;
-        const updated: Amp = { ...amp, ...status };
-        // Persist last known name when device is reachable and has a name
-        if (status.name && status.reachable !== false) {
-          updated.lastKnownName = status.name;
-        }
-        return updated;
-      })
-    })),
-
-  setPresets: (mac, presets) =>
-    set((state) => ({
-      amps: state.amps.map((amp) => (amp.mac === mac ? { ...amp, presets } : amp))
-    })),
-
-  updateHeartbeat: (mac, heartbeat, bridgePairs) =>
-    set((state) => ({
-      amps: state.amps.map((amp) =>
-        amp.mac === mac
-          ? {
-              ...amp,
-              heartbeat,
-              bridgePairs: bridgePairs ?? amp.bridgePairs,
-              channelFlags: deriveChannelFlags(heartbeat, amp.channelParams, bridgePairs ?? amp.bridgePairs)
+      updateAmpStatus: (mac, status) =>
+        set((state) => ({
+          amps: state.amps.map((amp) => {
+            if (amp.mac !== mac) return amp;
+            const updated: Amp = { ...amp, ...status };
+            // Persist last known name when device is reachable and has a name
+            if (status.name && status.reachable !== false) {
+              updated.lastKnownName = status.name;
             }
-          : amp
-      )
-    })),
+            return updated;
+          })
+        })),
 
-  syncChannelParams: (mac, channels) =>
-    set((state) => ({
-      amps: state.amps.map((amp) => {
-        if (amp.mac !== mac) return amp;
-        const nextChannelParams: ChannelParams = {
-          channels: channels.map((ch) => {
-            const loadOhm = amp.constants.channels[ch.channel]?.ohms;
-            const { prmsW, ppeakW } = limiterPowerFromLoad(
-              ch.rmsLimiter.thresholdVrms,
-              ch.peakLimiter.thresholdVp,
-              loadOhm
-            );
+      setPresets: (mac, presets) =>
+        set((state) => ({
+          amps: state.amps.map((amp) => (amp.mac === mac ? { ...amp, presets } : amp))
+        })),
+
+      updateHeartbeat: (mac, heartbeat, bridgePairs) =>
+        set((state) => ({
+          amps: state.amps.map((amp) =>
+            amp.mac === mac
+              ? {
+                  ...amp,
+                  heartbeat,
+                  bridgePairs: bridgePairs ?? amp.bridgePairs,
+                  channelFlags: deriveChannelFlags(heartbeat, amp.channelParams, bridgePairs ?? amp.bridgePairs)
+                }
+              : amp
+          )
+        })),
+
+      syncChannelParams: (mac, channels) =>
+        set((state) => ({
+          amps: state.amps.map((amp) => {
+            if (amp.mac !== mac) return amp;
+            const nextChannelParams: ChannelParams = {
+              channels: channels.map((ch) => {
+                const loadOhm = amp.constants.channels[ch.channel]?.ohms;
+                const { prmsW, ppeakW } = limiterPowerFromLoad(
+                  ch.rmsLimiter.thresholdVrms,
+                  ch.peakLimiter.thresholdVp,
+                  loadOhm
+                );
+                return {
+                  channel: ch.channel,
+                  inputName: ch.inputName,
+                  outputName: ch.outputName,
+                  gainIn: ch.gainIn,
+                  volumeOut: ch.volumeOut,
+                  muteIn: ch.muteIn,
+                  delayIn: ch.delayIn,
+                  trimOut: ch.trimOut,
+                  muteOut: ch.muteOut,
+                  noiseGateOut: ch.noiseGateOut,
+                  delayOut: ch.delayOut,
+                  invertedOut: ch.invertedOut,
+                  powerMode: ch.powerMode,
+                  sourceTypeCode: ch.sourceTypeCode,
+                  sourceType: ch.sourceType,
+                  sourceDelay: ch.sourceDelay,
+                  sourceTrim: ch.sourceTrim,
+                  sourceInputs: ch.sourceInputs,
+                  rmsLimiter: { ...ch.rmsLimiter, prmsW },
+                  peakLimiter: { ...ch.peakLimiter, ppeakW },
+                  matrix: ch.matrix,
+                  eqIn: ch.eqIn,
+                  eqOut: ch.eqOut
+                };
+              })
+            };
+
             return {
-              channel: ch.channel,
-              inputName: ch.inputName,
-              outputName: ch.outputName,
-              gainIn: ch.gainIn,
-              volumeOut: ch.volumeOut,
-              muteIn: ch.muteIn,
-              delayIn: ch.delayIn,
-              trimOut: ch.trimOut,
-              muteOut: ch.muteOut,
-              noiseGateOut: ch.noiseGateOut,
-              delayOut: ch.delayOut,
-              invertedOut: ch.invertedOut,
-              powerMode: ch.powerMode,
-              sourceTypeCode: ch.sourceTypeCode,
-              sourceType: ch.sourceType,
-              sourceDelay: ch.sourceDelay,
-              sourceTrim: ch.sourceTrim,
-              sourceInputs: ch.sourceInputs,
-              rmsLimiter: { ...ch.rmsLimiter, prmsW },
-              peakLimiter: { ...ch.peakLimiter, ppeakW },
-              matrix: ch.matrix,
-              eqIn: ch.eqIn,
-              eqOut: ch.eqOut
+              ...amp,
+              channelParams: nextChannelParams,
+              channelFlags: deriveChannelFlags(amp.heartbeat, nextChannelParams, amp.bridgePairs)
             };
           })
-        };
+        })),
 
-        return {
-          ...amp,
-          channelParams: nextChannelParams,
-          channelFlags: deriveChannelFlags(amp.heartbeat, nextChannelParams, amp.bridgePairs)
-        };
-      })
-    })),
+      updateAmpChannelOhms: (mac, channelIndex, ohms) =>
+        set((state) => ({
+          amps: state.amps.map((amp) => {
+            if (amp.mac !== mac) return amp;
+            const channels = amp.constants.channels.map((ch, i) => (i === channelIndex ? { ...ch, ohms } : ch));
+            return {
+              ...amp,
+              constants: {
+                channels,
+                linking: amp.constants.linking
+              }
+            };
+          })
+        })),
 
-  updateAmpChannelOhms: (mac, channelIndex, ohms) =>
-    set((state) => ({
-      amps: state.amps.map((amp) => {
-        if (amp.mac !== mac) return amp;
-        const channels = amp.constants.channels.map((ch, i) => (i === channelIndex ? { ...ch, ohms } : ch));
-        return {
-          ...amp,
-          constants: {
-            channels,
-            linking: amp.constants.linking
-          }
-        };
-      })
-    })),
-
-  getDisplayName: (amp) => amp.name ?? amp.lastKnownName ?? amp.customName ?? "Unknown Amp"
-}));
+      getDisplayName: (amp) => amp.name ?? amp.lastKnownName ?? amp.customName ?? "Unknown Amp"
+    }),
+    {
+      name: "amp-store",
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({ amps: state.amps })
+    }
+  )
+);

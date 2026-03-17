@@ -7,6 +7,7 @@ import { useAmpStore } from "@/stores/AmpStore";
 import { useProjectStore } from "@/stores/ProjectStore";
 import type { HeartbeatData } from "@/stores/AmpStore";
 import type { AmpBasicInfo } from "@/stores/AmpStore";
+import type { AmpStatus } from "@/stores/AmpStore";
 import type { BridgeReadback } from "@/stores/AmpStore";
 import { smoothHeartbeat, resetSmootherForMac } from "@/lib/heartbeat-smoother";
 import { ratedRmsVFromDeviceName } from "@/lib/amp-model";
@@ -122,17 +123,12 @@ export function useAmpPoller(): UseAmpPollerReturn {
         }
 
         switch (event.type) {
-          // ----------------------------------------------------------------
-          // discovery — device replied to FC=0 broadcast
-          // ----------------------------------------------------------------
           case "discovery": {
             const { ip, mac, name, version, basicInfo } = event;
             const amp = findAmp(ampsRef.current, mac);
             if (!amp) return;
 
             const wasUnreachable = amp.reachable === false;
-            // Derive rated RMS voltage from version string (e.g. "42404B06-006118-DSP-2004")
-            // which always contains the model — more reliable than the name field.
             const ratedRmsV = ratedRmsVFromDeviceName(version ?? name ?? "");
             const sourceCapabilities = deriveSourceCapabilities({
               machineName: version ?? name,
@@ -167,39 +163,36 @@ export function useAmpPoller(): UseAmpPollerReturn {
             break;
           }
 
-          // ----------------------------------------------------------------
-          // heartbeat — device replied to FC=6 broadcast (live sensor data)
-          // ----------------------------------------------------------------
           case "heartbeat": {
-            const { mac, name, version, heartbeat, bridgePairs } = event;
+            const { ip, mac, name, version, heartbeat, bridgePairs } = event;
             const amp = findAmp(ampsRef.current, mac);
             if (!amp) return;
 
-            // Use name/version from the event itself — always fresh from the server's
-            // knownMacs table, never stale due to client-side store race on startup.
             const deviceName = name || version || (amp.name ?? amp.lastKnownName ?? amp.version ?? "");
-            // Keep the meter reference stable: prefer the already-resolved rated RMS
-            // voltage from store, and only derive from device strings as fallback.
             const derivedRatedRmsV = ratedRmsVFromDeviceName(deviceName);
             const meterRatedRmsV = amp.ratedRmsV ?? derivedRatedRmsV;
             const maxDb = 20 * Math.log10(meterRatedRmsV);
 
-            // Store the rated RMS voltage once (avoids store churn on every heartbeat).
-            // Also retries if a 0 was stored previously due to a name/version race on startup.
+            const nextStatus: Partial<AmpStatus> = {};
             if (!amp.ratedRmsV) {
-              useAmpStore.getState().updateAmpStatus(amp.mac, {
-                ratedRmsV: derivedRatedRmsV
-              });
+              nextStatus.ratedRmsV = derivedRatedRmsV;
+            }
+            if (!amp.reachable || amp.ip !== ip || amp.name !== name || amp.version !== version) {
+              nextStatus.ip = ip;
+              nextStatus.name = name;
+              nextStatus.version = version;
+              nextStatus.reachable = true;
+            }
+            if (Object.keys(nextStatus).length > 0) {
+              useAmpStore.getState().updateAmpStatus(amp.mac, nextStatus);
             }
 
             useAmpStore.getState().updateHeartbeat(amp.mac, smoothHeartbeat(amp.mac, heartbeat, maxDb), bridgePairs);
             usePollingStore.getState().setLastUpdated(amp.mac, Date.now());
+            usePollingStore.getState().setError(amp.mac, null);
             break;
           }
 
-          // ----------------------------------------------------------------
-          // offline — device stopped responding to discovery broadcasts
-          // ----------------------------------------------------------------
           case "offline": {
             const { mac } = event;
             const amp = findAmp(ampsRef.current, mac);
