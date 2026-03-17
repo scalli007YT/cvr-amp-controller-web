@@ -50,23 +50,33 @@ export async function broadcastDiscovery(): Promise<Array<{ ip: string; mac: str
 
       socket.on("message", (msg: Buffer, rinfo) => {
         try {
-          // BASIC_INFO response layout (102 bytes):
+          // BASIC_INFO response layout:
           //   [0–9]   NetworkData header
           //   [10–19] StructHeader (head=0x55, FC=0)
-          //   [20–43] Version string, null-terminated ASCII (24 bytes)
-          //   [44–51] padding
-          //   [52–75] Device name, null-terminated ASCII (24 bytes)
-          //   [76–83] padding
-          //   [84–89] MAC address (6 bytes)
-          //   [90–98] reserved
-          //   [99–101] checksum
+          //   [20..]  body + checksum
+          // Body supports legacy 24-byte and newer 32-byte name layouts.
           if (msg.length < 90) return;
           if (msg[10] !== 0x55) return;
           if (msg[11] !== FuncCode.BASIC_INFO) return;
 
+          const fullBody = msg.slice(20, msg.length - 3);
+          let body = fullBody;
+          if (fullBody.length === 79 || fullBody.length === 87) {
+            body = fullBody.slice(0, fullBody.length - 4);
+          }
+          if (body.length < 75) return;
+
+          const readMacAt = (offset: number): Buffer | null => {
+            if (body.length < offset + 6) return null;
+            const macCandidate = body.slice(offset, offset + 6);
+            return macCandidate.reduce((a, b) => a + b, 0) > 0 ? macCandidate : null;
+          };
+
+          const macOffset = readMacAt(72) ? 72 : 64;
+          const macBytes = readMacAt(macOffset);
+          if (!macBytes) return;
+
           // Parse MAC
-          const macBytes = msg.slice(84, 90);
-          if (macBytes.reduce((a, b) => a + b, 0) === 0) return;
           const mac = Array.from(macBytes)
             .map((b) => b.toString(16).toUpperCase().padStart(2, "0"))
             .join(":");
@@ -74,15 +84,15 @@ export async function broadcastDiscovery(): Promise<Array<{ ip: string; mac: str
           if (devices.has(mac)) return; // already seen
 
           // Parse version (offset 20, 24 bytes, null-terminated)
-          const verSlice = msg.slice(20, 44);
+          const verSlice = body.slice(0, 24);
           const verNull = verSlice.indexOf(0);
           const version = verSlice
             .slice(0, verNull === -1 ? verSlice.length : verNull)
             .toString("ascii")
             .trim();
 
-          // Parse name (offset 52, 24 bytes, null-terminated)
-          const nameSlice = msg.slice(52, 76);
+          // Parse name (offset 32, length inferred from MAC offset)
+          const nameSlice = body.slice(32, macOffset);
           const nameNull = nameSlice.indexOf(0);
           const name = nameSlice
             .slice(0, nameNull === -1 ? nameSlice.length : nameNull)

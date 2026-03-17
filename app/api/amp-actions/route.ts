@@ -47,6 +47,7 @@
 import { ampController } from "@/lib/amp-controller";
 import { CvrAmpDevice, FuncCode } from "@/lib/amp-device";
 import { ampActionRequestSchema, type AmpActionRequest } from "@/lib/validation/amp-actions";
+import { AMP_NAME_MAX_LENGTH } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -448,6 +449,44 @@ export async function POST(request: Request): Promise<Response> {
         const payload = Buffer.alloc(4);
         payload.writeFloatLE(value, 0);
         await device.sendControl(FuncCode.FILTER_Q, channel, payload, body.target === "input" ? 0 : 1, 0, body.band);
+        break;
+      }
+
+      // -----------------------------------------------------------------------
+      // Device name rename — FC=60 CUSTOMER_NAME_MODIFY
+      // Body: fixed 32-byte null-padded ASCII name field.
+      // -----------------------------------------------------------------------
+      case "renameAmp": {
+        const payload = Buffer.alloc(32, 0);
+        const nameBytes = Buffer.from(value, "ascii").subarray(0, AMP_NAME_MAX_LENGTH);
+        nameBytes.copy(payload, 0);
+
+        const packet = ampController.network.buildProtocolPacket({
+          functionCode: FuncCode.CUSTOMER_NAME_MODIFY,
+          statusCode: 1,
+          chx: 0,
+          segment: 0,
+          link: 0,
+          inOutFlag: 0,
+          body: payload
+        });
+
+        console.info("[amp-actions] renameAmp tx", {
+          mac,
+          ip,
+          fc: FuncCode.CUSTOMER_NAME_MODIFY,
+          statusCode: 1,
+          chx: 0,
+          payloadHex: payload.toString("hex"),
+          packetHex: packet.toString("hex")
+        });
+
+        if (ampController.network.isStarted) {
+          await ampController.network.sendRaw_shouldBeReplacedWithSendPacket(packet, 0, packet.length, ip, false);
+        } else {
+          // Fallback if the shared socket is not ready for any reason.
+          await device.sendControl(FuncCode.CUSTOMER_NAME_MODIFY, 0, payload, 0 /* input/default */);
+        }
         break;
       }
 

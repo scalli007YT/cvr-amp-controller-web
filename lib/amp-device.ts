@@ -66,11 +66,13 @@ export class FuncCode {
   static NOISE_GATE = 69;
   static KNOB_VOL = 70;
   static SN_TABLE = 71;
+  static CUSTOMER_NAME_MODIFY = 60; // 0x3C, confirmed by captured rename packet
   static BACK_SW_FILTER = 73;
   static SOURCE_DATA = 62;
   static ANALOG_TYPE = 79;
   static POWER_ALLOT = 81;
-  static CH_NAME = 0x4d; // 77
+  static MONO_SWITCH = 77;
+  static SPEAKER_NAME = 78;
 }
 
 export class CvrAmpDevice {
@@ -594,11 +596,11 @@ export class CvrAmpDevice {
   }
 
   private parseDeviceName(response: Buffer): string {
-    // Device name: fixed offset 52, max 24 bytes, null-terminated ASCII
+    // Device name: fixed offset 52, max 32 bytes, null-terminated ASCII
     // e.g. "PASCAL ROSE DSP-2004"
     try {
       if (response.length >= 53) {
-        const end = Math.min(52 + 24, response.length);
+        const end = Math.min(52 + 32, response.length);
         const slice = response.slice(52, end);
         const nullIdx = slice.indexOf(0);
         const name = slice
@@ -614,29 +616,31 @@ export class CvrAmpDevice {
   }
 
   private parseMacAddress(response: Buffer): string {
-    // BASIC_INFO response layout (102 bytes):
+    // BASIC_INFO response layout variants:
     //   [0–9]   NetworkData header
     //   [10–19] StructHeader
     //   [20–43] Version string, null-terminated (24 bytes)
     //   [44–51] padding
-    //   [52–75] Device name, null-terminated (24 bytes)
-    //   [76–83] padding/reserved
-    //   [84–89] MAC address (6 bytes)  ← here
+    //   [52..]  Device name, null-terminated (24 or 32 bytes)
+    //   ...     padding/reserved
+    //   [84–89] or [92–97] MAC address (6 bytes)
     //   [90–98] reserved
     //   [99–101] checksum
     try {
-      if (response.length > 90) {
-        // MAC is at fixed offset 84
-        const macBytes = response.slice(84, 90);
+      const candidates: Array<[number, number]> = [
+        [84, 90],
+        [92, 98]
+      ];
 
-        // Verify it's not all zeros
+      for (const [start, end] of candidates) {
+        if (response.length < end) continue;
+        const macBytes = response.slice(start, end);
         const sum = macBytes.reduce((a, b) => a + b, 0);
-        if (sum > 0) {
-          const mac = Array.from(macBytes)
-            .map((b) => b.toString(16).toUpperCase().padStart(2, "0"))
-            .join(":");
-          return mac;
-        }
+        if (sum === 0) continue;
+
+        return Array.from(macBytes)
+          .map((b) => b.toString(16).toUpperCase().padStart(2, "0"))
+          .join(":");
       }
     } catch (err) {
       // Silent fail
