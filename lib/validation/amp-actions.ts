@@ -1,5 +1,7 @@
 import { z } from "zod";
 import {
+  AMP_NAME_MAX_LENGTH,
+  AMP_NAME_MIN_LENGTH,
   MATRIX_GAIN_MAX_DB,
   MATRIX_GAIN_MIN_DB,
   OUTPUT_VOLUME_MIN_DB,
@@ -292,6 +294,17 @@ const eqBandQSchema = baseSchema.extend({
   band: eqBandIndexSchema
 });
 
+const renameAmpSchema = z.object({
+  mac: z.string().trim().min(1, "Missing mac"),
+  action: z.literal("renameAmp"),
+  channel: z.literal(0),
+  value: z
+    .string()
+    .trim()
+    .min(AMP_NAME_MIN_LENGTH, "Amp name cannot be empty")
+    .max(AMP_NAME_MAX_LENGTH, `Amp name must be ${AMP_NAME_MAX_LENGTH} characters or fewer`)
+});
+
 export const ampActionRequestSchema = z.union([
   muteInSchema,
   volumeOutSchema,
@@ -317,7 +330,8 @@ export const ampActionRequestSchema = z.union([
   eqBandTypeSchema,
   eqBandFreqSchema,
   eqBandGainSchema,
-  eqBandQSchema
+  eqBandQSchema,
+  renameAmpSchema
 ]);
 
 export type AmpActionRequest = z.infer<typeof ampActionRequestSchema>;

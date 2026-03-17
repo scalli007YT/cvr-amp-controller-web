@@ -112,8 +112,11 @@ async function getLocalBindCandidates(): Promise<string[]> {
 // FC=0 body variants seen in the original software:
 //   75 bytes: Basic_information struct
 //   79 bytes: Basic_information + 4-byte extension (vendor/meta)
+//   83 bytes: Basic_information variant with 32-byte name field
+//   87 bytes: 83-byte variant + 4-byte extension
 //
-// This parser accepts both. For 79-byte bodies, it trims to the first 75 bytes.
+// This parser accepts all of the above. For +4-byte extension variants,
+// it trims the extension and parses the base body.
 // ---------------------------------------------------------------------------
 function parseDiscoveryPacket(raw: Buffer, ip: string): DiscoveryEvent | null {
   // Minimum valid FC=0 packet: NetworkData(10) + StructHeader(10) + body75 + checksum(3)
@@ -124,14 +127,24 @@ function parseDiscoveryPacket(raw: Buffer, ip: string): DiscoveryEvent | null {
   const fullBody = raw.slice(20, raw.length - 3);
   let body = fullBody;
 
-  if (fullBody.length === 79) {
-    body = fullBody.slice(0, 75);
-  } else if (fullBody.length !== 75) {
+  if (fullBody.length === 79 || fullBody.length === 87) {
+    body = fullBody.slice(0, fullBody.length - 4);
+  }
+
+  if (body.length < 75) {
     return null;
   }
 
-  const macBytes = body.slice(64, 70);
-  if (macBytes.reduce((a, b) => a + b, 0) === 0) return null;
+  const readMacAt = (offset: number): Buffer | null => {
+    if (body.length < offset + 6) return null;
+    const mac = body.slice(offset, offset + 6);
+    return mac.reduce((a, b) => a + b, 0) > 0 ? mac : null;
+  };
+
+  // Legacy layout: name=24, mac@64. Newer layout: name=32, mac@72.
+  const macOffset = readMacAt(72) ? 72 : 64;
+  const macBytes = readMacAt(macOffset);
+  if (!macBytes) return null;
 
   const mac = Array.from(macBytes)
     .map((b) => b.toString(16).toUpperCase().padStart(2, "0"))
@@ -144,19 +157,20 @@ function parseDiscoveryPacket(raw: Buffer, ip: string): DiscoveryEvent | null {
     .toString("ascii")
     .trim();
 
-  const nameSlice = body.slice(32, 56);
+  const nameSlice = body.slice(32, macOffset);
   const nameNull = nameSlice.indexOf(0);
   const name = nameSlice
-    .slice(0, nameNull === -1 ? 24 : nameNull)
+    .slice(0, nameNull === -1 ? nameSlice.length : nameNull)
     .toString("ascii")
     .trim();
 
   // Basic_information struct tail bytes.
-  const gainMax = body[70] ?? 0;
-  const analogSignalInputChx = body[71] ?? 0;
-  const digitalSignalInputChx = body[72] ?? 0;
-  const outputChx = body[73] ?? 0;
-  const machineState = body[74] ?? 0;
+  const basicInfoOffset = macOffset + 6;
+  const gainMax = body[basicInfoOffset] ?? 0;
+  const analogSignalInputChx = body[basicInfoOffset + 1] ?? 0;
+  const digitalSignalInputChx = body[basicInfoOffset + 2] ?? 0;
+  const outputChx = body[basicInfoOffset + 3] ?? 0;
+  const machineState = body[basicInfoOffset + 4] ?? 0;
 
   const basicInfo: BasicInfoSnapshot = {
     Gain_max: gainMax,

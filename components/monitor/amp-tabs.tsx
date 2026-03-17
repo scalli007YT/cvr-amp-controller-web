@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useAmpStore } from "@/stores/AmpStore";
 import type { AmpPreset } from "@/stores/AmpStore";
 import { useAmpPresets } from "@/hooks/useAmpPresets";
@@ -19,15 +20,16 @@ import { MatrixGrid } from "@/components/monitor/amp-tabs/matrix-grid";
 import { SourceConfigDialog } from "@/components/dialogs/source-config-dialog";
 import { CopyJsonButton, JsonTree, type JsonValue } from "@/components/monitor/amp-tabs/json-viewer";
 import { useI18n } from "@/components/layout/i18n-provider";
-import { PRESET_SLOT_MAX } from "@/lib/constants";
+import { AMP_NAME_MAX_LENGTH, PRESET_SLOT_MAX } from "@/lib/constants";
 import { AmpUnreachableCard } from "@/components/custom/amp-unreachable-card";
+import { InputWithCheck } from "@/components/custom/input-with-check";
 
 type AmpSection = "main" | "matrix" | "preferences";
 type PresetFilter = "all" | "used" | "empty";
 
 export function AmpTabs() {
   const dict = useI18n();
-  const { amps, getDisplayName } = useAmpStore();
+  const { amps, getDisplayName, updateAmpStatus } = useAmpStore();
   const {
     fetchPresets,
     recallPreset,
@@ -45,6 +47,10 @@ export function AmpTabs() {
   const [storeDialogOpen, setStoreDialogOpen] = useState(false);
   const [storePresetName, setStorePresetName] = useState("");
   const [presetFilter, setPresetFilter] = useState<PresetFilter>("used");
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renameConfirmOpen, setRenameConfirmOpen] = useState(false);
+  const [pendingRename, setPendingRename] = useState("");
+  const [renaming, setRenaming] = useState(false);
 
   const onlineCount = amps.filter((amp) => amp.reachable).length;
   const selectedAmp = amps.find((a) => a.mac === selectedMac);
@@ -122,6 +128,58 @@ export function AmpTabs() {
     setStorePresetName("");
   }, [selectedMac]);
 
+  useEffect(() => {
+    if (!selectedAmp) return;
+    setRenameDraft(getDisplayName(selectedAmp));
+  }, [selectedAmp?.mac, selectedAmp?.name, selectedAmp?.lastKnownName, selectedAmp?.customName, getDisplayName]);
+
+  const renameAmp = async (nextNameRaw: string) => {
+    if (!selectedAmp || renaming) return false;
+
+    const nextName = nextNameRaw.trim();
+    if (nextName.length === 0) return false;
+
+    setRenaming(true);
+    try {
+      const response = await fetch("/api/amp-actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mac: selectedAmp.mac,
+          action: "renameAmp",
+          channel: 0,
+          value: nextName
+        })
+      });
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? `HTTP ${response.status}`);
+      }
+
+      updateAmpStatus(selectedAmp.mac, { name: nextName, lastKnownName: nextName });
+      setRenameDraft(nextName);
+      setPendingRename("");
+      setRenameConfirmOpen(false);
+      toast.success("Amp name updated");
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(`Rename failed: ${message}`);
+      setRenameDraft(getDisplayName(selectedAmp));
+      setRenameConfirmOpen(false);
+      setPendingRename("");
+      return false;
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  const submitRename = async () => {
+    if (!selectedAmp || pendingRename.trim().length === 0 || renaming) return;
+    await renameAmp(pendingRename);
+  };
+
   if (!amps || amps.length === 0) {
     return (
       <div className="rounded-xl border border-border/50 bg-muted/20 px-6 py-12 text-center text-sm text-muted-foreground">
@@ -193,7 +251,38 @@ export function AmpTabs() {
                   <p className="truncate text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                     {selectedAmp.reachable ? dict.monitor.ampTabs.connected : dict.monitor.ampTabs.offline}
                   </p>
-                  <h2 className="truncate text-lg font-semibold leading-tight">{getDisplayName(selectedAmp)}</h2>
+                  <InputWithCheck
+                    value={renameDraft}
+                    maxLength={AMP_NAME_MAX_LENGTH}
+                    className="h-8 text-lg font-semibold leading-tight"
+                    disabled={renaming}
+                    onChange={setRenameDraft}
+                    onCommit={() => {
+                      if (!selectedAmp || renaming) return;
+                      const trimmedDraft = renameDraft.trim();
+                      const currentName = getDisplayName(selectedAmp).trim();
+                      if (trimmedDraft.length === 0) {
+                        setRenameDraft(currentName);
+                        return;
+                      }
+                      if (trimmedDraft === currentName) return;
+                      void renameAmp(trimmedDraft);
+                    }}
+                    onBlur={() => {
+                      const trimmedDraft = renameDraft.trim();
+                      const currentName = getDisplayName(selectedAmp).trim();
+
+                      if (trimmedDraft.length === 0) {
+                        setRenameDraft(currentName);
+                        return;
+                      }
+
+                      if (trimmedDraft === currentName) return;
+
+                      setPendingRename(trimmedDraft);
+                      setRenameConfirmOpen(true);
+                    }}
+                  />
                 </div>
                 <div className="flex items-center gap-2 text-[11px]">
                   <Badge variant="outline" className="font-mono">
@@ -217,6 +306,22 @@ export function AmpTabs() {
                 </TabsTrigger>
               </TabsList>
             </div>
+
+            <ConfirmActionDialog
+              open={renameConfirmOpen}
+              onOpenChange={(open) => {
+                setRenameConfirmOpen(open);
+                if (!open && selectedAmp) {
+                  setPendingRename("");
+                  setRenameDraft(getDisplayName(selectedAmp));
+                }
+              }}
+              title="Rename amplifier"
+              description={pendingRename ? `Rename to \"${pendingRename}\"?` : "Confirm amp rename."}
+              confirmLabel={renaming ? "Renaming..." : "Rename"}
+              confirmDisabled={renaming || pendingRename.trim().length === 0}
+              onConfirm={submitRename}
+            />
 
             <TabsContent value="main" className="p-4 mt-0">
               {!selectedAmp.heartbeat ? (

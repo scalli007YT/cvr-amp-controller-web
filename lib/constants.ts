@@ -40,3 +40,7 @@ export const PRESET_NAME_MIN_LENGTH = 1;
 export const PRESET_NAME_MAX_LENGTH = 32;
 export const PRESET_SLOT_MIN = 1;
 export const PRESET_SLOT_MAX = 40;
+
+// Amp rename validation limits
+export const AMP_NAME_MIN_LENGTH = 1;
+export const AMP_NAME_MAX_LENGTH = 30;
