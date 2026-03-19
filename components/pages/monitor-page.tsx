@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import { useProjectStore } from "@/stores/ProjectStore";
 import { useAmpStore } from "@/stores/AmpStore";
+import { useTabStore } from "@/stores/TabStore";
 import { AssignAmpsDialog } from "@/components/dialogs/assign-amps-dialog";
 import { AmpTabs } from "@/components/monitor/amp-tabs";
 import { NoProjectCard } from "@/components/monitor/no-project-card";
@@ -14,7 +16,12 @@ interface MonitorPageProps {
 export function MonitorPage({ dictionary }: MonitorPageProps) {
   const { selectedProject } = useProjectStore();
   const amps = useAmpStore((state) => state.amps);
+  const setCurrentView = useTabStore((state) => state.setCurrentView);
   const online = amps.filter((amp) => amp.reachable).length;
+
+  useEffect(() => {
+    setCurrentView("monitor");
+  }, [setCurrentView]);
 
   return (
     <div className="flex flex-1 flex-col space-y-4">

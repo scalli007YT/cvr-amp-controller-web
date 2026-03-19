@@ -4,14 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { LinkGroup } from "@/lib/amp-action-linking";
 import { normalizeLinkingGroups, validateLinkGroup, type LinkingGroup } from "@/lib/linking-validator";
 
@@ -55,9 +48,6 @@ export function LinkingGroupsDialog({
   helperText,
   clearAllLabel,
   addGroupLabel,
-  cancelLabel,
-  saveLabel,
-  savingLabel,
   offLabel,
   selectedCountSuffix,
   validationMessages,
@@ -75,9 +65,6 @@ export function LinkingGroupsDialog({
   helperText: string;
   clearAllLabel: string;
   addGroupLabel: string;
-  cancelLabel: string;
-  saveLabel: string;
-  savingLabel: string;
   offLabel: string;
   selectedCountSuffix: string;
   validationMessages: {
@@ -115,6 +102,19 @@ export function LinkingGroupsDialog({
     );
   };
 
+  const applyGroups = async (nextGroups: LinkGroup[]) => {
+    setSaving(true);
+    try {
+      setDraftGroups(nextGroups);
+      await onSave(nextGroups);
+    } catch {
+      setDraftGroups(normalizedValue);
+      toast.error("Failed to update link groups");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const addGroup = () => {
     const result = validateLinkGroup({
       linkableCount: channelLabels.length,
@@ -139,27 +139,18 @@ export function LinkingGroupsDialog({
       return;
     }
 
-    setDraftGroups(toLinkGroups(channelLabels, result.nextGroups));
+    void applyGroups(toLinkGroups(channelLabels, result.nextGroups));
     setSelectedChannels([]);
   };
 
   const removeGroup = (groupId: string) => {
-    setDraftGroups((current) => current.filter((group) => group.id !== groupId));
+    const nextGroups = draftGroups.filter((group) => group.id !== groupId);
+    void applyGroups(nextGroups);
   };
 
   const clearAll = () => {
-    setDraftGroups([]);
+    void applyGroups([]);
     setSelectedChannels([]);
-  };
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      await onSave(draftGroups);
-      setOpen(false);
-    } finally {
-      setSaving(false);
-    }
   };
 
   const status = summarizeGroups(channelLabels, normalizedValue, offLabel);
@@ -272,15 +263,6 @@ export function LinkingGroupsDialog({
               </div>
             </div>
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => openDialog(false)} disabled={saving}>
-              {cancelLabel}
-            </Button>
-            <Button onClick={() => void save()} disabled={saving}>
-              {saving ? savingLabel : saveLabel}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

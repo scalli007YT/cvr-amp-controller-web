@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ConfirmActionDialog } from "@/components/dialogs/confirm-action-dialog";
 import { formatRuntime } from "@/lib/generic";
-import { LayoutDashboardIcon, GridIcon, SlidersHorizontalIcon, ChevronRight } from "lucide-react";
+import { LayoutDashboardIcon, GridIcon, SlidersHorizontalIcon, Link2Icon, ChevronRight } from "lucide-react";
 import { HeartbeatDashboard } from "@/components/monitor/amp-tabs/heartbeat-dashboard";
 import { LinkingPanel } from "@/components/monitor/amp-tabs/linking-panel";
 import { LimiterBlock } from "@/components/monitor/amp-tabs/limiter-panel";
@@ -23,8 +23,8 @@ import { useI18n } from "@/components/layout/i18n-provider";
 import { AMP_NAME_MAX_LENGTH, PRESET_SLOT_MAX } from "@/lib/constants";
 import { AmpUnreachableCard } from "@/components/custom/amp-unreachable-card";
 import { InputWithCheck } from "@/components/custom/input-with-check";
+import { useTabStore, type AmpSection } from "@/stores/TabStore";
 
-type AmpSection = "main" | "matrix" | "preferences";
 type PresetFilter = "all" | "used" | "empty";
 
 export function AmpTabs() {
@@ -40,8 +40,10 @@ export function AmpTabs() {
     error: presetsError
   } = useAmpPresets();
 
-  const [selectedMac, setSelectedMac] = useState<string | null>(amps.length > 0 ? amps[0].mac : null);
-  const [activeSection, setActiveSection] = useState<AmpSection>("main");
+  const selectedMac = useTabStore((state) => state.selectedAmpMac);
+  const setSelectedMac = useTabStore((state) => state.setSelectedAmpMac);
+  const selectedSectionByAmpMac = useTabStore((state) => state.selectedSectionByAmpMac);
+  const setSelectedSectionForAmp = useTabStore((state) => state.setSelectedSectionForAmp);
   const [activePreset, setActivePreset] = useState<AmpPreset | null>(null);
   const [recallDialogOpen, setRecallDialogOpen] = useState(false);
   const [storeDialogOpen, setStoreDialogOpen] = useState(false);
@@ -53,7 +55,9 @@ export function AmpTabs() {
   const [renaming, setRenaming] = useState(false);
 
   const onlineCount = amps.filter((amp) => amp.reachable).length;
-  const selectedAmp = amps.find((a) => a.mac === selectedMac);
+  const selectedAmp = amps.find((a) => a.mac === selectedMac) ?? amps[0];
+  const activeSection: AmpSection =
+    selectedAmp !== undefined ? (selectedSectionByAmpMac[selectedAmp.mac] ?? "main") : "main";
   const presetNameBySlot = new Map<number, string>((selectedAmp?.presets ?? []).map((p) => [p.slot, p.name]));
   const presetSlots: AmpPreset[] =
     selectedAmp?.presets !== undefined
@@ -113,6 +117,23 @@ export function AmpTabs() {
       flags
     } as unknown as JsonValue;
   });
+
+  useEffect(() => {
+    if (!amps.length) {
+      if (selectedMac !== null) setSelectedMac(null);
+      return;
+    }
+
+    if (!selectedMac || !amps.some((amp) => amp.mac === selectedMac)) {
+      setSelectedMac(amps[0].mac);
+    }
+  }, [amps, selectedMac, setSelectedMac]);
+
+  useEffect(() => {
+    if (!selectedAmp) return;
+    if (selectedSectionByAmpMac[selectedAmp.mac]) return;
+    setSelectedSectionForAmp(selectedAmp.mac, "main");
+  }, [selectedAmp, selectedSectionByAmpMac, setSelectedSectionForAmp]);
 
   useEffect(() => {
     if (activeSection === "preferences" && selectedAmp?.reachable && selectedAmp.presets === undefined && !fetching) {
@@ -241,7 +262,10 @@ export function AmpTabs() {
         <div className="min-w-0 overflow-hidden rounded-lg border border-border/50 bg-card/20">
           <Tabs
             value={activeSection}
-            onValueChange={(v) => setActiveSection(v as AmpSection)}
+            onValueChange={(v) => {
+              if (!selectedAmp) return;
+              setSelectedSectionForAmp(selectedAmp.mac, v as AmpSection);
+            }}
             orientation="horizontal"
             className="flex flex-col"
           >
@@ -291,7 +315,7 @@ export function AmpTabs() {
                 </div>
               </div>
 
-              <TabsList className="mt-2 grid h-9 w-full grid-cols-3 gap-1 px-1">
+              <TabsList className="mt-2 grid h-9 w-full grid-cols-4 gap-1 px-1">
                 <TabsTrigger value="main" className="h-7 w-full justify-center px-3">
                   <LayoutDashboardIcon className="size-4" />
                   {dict.monitor.ampTabs.tabMain}
@@ -299,6 +323,10 @@ export function AmpTabs() {
                 <TabsTrigger value="matrix" className="h-7 w-full justify-center px-3">
                   <GridIcon className="size-4" />
                   {dict.monitor.ampTabs.tabMatrixLimiter}
+                </TabsTrigger>
+                <TabsTrigger value="linking" className="h-7 w-full justify-center px-3">
+                  <Link2Icon className="size-4" />
+                  {dict.dialogs.linkingGroups.panelTitle}
                 </TabsTrigger>
                 <TabsTrigger value="preferences" className="h-7 w-full justify-center px-3">
                   <SlidersHorizontalIcon className="size-4" />
@@ -389,6 +417,15 @@ export function AmpTabs() {
               )}
             </TabsContent>
 
+            <TabsContent value="linking" className="p-4 mt-0">
+              <div className="overflow-hidden rounded-md border border-border/50 bg-background/30 p-2.5">
+                <LinkingPanel
+                  mac={selectedAmp.mac}
+                  channelCount={selectedAmp.channelParams?.channels.length ?? selectedAmp.constants.channels.length}
+                />
+              </div>
+            </TabsContent>
+
             <TabsContent value="preferences" className="p-4 mt-0">
               <Collapsible defaultOpen={false} className="mb-4">
                 <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-muted/50 transition-colors [&[data-state=open]>svg]:rotate-90">
@@ -453,11 +490,6 @@ export function AmpTabs() {
                   </dl>
                 </CollapsibleContent>
               </Collapsible>
-
-              <LinkingPanel
-                mac={selectedAmp.mac}
-                channelCount={selectedAmp.channelParams?.channels.length ?? selectedAmp.constants.channels.length}
-              />
 
               <div>
                 <ConfirmActionDialog

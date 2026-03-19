@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { useTabStore } from "@/stores/TabStore";
 import type { Dictionary } from "@/lib/i18n/dictionaries";
 
 interface AmpDevice {
@@ -23,11 +24,16 @@ interface ScannerPageProps {
 const formatCount = (text: string, count: number) => text.replace("{count}", String(count));
 
 export function ScannerPage({ dictionary }: ScannerPageProps) {
+  const setCurrentView = useTabStore((state) => state.setCurrentView);
   const [ampDevices, setAmpDevices] = useState<AmpDevice[]>([]);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [subnet, setSubnet] = useState<string>("");
   const [manualIp, setManualIp] = useState<string>("");
+
+  useEffect(() => {
+    setCurrentView("scanner");
+  }, [setCurrentView]);
 
   const handleScan = async (customSubnet?: string) => {
     setLoading(true);
