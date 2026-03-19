@@ -33,6 +33,7 @@ function waitForDevServer() {
         })
         .on("error", () => setTimeout(poll, 300));
     };
+
     poll();
   });
 }
@@ -141,9 +142,8 @@ ipcMain.handle("window:is-maximized", () => {
 // --- Lifecycle ------------------------------------------------------------
 
 app.whenReady().then(() => {
-  const serverReady = isDev ? waitForDevServer() : startServer();
-
   createWindow();
+  const serverReady = isDev ? waitForDevServer() : startServer();
 
   serverReady
     .then(async () => {
@@ -152,24 +152,23 @@ app.whenReady().then(() => {
       if (!mainWindow || mainWindow.isDestroyed()) return;
 
       try {
-        // Ask splash page to fade out before navigation.
-        const fadeMs = await mainWindow.webContents.executeJavaScript(
-          "window.startFadeOut ? window.startFadeOut() : 0"
-        );
-        setTimeout(
-          () => {
-            if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(url);
-          },
-          Number(fadeMs) || 0
-        );
+        await mainWindow.loadURL(url);
       } catch {
         // If JS execution fails, fall back to immediate navigation.
-        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(url);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          await mainWindow.loadURL(url);
+        }
       }
     })
     .catch((err) => {
       console.error("Failed to start app server:", err);
-      app.quit();
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        const safeMessage = JSON.stringify(String(err instanceof Error ? err.message : err));
+        void mainWindow.webContents.executeJavaScript(
+          `window.setSplashStatus ? window.setSplashStatus(${safeMessage}, true) : null`
+        );
+      }
     });
 });
 

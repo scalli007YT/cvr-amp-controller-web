@@ -406,6 +406,50 @@ export async function POST(request: Request): Promise<Response> {
       }
 
       // -----------------------------------------------------------------------
+      // Full 10-band EQ apply job — writes HP, EQ1-8, LP in sequence.
+      // This path intentionally applies the whole block to avoid partial-state
+      // drift across linked channels when users edit rapidly.
+      // -----------------------------------------------------------------------
+      case "eqBlock": {
+        const inOutFlag = body.target === "input" ? 0 : 1;
+
+        for (let idx = 0; idx < body.bands.length; idx++) {
+          const band = body.bands[idx];
+
+          if (idx === 0 || idx === 9) {
+            const kind = idx === 0 ? "hp" : "lp";
+
+            const typePayload = Buffer.from([getCrossoverTypeByte(kind, !band.bypass, band.type)]);
+            await device.sendControl(FuncCode.FILTER_TYPE, channel, typePayload, inOutFlag, getCrossoverLink(), idx);
+
+            const freqPayload = Buffer.alloc(4);
+            freqPayload.writeFloatLE(band.freq, 0);
+            await device.sendControl(FuncCode.FILTER_FREQ, channel, freqPayload, inOutFlag, getCrossoverLink(), idx);
+            continue;
+          }
+
+          const typeByte = band.bypass ? 255 - band.type : band.type;
+          const typePayload = Buffer.from([typeByte]);
+          await device.sendControl(FuncCode.FILTER_TYPE, channel, typePayload, inOutFlag, 0, idx);
+
+          const freqPayload = Buffer.alloc(4);
+          freqPayload.writeFloatLE(band.freq, 0);
+          await device.sendControl(FuncCode.FILTER_FREQ, channel, freqPayload, inOutFlag, 0, idx);
+
+          const gainPayload = Buffer.alloc(4);
+          gainPayload.writeFloatLE(band.gain, 0);
+          await device.sendControl(FuncCode.FILTER_GAIN, channel, gainPayload, inOutFlag, 0, idx);
+
+          const qPayload = Buffer.alloc(4);
+          qPayload.writeFloatLE(band.q, 0);
+          await device.sendControl(FuncCode.FILTER_Q, channel, qPayload, inOutFlag, 0, idx);
+        }
+
+        await device.commitCrossover();
+        break;
+      }
+
+      // -----------------------------------------------------------------------
       // Parametric EQ band type / bypass — FC=30 FILTER_TYPE
       // segment = band index (1-8).
       // Bypass encoding mirrors parse: enabled → type as-is; bypassed → 255 - type.

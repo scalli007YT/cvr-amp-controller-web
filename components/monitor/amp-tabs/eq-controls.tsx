@@ -60,18 +60,20 @@ function parseCrossoverDraft(raw: string): number {
 function CrossoverBandCell({
   idx,
   band,
+  bands,
   mac,
   channel,
   target
 }: {
   idx: number;
   band: EqBand;
+  bands: EqBand[];
   mac: string;
   channel: number;
   target: CrossoverTarget;
 }) {
   const kind: CrossoverKind = idx === 0 ? "hp" : "lp";
-  const { setCrossoverEnabled, setCrossoverFreq } = useAmpActions();
+  const { applyEqBlock } = useAmpActions();
   const [draft, setDraft] = useState(() => formatCrossoverDraft(band.freq));
   const [dirty, setDirty] = useState(false);
   const [pending, setPending] = useState(false);
@@ -104,18 +106,24 @@ function CrossoverBandCell({
     setDraft(formatCrossoverDraft(clamped));
     setDirty(false);
     markPending();
-    void setCrossoverFreq(mac, channel, target, kind, clamped);
+    const nextBands = bands.map((item) => ({ ...item }));
+    nextBands[idx] = { ...nextBands[idx], freq: clamped };
+    void applyEqBlock(mac, channel, target, nextBands);
   };
 
   const toggleEnabled = () => {
     markPending();
-    void setCrossoverEnabled(mac, channel, target, kind, !enabled, currentType);
+    const nextBands = bands.map((item) => ({ ...item }));
+    nextBands[idx] = { ...nextBands[idx], type: currentType, bypass: enabled };
+    void applyEqBlock(mac, channel, target, nextBands);
   };
 
   const handleTypeChange = (nextType: number) => {
     if (!Number.isInteger(nextType) || nextType < 0 || nextType > 10) return;
     markPending();
-    void setCrossoverEnabled(mac, channel, target, kind, enabled, nextType);
+    const nextBands = bands.map((item) => ({ ...item }));
+    nextBands[idx] = { ...nextBands[idx], type: nextType, bypass: !enabled };
+    void applyEqBlock(mac, channel, target, nextBands);
   };
 
   return (
@@ -174,17 +182,19 @@ function CrossoverBandCell({
 function EqBandCell({
   idx,
   band,
+  bands,
   mac,
   channel,
   target
 }: {
   idx: number;
   band: EqBand;
+  bands: EqBand[];
   mac: string;
   channel: number;
   target: CrossoverTarget;
 }) {
-  const { setEqBandType, setEqBandFreq, setEqBandGain, setEqBandQ } = useAmpActions();
+  const { applyEqBlock } = useAmpActions();
   const [freqDraft, setFreqDraft] = useState(() => formatCrossoverDraft(band.freq));
   const [gainDraft, setGainDraft] = useState(() => String(Math.round(band.gain * 10) / 10));
   const [qDraft, setQDraft] = useState(() => band.q.toFixed(2));
@@ -224,7 +234,9 @@ function EqBandCell({
     setFreqDraft(formatCrossoverDraft(clamped));
     setFreqDirty(false);
     markPending();
-    void setEqBandFreq(mac, channel, target, idx, clamped);
+    const nextBands = bands.map((item) => ({ ...item }));
+    nextBands[idx] = { ...nextBands[idx], freq: clamped };
+    void applyEqBlock(mac, channel, target, nextBands);
   };
 
   const commitGain = () => {
@@ -243,7 +255,9 @@ function EqBandCell({
     setGainDraft(String(Math.round(clamped * 10) / 10));
     setGainDirty(false);
     markPending();
-    void setEqBandGain(mac, channel, target, idx, clamped);
+    const nextBands = bands.map((item) => ({ ...item }));
+    nextBands[idx] = { ...nextBands[idx], gain: clamped };
+    void applyEqBlock(mac, channel, target, nextBands);
   };
 
   const commitQ = () => {
@@ -262,18 +276,24 @@ function EqBandCell({
     setQDraft(clamped.toFixed(2));
     setQDirty(false);
     markPending();
-    void setEqBandQ(mac, channel, target, idx, clamped);
+    const nextBands = bands.map((item) => ({ ...item }));
+    nextBands[idx] = { ...nextBands[idx], q: clamped };
+    void applyEqBlock(mac, channel, target, nextBands);
   };
 
   const handleTypeChange = (nextType: number) => {
     if (!Number.isInteger(nextType) || nextType < 0 || nextType > 10) return;
     markPending();
-    void setEqBandType(mac, channel, target, idx, nextType, band.bypass);
+    const nextBands = bands.map((item) => ({ ...item }));
+    nextBands[idx] = { ...nextBands[idx], type: nextType };
+    void applyEqBlock(mac, channel, target, nextBands);
   };
 
   const toggleBypass = () => {
     markPending();
-    void setEqBandType(mac, channel, target, idx, band.type, !band.bypass);
+    const nextBands = bands.map((item) => ({ ...item }));
+    nextBands[idx] = { ...nextBands[idx], bypass: !band.bypass };
+    void applyEqBlock(mac, channel, target, nextBands);
   };
 
   return (
@@ -419,6 +439,7 @@ function EqParamStrip({
                 <CrossoverBandCell
                   idx={idx}
                   band={band}
+                  bands={bands}
                   mac={mac as string}
                   channel={channel as number}
                   target={target as CrossoverTarget}
@@ -427,6 +448,7 @@ function EqParamStrip({
                 <EqBandCell
                   idx={idx}
                   band={band}
+                  bands={bands}
                   mac={mac as string}
                   channel={channel as number}
                   target={target as CrossoverTarget}
@@ -505,8 +527,7 @@ export function EqBandDialog({
   const [pendingChartPatches, setPendingChartPatches] = useState<Record<number, ChartPatch>>({});
   const { copyEq, pasteEq, canPasteEq, lastError } = useClipboardStore();
   const dict = useI18n();
-  const { setEqBandType, setEqBandFreq, setEqBandGain, setEqBandQ, setCrossoverEnabled, setCrossoverFreq } =
-    useAmpActions();
+  const { applyEqBlock } = useAmpActions();
   const isDraggingRef = useRef(false);
 
   const patchAppliedOnBand = (band: EqBand, patch: ChartPatch): boolean => {
@@ -579,25 +600,12 @@ export function EqBandDialog({
       return;
     }
 
-    // Apply each pasted band
-    pastedBands.forEach((pastedBand, idx) => {
-      if (!bands || !bands[idx]) return;
-
-      const isHpLp = idx === 0 || idx === 9;
-
-      if (isHpLp) {
-        // HP/LP crossover
-        const kind: CrossoverKind = idx === 0 ? "hp" : "lp";
-        void setCrossoverEnabled(mac, channel, target, kind, !pastedBand.bypass, pastedBand.type);
-        void setCrossoverFreq(mac, channel, target, kind, pastedBand.freq);
-      } else {
-        // Parametric EQ band
-        void setEqBandType(mac, channel, target, idx, pastedBand.type, pastedBand.bypass);
-        void setEqBandFreq(mac, channel, target, idx, pastedBand.freq);
-        void setEqBandGain(mac, channel, target, idx, pastedBand.gain);
-        void setEqBandQ(mac, channel, target, idx, pastedBand.q);
-      }
-    });
+    void applyEqBlock(
+      mac,
+      channel,
+      target,
+      pastedBands.map((band) => ({ ...band }))
+    );
 
     toast.success("Pasted EQ settings");
   };
@@ -620,25 +628,34 @@ export function EqBandDialog({
 
     const isHpLp = bandIdx === 0 || bandIdx === 9;
     const patch: ChartPatch = {};
+    const nextBands = bands.map((band) => ({ ...band }));
 
     if (next.freq !== undefined) {
       patch.freq = next.freq;
-      if (isHpLp) {
-        const kind: CrossoverKind = bandIdx === 0 ? "hp" : "lp";
-        void setCrossoverFreq(mac, channel, target, kind, next.freq);
-      } else {
-        void setEqBandFreq(mac, channel, target, bandIdx, next.freq);
-      }
+      nextBands[bandIdx] = {
+        ...nextBands[bandIdx],
+        freq: next.freq
+      };
     }
 
     if (!isHpLp && next.gain !== undefined) {
       patch.gain = next.gain;
-      void setEqBandGain(mac, channel, target, bandIdx, next.gain);
+      nextBands[bandIdx] = {
+        ...nextBands[bandIdx],
+        gain: next.gain
+      };
     }
 
     if (!isHpLp && next.q !== undefined) {
       patch.q = next.q;
-      void setEqBandQ(mac, channel, target, bandIdx, next.q);
+      nextBands[bandIdx] = {
+        ...nextBands[bandIdx],
+        q: next.q
+      };
+    }
+
+    if (patch.freq !== undefined || patch.gain !== undefined || patch.q !== undefined) {
+      void applyEqBlock(mac, channel, target, nextBands);
     }
 
     if (patch.freq !== undefined || patch.gain !== undefined || patch.q !== undefined) {

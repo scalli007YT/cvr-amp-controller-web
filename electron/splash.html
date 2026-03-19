@@ -68,6 +68,26 @@
           spin 0.85s linear 0.25s infinite;
       }
 
+      .status {
+        margin-top: 20px;
+        min-height: 16px;
+        max-width: 70vw;
+        text-align: center;
+        font-size: 12px;
+        line-height: 1.35;
+        color: #9d9d9d;
+        opacity: 0;
+        transition: opacity 160ms ease;
+      }
+
+      .status.visible {
+        opacity: 1;
+      }
+
+      .status.error {
+        color: #ff6b6b;
+      }
+
       @keyframes spin {
         to {
           transform: rotate(360deg);
@@ -84,7 +104,20 @@
     <img class="logo" src="../public/logo.ico" alt="" />
     <div class="title">AMP Controller</div>
     <div class="spinner"></div>
+    <div id="status" class="status" aria-live="polite"></div>
     <script>
+      window.setSplashStatus = (text, isError = false) => {
+        const el = document.getElementById("status");
+        if (!el) return;
+        el.textContent = String(text || "");
+        el.classList.add("visible");
+        if (isError) {
+          el.classList.add("error");
+        } else {
+          el.classList.remove("error");
+        }
+      };
+
       window.startFadeOut = () => {
         const durationMs = 220;
         document.body.classList.add("fading-out");

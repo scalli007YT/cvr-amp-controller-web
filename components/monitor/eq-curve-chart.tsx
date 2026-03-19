@@ -393,7 +393,7 @@ export function EqCurveChart({
         const visible = selected || hoverBand === m.idx || lingerBand === m.idx;
         const qCanAdjust = m.capabilities.supportsQ;
         const gainCanAdjust = m.capabilities.supportsGain;
-        const axisOffset = 18;
+        const axisOffset = 14;
         const qFreqLeft = clampFreq(m.freq / Math.pow(2, 1 / Math.max(m.q, 0.1)));
         const qFreqRight = clampFreq(m.freq * Math.pow(2, 1 / Math.max(m.q, 0.1)));
         const qLeftX = xScale(qFreqLeft);
@@ -430,7 +430,7 @@ export function EqCurveChart({
             <circle
               cx={cx}
               cy={cy}
-              r={20}
+              r={16}
               fill="transparent"
               pointerEvents="all"
               className="transition-opacity duration-200 ease-out"
@@ -442,7 +442,7 @@ export function EqCurveChart({
             <circle
               cx={cx}
               cy={cy}
-              r={11}
+              r={8}
               className="fill-background/90 stroke-border transition-colors duration-200 ease-out"
               strokeWidth={1.25}
               onPointerDown={(e) => beginDrag(e, m.idx, "xy")}
@@ -452,7 +452,7 @@ export function EqCurveChart({
             <circle
               cx={cx}
               cy={cy}
-              r={5}
+              r={3.5}
               className="fill-primary/85"
               onPointerDown={(e) => beginDrag(e, m.idx, "xy")}
               onMouseEnter={handleBandMouseEnter}
@@ -467,7 +467,7 @@ export function EqCurveChart({
               <circle
                 cx={cx - axisOffset}
                 cy={cy}
-                r={10}
+                r={8}
                 fill="transparent"
                 pointerEvents="all"
                 onPointerDown={(e) => beginDrag(e, m.idx, "x")}
@@ -476,7 +476,7 @@ export function EqCurveChart({
               <circle
                 cx={cx + axisOffset}
                 cy={cy}
-                r={10}
+                r={8}
                 fill="transparent"
                 pointerEvents="all"
                 onPointerDown={(e) => beginDrag(e, m.idx, "x")}
@@ -485,7 +485,7 @@ export function EqCurveChart({
               <circle
                 cx={cx - axisOffset}
                 cy={cy}
-                r={4}
+                r={3}
                 className="fill-background stroke-primary/80"
                 strokeWidth={1}
                 onPointerDown={(e) => beginDrag(e, m.idx, "x")}
@@ -494,7 +494,7 @@ export function EqCurveChart({
               <circle
                 cx={cx + axisOffset}
                 cy={cy}
-                r={4}
+                r={3}
                 className="fill-background stroke-primary/80"
                 strokeWidth={1}
                 onPointerDown={(e) => beginDrag(e, m.idx, "x")}
@@ -503,7 +503,7 @@ export function EqCurveChart({
               <circle
                 cx={cx}
                 cy={cy - axisOffset}
-                r={10}
+                r={8}
                 fill="transparent"
                 pointerEvents="all"
                 onPointerDown={(e) => beginDrag(e, m.idx, "y")}
@@ -512,7 +512,7 @@ export function EqCurveChart({
               <circle
                 cx={cx}
                 cy={cy + axisOffset}
-                r={10}
+                r={8}
                 fill="transparent"
                 pointerEvents="all"
                 onPointerDown={(e) => beginDrag(e, m.idx, "y")}
@@ -521,7 +521,7 @@ export function EqCurveChart({
               <circle
                 cx={cx}
                 cy={cy - axisOffset}
-                r={4}
+                r={3}
                 className={
                   gainCanAdjust ? "fill-background stroke-primary/80" : "fill-muted stroke-muted-foreground/50"
                 }
@@ -532,7 +532,7 @@ export function EqCurveChart({
               <circle
                 cx={cx}
                 cy={cy + axisOffset}
-                r={4}
+                r={3}
                 className={
                   gainCanAdjust ? "fill-background stroke-primary/80" : "fill-muted stroke-muted-foreground/50"
                 }
@@ -553,7 +553,7 @@ export function EqCurveChart({
                   <circle
                     cx={qLeftX}
                     cy={qLeftY}
-                    r={10}
+                    r={8}
                     fill="transparent"
                     pointerEvents="all"
                     onMouseEnter={handleBandMouseEnter}
@@ -563,7 +563,7 @@ export function EqCurveChart({
                   <circle
                     cx={qRightX}
                     cy={qRightY}
-                    r={10}
+                    r={8}
                     fill="transparent"
                     pointerEvents="all"
                     onMouseEnter={handleBandMouseEnter}
@@ -573,7 +573,7 @@ export function EqCurveChart({
                   <circle
                     cx={qLeftX}
                     cy={qLeftY}
-                    r={3.2}
+                    r={2.6}
                     className="fill-amber-400/95"
                     onMouseEnter={handleBandMouseEnter}
                     onPointerDown={(e) => beginDrag(e, m.idx, "qLeft")}
@@ -582,7 +582,7 @@ export function EqCurveChart({
                   <circle
                     cx={qRightX}
                     cy={qRightY}
-                    r={3.2}
+                    r={2.6}
                     className="fill-amber-400/95"
                     onMouseEnter={handleBandMouseEnter}
                     onPointerDown={(e) => beginDrag(e, m.idx, "qRight")}
@@ -593,7 +593,7 @@ export function EqCurveChart({
             </g>
             <text
               x={cx}
-              y={cy + 26}
+              y={cy + 22}
               textAnchor="middle"
               className="fill-muted-foreground transition-opacity duration-200 ease-out"
               opacity={visible ? 0 : 1}

@@ -30,6 +30,7 @@ import { getLinkedChannels, type LinkScope } from "@/lib/amp-action-linking";
 import { useAmpStore } from "@/stores/AmpStore";
 import { rmsToPeakVoltage } from "@/lib/generic";
 import { getStoredAmpLinkConfig, useAmpActionLinkStore } from "@/stores/AmpActionLinkStore";
+import type { EqBand } from "@/stores/AmpStore";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -78,6 +79,7 @@ interface AmpActionsHook {
     kind: CrossoverKind,
     hz: number
   ) => Promise<void>;
+  applyEqBlock: (mac: string, channel: Channel, target: CrossoverTarget, bands: EqBand[]) => Promise<void>;
   setEqBandType: (
     mac: string,
     channel: Channel,
@@ -573,6 +575,38 @@ export function useAmpActions(): AmpActionsHook {
     [sendLinked]
   );
 
+  const applyEqBlock = useCallback(
+    async (mac: string, channel: Channel, target: CrossoverTarget, bands: EqBand[]) => {
+      if (bands.length !== 10) {
+        toast.error("EQ job must contain exactly 10 bands");
+        return;
+      }
+
+      const normalizedBands = bands.map((band, idx) => {
+        const isHpLp = idx === 0 || idx === 9;
+        const clampedType = Number.isInteger(band.type) ? Math.max(0, Math.min(10, band.type)) : 0;
+        const clampedFreq = Math.max(CROSSOVER_FREQ_MIN_HZ, Math.min(CROSSOVER_FREQ_MAX_HZ, band.freq));
+        const clampedGain = Math.max(EQ_BAND_GAIN_MIN_DB, Math.min(EQ_BAND_GAIN_MAX_DB, band.gain));
+        const clampedQ = Math.max(EQ_BAND_Q_MIN, Math.min(EQ_BAND_Q_MAX, band.q));
+
+        return {
+          type: clampedType,
+          freq: clampedFreq,
+          // HP/LP bands do not use gain/Q on write path; keep values stable.
+          gain: isHpLp ? 0 : clampedGain,
+          q: isHpLp ? 0.7 : clampedQ,
+          bypass: Boolean(band.bypass)
+        };
+      });
+
+      await sendLinked(mac, "eqBlock", channel, 0, target === "input" ? "inputEq" : "outputEq", {
+        target,
+        bands: normalizedBands
+      });
+    },
+    [sendLinked]
+  );
+
   const setEqBandFreq = useCallback(
     async (mac: string, channel: Channel, target: CrossoverTarget, band: number, hz: number) => {
       const clamped = Math.max(CROSSOVER_FREQ_MIN_HZ, Math.min(CROSSOVER_FREQ_MAX_HZ, hz));
@@ -633,6 +667,7 @@ export function useAmpActions(): AmpActionsHook {
     setPowerModeOut,
     setCrossoverEnabled,
     setCrossoverFreq,
+    applyEqBlock,
     setEqBandType,
     setEqBandFreq,
     setEqBandGain,

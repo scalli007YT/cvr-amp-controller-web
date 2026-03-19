@@ -294,6 +294,28 @@ const eqBandQSchema = baseSchema.extend({
   band: eqBandIndexSchema
 });
 
+const eqBlockBandSchema = z.object({
+  type: z.number().int().min(0).max(10),
+  gain: z.number(),
+  freq: z
+    .number()
+    .min(CROSSOVER_FREQ_MIN_HZ, `eq band freq must be >= ${CROSSOVER_FREQ_MIN_HZ} Hz`)
+    .max(CROSSOVER_FREQ_MAX_HZ, `eq band freq must be <= ${CROSSOVER_FREQ_MAX_HZ} Hz`),
+  q: z
+    .number()
+    .min(EQ_BAND_Q_MIN, `eq band Q must be >= ${EQ_BAND_Q_MIN}`)
+    .max(EQ_BAND_Q_MAX, `eq band Q must be <= ${EQ_BAND_Q_MAX}`),
+  bypass: z.boolean()
+});
+
+const eqBlockSchema = baseSchema.extend({
+  action: z.literal("eqBlock"),
+  // Reserved placeholder to stay compatible with existing request helper shape.
+  value: z.number().optional(),
+  target: eqTargetSchema,
+  bands: z.array(eqBlockBandSchema).length(10, "eqBlock must contain exactly 10 bands")
+});
+
 const renameAmpSchema = z.object({
   mac: z.string().trim().min(1, "Missing mac"),
   action: z.literal("renameAmp"),
@@ -327,6 +349,7 @@ export const ampActionRequestSchema = z.union([
   bridgePairSchema,
   crossoverEnabledSchema,
   crossoverFreqSchema,
+  eqBlockSchema,
   eqBandTypeSchema,
   eqBandFreqSchema,
   eqBandGainSchema,
