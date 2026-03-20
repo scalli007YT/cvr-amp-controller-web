@@ -41,15 +41,30 @@ interface UseAmpPresetsReturn {
  *   await fetchPresets(amp.mac);
  */
 export function useAmpPresets(): UseAmpPresetsReturn {
-  const { amps, setPresets, updateAmpStatus } = useAmpStore();
+  const setPresets = useAmpStore((state) => state.setPresets);
+  const updateAmpStatus = useAmpStore((state) => state.updateAmpStatus);
   const [fetching, setFetching] = useState(false);
   const [recallingSlot, setRecallingSlot] = useState<number | null>(null);
   const [storingSlot, setStoringSlot] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const getAmp = useCallback((mac: string) => useAmpStore.getState().amps.find((amp) => amp.mac === mac), []);
+
+  const syncCurrentPreset = useCallback(
+    (mac: string, currentPreset: string | null | undefined) => {
+      if (typeof currentPreset !== "string") return;
+
+      const amp = getAmp(mac);
+      if (amp?.current_preset === currentPreset) return;
+
+      updateAmpStatus(mac, { current_preset: currentPreset });
+    },
+    [getAmp, updateAmpStatus]
+  );
+
   const fetchPresets = useCallback(
     async (mac: string) => {
-      const amp = amps.find((a) => a.mac === mac);
+      const amp = getAmp(mac);
 
       if (!amp?.ip) {
         setError("No IP address known for this amp yet. Wait for a poll cycle.");
@@ -86,8 +101,8 @@ export function useAmpPresets(): UseAmpPresetsReturn {
             currentPreset?: string | null;
           };
 
-          if (currentRes.ok && currentData.success && typeof currentData.currentPreset === "string") {
-            updateAmpStatus(mac, { current_preset: currentData.currentPreset });
+          if (currentRes.ok && currentData.success) {
+            syncCurrentPreset(mac, currentData.currentPreset);
           }
         } else {
           setError(data.error ?? "Unknown error from server");
@@ -98,12 +113,12 @@ export function useAmpPresets(): UseAmpPresetsReturn {
         setFetching(false);
       }
     },
-    [amps, setPresets, updateAmpStatus]
+    [getAmp, setPresets, syncCurrentPreset]
   );
 
   const refreshCurrentPreset = useCallback(
     async (mac: string) => {
-      const amp = amps.find((a) => a.mac === mac);
+      const amp = getAmp(mac);
       if (!amp?.ip) return;
 
       try {
@@ -118,21 +133,21 @@ export function useAmpPresets(): UseAmpPresetsReturn {
           currentPreset?: string | null;
         };
 
-        if (currentRes.ok && currentData.success && typeof currentData.currentPreset === "string") {
-          updateAmpStatus(mac, { current_preset: currentData.currentPreset });
+        if (currentRes.ok && currentData.success) {
+          syncCurrentPreset(mac, currentData.currentPreset);
         }
       } catch {
         // Non-critical background refresh.
       }
     },
-    [amps, updateAmpStatus]
+    [getAmp, syncCurrentPreset]
   );
 
   const clearError = useCallback(() => setError(null), []);
 
   const recallPreset = useCallback(
     async (mac: string, slot: number, name?: string) => {
-      const amp = amps.find((a) => a.mac === mac);
+      const amp = getAmp(mac);
 
       if (!amp?.ip) {
         const message = "No IP address known for this amp yet. Wait for a poll cycle.";
@@ -171,8 +186,8 @@ export function useAmpPresets(): UseAmpPresetsReturn {
           currentPreset?: string | null;
         };
 
-        if (currentRes.ok && currentData.success && typeof currentData.currentPreset === "string") {
-          updateAmpStatus(mac, { current_preset: currentData.currentPreset });
+        if (currentRes.ok && currentData.success) {
+          syncCurrentPreset(mac, currentData.currentPreset);
         } else {
           const fallbackName = amp.presets?.find((preset) => preset.slot === slot)?.name?.trim() || name?.trim();
           if (fallbackName) {
@@ -191,12 +206,12 @@ export function useAmpPresets(): UseAmpPresetsReturn {
         setRecallingSlot(null);
       }
     },
-    [amps, updateAmpStatus]
+    [getAmp, syncCurrentPreset, updateAmpStatus]
   );
 
   const storePreset = useCallback(
     async (mac: string, slot: number, name: string) => {
-      const amp = amps.find((a) => a.mac === mac);
+      const amp = getAmp(mac);
 
       if (!amp?.ip) {
         const message = "No IP address known for this amp yet. Wait for a poll cycle.";
@@ -262,7 +277,7 @@ export function useAmpPresets(): UseAmpPresetsReturn {
         setStoringSlot(null);
       }
     },
-    [amps, setPresets]
+    [getAmp, setPresets]
   );
 
   return {
