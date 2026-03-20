@@ -288,6 +288,17 @@ function makeAmp(config: AmpConfig): Amp {
   return { ...config, reachable: false };
 }
 
+function clearTransientStatus(amp: Amp): Amp {
+  return {
+    ...amp,
+    reachable: false,
+    ip: undefined,
+    heartbeat: undefined,
+    bridgePairs: undefined,
+    channelFlags: undefined
+  };
+}
+
 function mergeAmpConfig(config: AmpConfig, existing?: Amp): Amp {
   if (!existing) return makeAmp(config);
 
@@ -402,7 +413,8 @@ export const useAmpStore = create<AmpStore>()(
         set((state) => ({
           amps: state.amps.map((amp) => {
             if (amp.mac !== mac) return amp;
-            const updated: Amp = { ...amp, ...status };
+            const updated: Amp =
+              status.reachable === false ? clearTransientStatus({ ...amp, ...status }) : { ...amp, ...status };
             // Persist last known name when device is reachable and has a name
             if (status.name && status.reachable !== false) {
               updated.lastKnownName = status.name;
@@ -505,6 +517,16 @@ export const useAmpStore = create<AmpStore>()(
     {
       name: "amp-store",
       storage: createJSONStorage(() => localStorage),
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<AmpStore> | undefined;
+        return {
+          ...currentState,
+          ...persisted,
+          amps: Array.isArray(persisted?.amps)
+            ? persisted.amps.map((amp) => clearTransientStatus(amp))
+            : currentState.amps
+        };
+      },
       partialize: (state) => ({ amps: state.amps })
     }
   )

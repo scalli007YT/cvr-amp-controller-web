@@ -27,6 +27,7 @@
     },
     "ampTabs": {
       "noAmpsAssigned": "Keine Verstärker zugewiesen. Füge Verstärker hinzu, um zu starten.",
+      "assignAction": "Zuweisen",
       "ampRack": "Verstärker-Rack",
       "devicesCount": "{count} Geräte",
       "connected": "Verbunden",

@@ -27,6 +27,7 @@
     },
     "ampTabs": {
       "noAmpsAssigned": "No amps assigned. Add amps to start monitoring.",
+      "assignAction": "Assign",
       "ampRack": "Amp Rack",
       "devicesCount": "{count} Devices",
       "connected": "Connected",

@@ -17,6 +17,7 @@ import { HeartbeatDashboard } from "@/components/monitor/amp-tabs/heartbeat-dash
 import { LinkingPanel } from "@/components/monitor/amp-tabs/linking-panel";
 import { LimiterBlock } from "@/components/monitor/amp-tabs/limiter-panel";
 import { MatrixGrid } from "@/components/monitor/amp-tabs/matrix-grid";
+import { AssignAmpsDialog } from "@/components/dialogs/assign-amps-dialog";
 import { SourceConfigDialog } from "@/components/dialogs/source-config-dialog";
 import { CopyJsonButton, JsonTree, type JsonValue } from "@/components/monitor/amp-tabs/json-viewer";
 import { useI18n } from "@/components/layout/i18n-provider";
@@ -203,8 +204,15 @@ export function AmpTabs() {
 
   if (!amps || amps.length === 0) {
     return (
-      <div className="rounded-xl border border-border/50 bg-muted/20 px-6 py-12 text-center text-sm text-muted-foreground">
-        {dict.monitor.ampTabs.noAmpsAssigned}
+      <div className="flex flex-col items-center rounded-xl border border-border/50 bg-muted/20 px-6 py-12 text-center text-sm text-muted-foreground">
+        <p className="w-full max-w-sm">{dict.monitor.ampTabs.noAmpsAssigned}</p>
+        <AssignAmpsDialog
+          trigger={
+            <Button variant="outline" className="mt-4 w-full max-w-sm">
+              {dict.monitor.ampTabs.assignAction}
+            </Button>
+          }
+        />
       </div>
     );
   }

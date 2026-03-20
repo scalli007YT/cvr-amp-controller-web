@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { useProjectStore } from "@/stores/ProjectStore";
 import { useAmpStore } from "@/stores/AmpStore";
@@ -29,7 +30,11 @@ interface ScannedDevice {
   runtime: string;
 }
 
-export function AssignAmpsDialog() {
+interface AssignAmpsDialogProps {
+  trigger?: ReactNode;
+}
+
+export function AssignAmpsDialog({ trigger }: AssignAmpsDialogProps) {
   const dict = useI18n();
   const { selectedProject, projects, addAmpToProject, deleteAmpFromProject } = useProjectStore();
   const { amps, getDisplayName } = useAmpStore();
@@ -147,13 +152,15 @@ export function AssignAmpsDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          {dict.dialogs.assignAmps.manageAmps}
-          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            {reachableAmps}/{totalAmps}
-            <span className={`inline-block w-2 h-2 rounded-full ${statusColor}`} />
-          </span>
-        </Button>
+        {trigger ?? (
+          <Button variant="outline" size="sm" className="gap-2">
+            {dict.dialogs.assignAmps.manageAmps}
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {reachableAmps}/{totalAmps}
+              <span className={`inline-block w-2 h-2 rounded-full ${statusColor}`} />
+            </span>
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
