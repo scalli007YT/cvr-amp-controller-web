@@ -128,8 +128,8 @@ export const useProjectStore = create<ProjectStore>()(
           if (data.success) {
             get().setProjects(data.projects);
           }
-        } catch (err) {
-          console.error("Failed to load projects:", err);
+        } catch {
+          // silently ignore
         } finally {
           set({ loading: false });
         }

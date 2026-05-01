@@ -36,7 +36,6 @@ import {
   calcCheckCode,
   FRAGMENT_SIZE
 } from "@/lib/network/protocol";
-import { ampLog } from "@/lib/amp-logger";
 
 // ---------------------------------------------------------------------------
 // Constants — matching original C# values exactly
@@ -315,8 +314,7 @@ class AmpController extends EventEmitter {
     void this.network.stop();
   }
 
-  private _handleNetworkError(err: Error): void {
-    console.error("[AmpController] network error", err);
+  private _handleNetworkError(_err: Error): void {
     if (!this.running) return;
 
     this._clearTimers();
@@ -372,10 +370,7 @@ class AmpController extends EventEmitter {
    * @param inOutFlag  StructHeader byte 5: 0=input, 1=output (default 0)
    */
   sendCommand(ip: string, fc: number, chx: number, body: Buffer, inOutFlag = 0): void {
-    if (!this.network.isStarted) {
-      console.warn("[AmpController] sendCommand: socket not ready");
-      return;
-    }
+    if (!this.network.isStarted) return;
     try {
       const packet = this.network.buildProtocolPacket({
         functionCode: fc,
@@ -386,11 +381,9 @@ class AmpController extends EventEmitter {
         link: 0,
         inOutFlag
       });
-      void this.network.sendRaw_shouldBeReplacedWithSendPacket(packet, 0, packet.length, ip, false).catch((err) => {
-        console.error("[AmpController] sendCommand send error:", err);
-      });
-    } catch (err) {
-      console.error("[AmpController] sendCommand error:", err);
+      void this.network.sendRaw_shouldBeReplacedWithSendPacket(packet, 0, packet.length, ip, false).catch(() => {});
+    } catch {
+      // Silently ignore send failures
     }
   }
 
@@ -461,7 +454,7 @@ class AmpController extends EventEmitter {
       setTimeout(sendProbe, 600);
       setTimeout(sendProbe, 800);
     } else {
-      console.warn(`[AmpController.probeIp] Socket not ready, cannot probe ${ip}`);
+      // Socket not ready
     }
   }
 
@@ -713,8 +706,7 @@ class AmpController extends EventEmitter {
       // one adapter, breaking amps on any other subnet — especially strict on macOS.
       try {
         await this.network.start("0.0.0.0");
-      } catch (err) {
-        console.error("[AmpController] Failed to bind socket:", err);
+      } catch {
         return;
       }
 
@@ -768,7 +760,6 @@ class AmpController extends EventEmitter {
 
     const decoded = this.network.decodeAssembled(assembled);
     if (!decoded) {
-      console.warn(`[AmpController._onPacket] Failed to decode from ${ip}`);
       return;
     }
 
@@ -800,10 +791,7 @@ class AmpController extends EventEmitter {
         // re-prepend a synthetic NetworkData so offsets are correct
         const withNd = prependNetworkHeaderToAssembled(rawAssembled, machineMode);
         const event = parseDiscoveryPacket(withNd, ip);
-        if (!event) {
-          console.warn(`[_dispatchFC] Failed to parse discovery from ${ip}`);
-          return;
-        }
+        if (!event) return;
 
         this.currentWindowMacs.add(event.mac);
         this.knownMacs.set(event.mac, {
@@ -816,12 +804,6 @@ class AmpController extends EventEmitter {
         // Remember MAC→IP for cross-subnet unicast probing (survives offline)
         this.rememberedIps.set(event.mac, ip);
 
-        ampLog(event.mac, "DISCOVERY", {
-          ip,
-          name: event.name,
-          version: event.version,
-          ...event.basicInfo
-        });
         this.emit("discovery", event satisfies DiscoveryEvent);
         break;
       }
@@ -1034,7 +1016,6 @@ class AmpController extends EventEmitter {
           this.knownMacs.delete(mac);
           this.lastHeartbeatAt.delete(mac);
           this.bridgePairsByMac.delete(mac);
-          ampLog(mac, "OFFLINE", { reason: "discovery_window" });
           this.emit("offline", { mac } satisfies OfflineEvent);
         }
       });
@@ -1057,9 +1038,7 @@ class AmpController extends EventEmitter {
     for (const target of await getDirectedBroadcasts()) {
       void this.network
         .sendRaw_shouldBeReplacedWithSendPacket(this.discoveryPacket, 0, this.discoveryPacket.length, target, true)
-        .catch((err) => {
-          console.error("[AmpController] _sendDiscovery error:", err);
-        });
+        .catch(() => {});
     }
   }
 
@@ -1080,7 +1059,6 @@ class AmpController extends EventEmitter {
         this.lastHeartbeatAt.delete(mac);
         this.currentWindowMacs.delete(mac);
         this.bridgePairsByMac.delete(mac);
-        ampLog(mac, "OFFLINE", { reason: "heartbeat_timeout" });
         this.emit("offline", { mac } satisfies OfflineEvent);
       }
     });

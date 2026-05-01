@@ -13,7 +13,6 @@ import { smoothHeartbeat, resetSmootherForMac } from "@/lib/heartbeat-smoother";
 import { ratedRmsVFromDeviceName } from "@/lib/amp-model";
 import { deriveSourceCapabilities } from "@/lib/source-capabilities";
 
-
 // ---------------------------------------------------------------------------
 // SSE event shapes (mirroring what /api/amp-events sends)
 // ---------------------------------------------------------------------------

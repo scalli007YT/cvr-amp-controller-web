@@ -16,7 +16,7 @@ import {
   Lock,
   LockOpen,
   Power,
-  PowerOff,
+  PowerOff
 } from "lucide-react";
 import { AssignAmpsDialog } from "@/components/dialogs/assign-amps-dialog";
 import { StatusLed } from "@/components/custom/status-led";
@@ -37,7 +37,7 @@ import { LinkingPanel } from "@/components/monitor/amp-tabs/linking-panel";
 import { SpeakerLibraryBrowser } from "@/components/monitor/amp-tabs/speaker-library-browser";
 import { SpeakerModelDraft } from "@/components/monitor/amp-tabs/speaker-device";
 import { SpeakerControlBar } from "@/components/monitor/amp-tabs/speaker-control-bar";
-
+import { dispatch } from "@/lib/queue-dispatch";
 
 export function AmpTabs() {
   const dict = useI18n();
@@ -121,14 +121,18 @@ export function AmpTabs() {
 
     setRenaming(true);
     try {
-      const response = await fetch("/api/amp-actions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mac: selectedAmp.mac, action: "renameAmp", channel: 0, value: nextName })
+      const packet = await dispatch({
+        origin: "amp-tabs.renameAmp",
+        action: "renameAmp",
+        priority: "reliable",
+        targets: [{ mac: selectedAmp.mac, channel: 0 }],
+        endpoint: "/api/amp-actions",
+        buildPayload: () => ({ mac: selectedAmp.mac, action: "renameAmp", channel: 0, value: nextName }),
+        suppressToast: true,
+        throwOnError: true
       });
-      if (!response.ok) {
-        const data = (await response.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error ?? `HTTP ${response.status}`);
+      if (packet.status === "failed") {
+        throw new Error(packet.steps[0]?.error ?? "Rename failed");
       }
       updateAmpStatus(selectedAmp.mac, { name: nextName, lastKnownName: nextName });
       setRenameDraft(nextName);
@@ -349,7 +353,6 @@ export function AmpTabs() {
                   <LibraryBig className="size-4 shrink-0" />
                   <span className="hidden sm:inline">Speaker Config</span>
                 </TabsTrigger>
-
               </TabsList>
             </div>
 
@@ -410,8 +413,6 @@ export function AmpTabs() {
                 <SpeakerLibraryBrowser isActive={activeSection === "speaker-config"} />
               </div>
             </TabsContent>
-
-
           </Tabs>
         </div>
       )}

@@ -123,8 +123,8 @@ export async function GET() {
           const content = await fs.readFile(filePath, "utf-8");
           const project = normalizeProject(JSON.parse(content) as Project);
           projects.push(project);
-        } catch (fileErr) {
-          console.error(`[projects] Skipping corrupt file ${file}:`, fileErr);
+        } catch {
+          // Skip corrupt files
         }
       }
     }

@@ -51,7 +51,6 @@ import { applySimulatedAction, isSimulatedMac } from "@/lib/simulated-amps";
 import { ampActionRequestSchema, type AmpActionRequest } from "@/lib/validation/amp-actions";
 import { AMP_NAME_MAX_LENGTH, CHANNEL_NAME_MAX_LENGTH } from "@/lib/constants";
 import { FIR_MAX_TAPS, FIR_NAME_MAX_BYTES } from "@/lib/fir";
-import { ampLog } from "@/lib/amp-logger";
 
 export const dynamic = "force-dynamic";
 
@@ -109,13 +108,8 @@ export async function POST(request: Request): Promise<Response> {
   const body: AmpActionRequest = parsed.data;
   const { mac, action, channel, value } = body;
 
-  // Log the incoming user action (all fields, no redaction)
-  const { mac: _logMac, ...logFields } = body;
-  ampLog(mac, "UI_ACTION", logFields as Record<string, unknown>);
-
   if (isSimulatedMac(mac)) {
     applySimulatedAction(mac, body);
-    ampLog(mac, "API_OK", { action, channel, simulated: true });
     return Response.json({ ok: true, mac, action, channel, value, simulated: true });
   }
 
@@ -646,8 +640,6 @@ export async function POST(request: Request): Promise<Response> {
     }
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    console.error("[amp-actions] sendControl error:", err);
-    ampLog(mac, "API_ERR", { action, channel, error: errMsg });
     return Response.json(
       {
         error: `Command failed: ${errMsg}`
@@ -656,6 +648,5 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  ampLog(mac, "API_OK", { action, channel });
   return Response.json({ ok: true, mac, action, channel, value });
 }

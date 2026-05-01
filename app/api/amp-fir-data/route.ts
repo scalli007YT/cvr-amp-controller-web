@@ -80,7 +80,6 @@ export async function GET(request: Request): Promise<Response> {
       coefficients
     });
   } catch (err) {
-    console.error("[amp-fir-data] Error:", err);
     return Response.json(
       { error: `FIR query failed: ${err instanceof Error ? err.message : String(err)}` },
       { status: 502 }

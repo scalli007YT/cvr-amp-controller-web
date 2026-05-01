@@ -43,9 +43,7 @@ export function Header({ lang, dictionary, projects = [], loading = false }: Hea
   const [deleteProject, setDeleteProject] = useState<Project | null>(null);
 
   const monitorHref = `/${lang}/control`;
-  const navLinks = [
-    { label: dictionary.monitor, href: monitorHref }
-  ];
+  const navLinks = [{ label: dictionary.monitor, href: monitorHref }];
 
   useEffect(() => {
     setMounted(true);

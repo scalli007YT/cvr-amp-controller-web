@@ -71,13 +71,8 @@ export async function GET(request: Request) {
         const { identifier, runtime } = parseSNTableBody(snBody);
         foundDevices[idx].identifier = identifier;
         foundDevices[idx].runtime = runtime;
-      } catch (err) {
+      } catch {
         // Keep device discovered via AmpController even if enrichment fails.
-        console.warn(
-          `[scan] Enrichment failed for ${device.mac} @ ${device.ip}: ${
-            err instanceof Error ? err.message : String(err)
-          }`
-        );
       }
     }
 

@@ -31,6 +31,7 @@ import {
 } from "@/lib/fir";
 import { Upload, Download, Trash2 } from "lucide-react";
 import { ChannelButtonGroup } from "@/components/custom/channel-button-group";
+import { dispatch } from "@/lib/queue-dispatch";
 
 // ---------------------------------------------------------------------------
 // Default state per channel
@@ -394,18 +395,21 @@ export function FirFilterDialog({ mac, channel, title, triggerClassName, channel
   const order = getFirOrder(coefficients);
   const timeZero = useMemo(() => computeFirTimeZero(coefficients), [coefficients]);
 
-  // Shared amp-action POST helper to keep request/error handling consistent.
+  // Shared amp-action POST helper routed through the queue engine.
   const postAmpAction = useCallback(
     async (payload: Record<string, unknown>) => {
-      const response = await fetch("/api/amp-actions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mac, ...payload })
+      const packet = await dispatch({
+        origin: "fir-filter-panel.postAmpAction",
+        action: (payload.action as string) ?? "firAction",
+        priority: "reliable",
+        targets: [{ mac, channel: (payload.channel as number) ?? 0 }],
+        endpoint: "/api/amp-actions",
+        buildPayload: () => ({ mac, ...payload }),
+        suppressToast: true,
+        throwOnError: true
       });
-
-      if (!response.ok) {
-        const data = (await response.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error ?? `HTTP ${response.status}`);
+      if (packet.status === "failed") {
+        throw new Error(packet.steps[0]?.error ?? "FIR action failed");
       }
     },
     [mac]

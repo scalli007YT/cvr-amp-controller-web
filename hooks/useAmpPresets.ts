@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useAmpStore } from "@/stores/AmpStore";
 import type { AmpPreset } from "@/stores/AmpStore";
 import { presetNameSchema, presetStoreRequestSchema } from "@/lib/validation/presets";
+import { dispatch } from "@/lib/queue-dispatch";
 
 // ---------------------------------------------------------------------------
 // Hook interface
@@ -177,19 +178,19 @@ export function useAmpPresets(): UseAmpPresetsReturn {
       setError(null);
 
       try {
-        const res = await fetch("/api/amp-presets/recall", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ip: amp.ip, mac, slot })
+        const packet = await dispatch({
+          origin: "useAmpPresets.recallPreset",
+          action: "recallPreset",
+          priority: "reliable",
+          targets: [{ mac }],
+          endpoint: "/api/amp-presets/recall",
+          buildPayload: () => ({ ip: amp.ip, mac, slot }),
+          suppressToast: true,
+          throwOnError: true
         });
 
-        const data = (await res.json()) as {
-          success: boolean;
-          error?: string;
-        };
-
-        if (!res.ok || !data.success) {
-          throw new Error(data.error ?? `HTTP ${res.status}`);
+        if (packet.status === "failed") {
+          throw new Error(packet.steps[0]?.error ?? "Recall failed");
         }
 
         // Optimistic update: set the preset name immediately from known slot data
@@ -271,19 +272,19 @@ export function useAmpPresets(): UseAmpPresetsReturn {
           throw new Error(payloadValidation.error.issues[0]?.message ?? "Invalid store request");
         }
 
-        const res = await fetch("/api/amp-presets/store", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payloadValidation.data)
+        const packet = await dispatch({
+          origin: "useAmpPresets.storePreset",
+          action: "storePreset",
+          priority: "reliable",
+          targets: [{ mac }],
+          endpoint: "/api/amp-presets/store",
+          buildPayload: () => payloadValidation.data,
+          suppressToast: true,
+          throwOnError: true
         });
 
-        const data = (await res.json()) as {
-          success: boolean;
-          error?: string;
-        };
-
-        if (!res.ok || !data.success) {
-          throw new Error(data.error ?? `HTTP ${res.status}`);
+        if (packet.status === "failed") {
+          throw new Error(packet.steps[0]?.error ?? "Store failed");
         }
 
         if (amp.presets) {
@@ -321,14 +322,17 @@ export function useAmpPresets(): UseAmpPresetsReturn {
       setError(null);
 
       try {
-        const res = await fetch("/api/amp-presets/clear-all", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ip: amp.ip, mac })
+        const packet = await dispatch({
+          origin: "useAmpPresets.clearAllPresets",
+          action: "clearAllPresets",
+          priority: "reliable",
+          targets: [{ mac }],
+          endpoint: "/api/amp-presets/clear-all",
+          buildPayload: () => ({ ip: amp.ip, mac }),
+          suppressToast: true,
+          throwOnError: true
         });
-
-        const data = (await res.json()) as { success: boolean; error?: string };
-        if (!res.ok || !data.success) throw new Error(data.error ?? `HTTP ${res.status}`);
+        if (packet.status === "failed") throw new Error(packet.steps[0]?.error ?? "Clear failed");
 
         setPresets(mac, []);
         toast.success("All presets cleared");
@@ -359,14 +363,17 @@ export function useAmpPresets(): UseAmpPresetsReturn {
       setError(null);
 
       try {
-        const res = await fetch("/api/amp-presets/factory-reset", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ip: amp.ip, mac })
+        const packet = await dispatch({
+          origin: "useAmpPresets.factoryReset",
+          action: "factoryReset",
+          priority: "reliable",
+          targets: [{ mac }],
+          endpoint: "/api/amp-presets/factory-reset",
+          buildPayload: () => ({ ip: amp.ip, mac }),
+          suppressToast: true,
+          throwOnError: true
         });
-
-        const data = (await res.json()) as { success: boolean; error?: string };
-        if (!res.ok || !data.success) throw new Error(data.error ?? `HTTP ${res.status}`);
+        if (packet.status === "failed") throw new Error(packet.steps[0]?.error ?? "Factory reset failed");
 
         toast.success("Factory reset sent to device");
         return true;
@@ -384,21 +391,17 @@ export function useAmpPresets(): UseAmpPresetsReturn {
 
   const muteOutputsForExport = useCallback(async (mac: string, channelIndices: number[]) => {
     try {
-      await Promise.all(
-        channelIndices.map((ch) =>
-          fetch("/api/amp-actions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ mac, channel: ch, action: "volumeOut", value: -80 })
-          }).then(async (res) => {
-            if (!res.ok) {
-              const d = (await res.json()) as { error?: string };
-              throw new Error(d.error ?? `volumeOut ch${ch} failed`);
-            }
-          })
-        )
-      );
-      return true;
+      const packet = await dispatch({
+        origin: "useAmpPresets.muteOutputsForExport",
+        action: "volumeOut",
+        priority: "reliable",
+        targets: channelIndices.map((ch) => ({ mac, channel: ch })),
+        endpoint: "/api/amp-actions",
+        buildPayload: (t) => ({ mac: t.mac, channel: t.channel, action: "volumeOut", value: -80 }),
+        suppressToast: true,
+        throwOnError: true
+      });
+      return packet.status === "completed";
     } catch (err) {
       const message = err instanceof Error ? err.message : "Mute failed";
       setError(message);

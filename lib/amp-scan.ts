@@ -106,13 +106,12 @@ export async function broadcastDiscovery(): Promise<Array<{ ip: string; mac: str
             .trim();
 
           devices.set(mac, { ip: rinfo.address, mac, name, version });
-        } catch (err) {
-          console.error("[DISCOVERY] Error parsing message:", err);
+        } catch {
+          // skip malformed packets
         }
       });
 
-      socket.on("error", (err) => {
-        console.error("[DISCOVERY] Socket error:", err);
+      socket.on("error", () => {
         clearTimeout(timeoutHandle);
         try {
           socket.close();
@@ -166,14 +165,9 @@ export async function broadcastDiscovery(): Promise<Array<{ ip: string; mac: str
           // are discovered regardless of which subnet/adapter they're on.
           const broadcastAddrs = getDirectedBroadcasts();
           for (const addr of broadcastAddrs) {
-            socket.send(packet, 0, packet.length, AMP_PORT, addr, (err) => {
-              if (err) {
-                console.error(`[broadcastDiscovery] Send error on ${addr}:`, err);
-              }
-            });
+            socket.send(packet, 0, packet.length, AMP_PORT, addr, () => {});
           }
-        } catch (err) {
-          console.error("[DISCOVERY] Failed to build or send packet:", err);
+        } catch {
           clearTimeout(timeoutHandle);
           try {
             socket.close();
@@ -182,17 +176,14 @@ export async function broadcastDiscovery(): Promise<Array<{ ip: string; mac: str
         }
       });
 
-      // Handle bind errors
-      socket.on("error", (err) => {
-        console.error("[DISCOVERY] Bind error:", err);
+      socket.on("error", () => {
         clearTimeout(timeoutHandle);
         try {
           socket.close();
         } catch {}
         resolve([]);
       });
-    } catch (err) {
-      console.error("[DISCOVERY] Failed to create socket:", err);
+    } catch {
       resolve([]);
     }
   });

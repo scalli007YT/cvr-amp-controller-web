@@ -311,7 +311,6 @@ function buildSourceTypeLabel(key: "analog" | "dante" | "aes3" | "backup", index
  */
 export function parseFC27Channels(hexData: string, capabilities?: SourceCapabilities): ChannelData[] {
   if (!hexData || hexData.length < 200) {
-    console.warn(`FC=27 data too short: ${hexData.length} chars (need ≥200)`);
     return [];
   }
 
@@ -346,8 +345,7 @@ export function parseFC27Channels(hexData: string, capabilities?: SourceCapabili
     }
 
     return channels;
-  } catch (err) {
-    console.error(`Failed to parse FC=27 data:`, err);
+  } catch {
     return [];
   }
 }
@@ -642,8 +640,7 @@ function parseChannelFromBuffer(
       eqOut,
       firBypassed
     };
-  } catch (err) {
-    console.error(`Failed to parse channel ${channelNum}:`, err);
+  } catch {
     return null;
   }
 }

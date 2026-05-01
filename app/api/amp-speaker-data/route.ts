@@ -91,7 +91,6 @@ export async function GET(request: Request): Promise<Response> {
       parsed
     });
   } catch (err) {
-    console.error("[amp-speaker-data] Error:", err);
     return Response.json(
       { error: `FC=57 query failed: ${err instanceof Error ? err.message : String(err)}` },
       { status: 502 }
