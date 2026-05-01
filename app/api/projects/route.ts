@@ -113,14 +113,19 @@ export async function GET() {
     // Read all files in the projects directory
     const files = await fs.readdir(projectsDir);
 
-    // Filter for JSON files and read them
+    // Filter for JSON files and read them — skip any corrupt files so one bad
+    // file never silently blocks loading all other projects.
     const projects: Project[] = [];
     for (const file of files) {
       if (file.endsWith(".json")) {
         const filePath = path.join(projectsDir, file);
-        const content = await fs.readFile(filePath, "utf-8");
-        const project = normalizeProject(JSON.parse(content) as Project);
-        projects.push(project);
+        try {
+          const content = await fs.readFile(filePath, "utf-8");
+          const project = normalizeProject(JSON.parse(content) as Project);
+          projects.push(project);
+        } catch (fileErr) {
+          console.error(`[projects] Skipping corrupt file ${file}:`, fileErr);
+        }
       }
     }
 

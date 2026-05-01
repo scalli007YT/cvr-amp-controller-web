@@ -43,12 +43,8 @@ export function Header({ lang, dictionary, projects = [], loading = false }: Hea
   const [deleteProject, setDeleteProject] = useState<Project | null>(null);
 
   const monitorHref = `/${lang}/control`;
-  const workspaceHref = `/${lang}/workspace`;
-  const healthHref = `/${lang}/health`;
   const navLinks = [
-    { label: dictionary.workspace, href: workspaceHref },
-    { label: dictionary.monitor, href: monitorHref },
-    { label: dictionary.health, href: healthHref }
+    { label: dictionary.monitor, href: monitorHref }
   ];
 
   useEffect(() => {
@@ -115,13 +111,7 @@ export function Header({ lang, dictionary, projects = [], loading = false }: Hea
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
                     <DropdownMenuItem asChild>
-                      <Link href={workspaceHref}>{dictionary.workspace}</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
                       <Link href={monitorHref}>{dictionary.monitor}</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href={healthHref}>{dictionary.health}</Link>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

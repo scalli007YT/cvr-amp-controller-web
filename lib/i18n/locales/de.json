@@ -1,8 +1,7 @@
 {
   "header": {
     "monitor": "Control",
-    "workspace": "Workspace",
-    "health": "Health",
+
     "appTitle": "AmpCore",
     "loading": "Lädt...",
     "selectProject": "Projekt wählen",

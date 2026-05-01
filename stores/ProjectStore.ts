@@ -137,9 +137,13 @@ export const useProjectStore = create<ProjectStore>()(
 
       setProjects: (projects) => {
         const { selectedProjectId } = get();
-        const nextSelectedProject = selectedProjectId
+        const matched = selectedProjectId
           ? (projects.find((project) => project.id === selectedProjectId) ?? null)
           : null;
+
+        // If nothing matched (no persisted selection, or ID is stale) and there
+        // are projects available, fall back to the most recently updated one.
+        const nextSelectedProject = matched ?? projects[0] ?? null;
 
         set({
           projects,

@@ -22,7 +22,17 @@ export function LayoutContent({ children, lang, dictionary }: LayoutContentProps
   useAmpChannelData();
 
   useEffect(() => {
-    useProjectStore.getState().load();
+    // Wait for the persist middleware to finish rehydrating selectedProjectId from
+    // localStorage before fetching projects. Without this, load() may run before
+    // selectedProjectId is available and incorrectly clear the active project.
+    if (useProjectStore.persist.hasHydrated()) {
+      useProjectStore.getState().load();
+    } else {
+      const unsub = useProjectStore.persist.onFinishHydration(() => {
+        unsub();
+        useProjectStore.getState().load();
+      });
+    }
   }, []);
 
   return (

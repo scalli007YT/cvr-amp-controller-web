@@ -12,7 +12,7 @@ import type { BridgeReadback } from "@/stores/AmpStore";
 import { smoothHeartbeat, resetSmootherForMac } from "@/lib/heartbeat-smoother";
 import { ratedRmsVFromDeviceName } from "@/lib/amp-model";
 import { deriveSourceCapabilities } from "@/lib/source-capabilities";
-import { pushValueHistory } from "@/stores/ValueHistoryStore";
+
 
 // ---------------------------------------------------------------------------
 // SSE event shapes (mirroring what /api/amp-events sends)
@@ -212,7 +212,6 @@ export function useAmpPoller(): UseAmpPollerReturn {
 
             const smoothedHb = smoothHeartbeat(amp.mac, heartbeat, maxDb);
             useAmpStore.getState().updateHeartbeat(amp.mac, smoothedHb, bridgePairs);
-            pushValueHistory(amp.mac, smoothedHb);
             usePollingStore.getState().setLastUpdated(amp.mac, Date.now());
             usePollingStore.getState().setError(amp.mac, null);
             break;

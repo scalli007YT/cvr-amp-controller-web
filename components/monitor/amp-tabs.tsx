@@ -17,7 +17,6 @@ import {
   LockOpen,
   Power,
   PowerOff,
-  ChartLine
 } from "lucide-react";
 import { AssignAmpsDialog } from "@/components/dialogs/assign-amps-dialog";
 import { StatusLed } from "@/components/custom/status-led";
@@ -38,7 +37,7 @@ import { LinkingPanel } from "@/components/monitor/amp-tabs/linking-panel";
 import { SpeakerLibraryBrowser } from "@/components/monitor/amp-tabs/speaker-library-browser";
 import { SpeakerModelDraft } from "@/components/monitor/amp-tabs/speaker-device";
 import { SpeakerControlBar } from "@/components/monitor/amp-tabs/speaker-control-bar";
-import { GraphsPanel } from "@/components/monitor/amp-tabs/graphs-panel";
+
 
 export function AmpTabs() {
   const dict = useI18n();
@@ -329,7 +328,7 @@ export function AmpTabs() {
                 </div>
               </div>
 
-              <TabsList className="mt-2 grid h-9 w-full grid-cols-6 gap-1 px-1">
+              <TabsList className="mt-2 grid h-9 w-full grid-cols-5 gap-1 px-1">
                 <TabsTrigger value="main" className="h-7 w-full justify-center px-1 sm:px-3">
                   <LayoutDashboardIcon className="size-4 shrink-0" />
                   <span className="hidden sm:inline">{dict.monitor.ampTabs.tabMain}</span>
@@ -350,10 +349,7 @@ export function AmpTabs() {
                   <LibraryBig className="size-4 shrink-0" />
                   <span className="hidden sm:inline">Speaker Config</span>
                 </TabsTrigger>
-                <TabsTrigger value="graphs" className="h-7 w-full justify-center px-1 sm:px-3">
-                  <ChartLine className="size-4 shrink-0" />
-                  <span className="hidden sm:inline">Graphs</span>
-                </TabsTrigger>
+
               </TabsList>
             </div>
 
@@ -415,9 +411,7 @@ export function AmpTabs() {
               </div>
             </TabsContent>
 
-            <TabsContent value="graphs" className="min-h-0 flex-1 overflow-y-auto p-4 mt-0">
-              <GraphsPanel mac={selectedAmp.mac} outputChx={selectedAmp.output_chx} ratedRmsV={selectedAmp.ratedRmsV} />
-            </TabsContent>
+
           </Tabs>
         </div>
       )}

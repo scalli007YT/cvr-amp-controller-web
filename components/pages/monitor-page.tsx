@@ -15,7 +15,7 @@ interface MonitorPageProps {
 }
 
 export function MonitorPage({ dictionary }: MonitorPageProps) {
-  const { selectedProject } = useProjectStore();
+  const { selectedProject, loading } = useProjectStore();
   const amps = useAmpStore((state) => state.amps);
   const setCurrentView = useTabStore((state) => state.setCurrentView);
 
@@ -37,7 +37,7 @@ export function MonitorPage({ dictionary }: MonitorPageProps) {
         </section>
       )}
 
-      <div className="flex min-h-0 flex-1">{selectedProject ? <AmpTabs /> : <NoProjectCard />}</div>
+      <div className="flex min-h-0 flex-1">{selectedProject ? <AmpTabs /> : !loading && <NoProjectCard />}</div>
     </div>
   );
 }
