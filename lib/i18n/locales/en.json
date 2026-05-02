@@ -1,6 +1,7 @@
 {
   "header": {
     "monitor": "Control",
+    "toolbox": "Toolbox",
 
     "appTitle": "AmpCore",
     "loading": "Loading...",

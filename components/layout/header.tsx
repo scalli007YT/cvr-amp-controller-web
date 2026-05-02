@@ -43,7 +43,11 @@ export function Header({ lang, dictionary, projects = [], loading = false }: Hea
   const [deleteProject, setDeleteProject] = useState<Project | null>(null);
 
   const monitorHref = `/${lang}/control`;
-  const navLinks = [{ label: dictionary.monitor, href: monitorHref }];
+  const toolboxHref = `/${lang}/toolbox`;
+  const navLinks = [
+    { label: dictionary.monitor, href: monitorHref },
+    { label: dictionary.toolbox, href: toolboxHref }
+  ];
 
   useEffect(() => {
     setMounted(true);
@@ -110,6 +114,9 @@ export function Header({ lang, dictionary, projects = [], loading = false }: Hea
                   <DropdownMenuContent align="start">
                     <DropdownMenuItem asChild>
                       <Link href={monitorHref}>{dictionary.monitor}</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href={toolboxHref}>{dictionary.toolbox}</Link>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
