@@ -74,6 +74,11 @@ export interface SaveWayMapping {
 export interface SaveToLibraryParams {
   mac: string;
   id?: string;
+  /**
+   * When set, PUT /api/library/[existingId] is used instead of POST.
+   * The existing file is overwritten in-place (metadata updated, deviceData preserved/replaced).
+   */
+  existingId?: string;
   brand: string;
   family: string;
   model: string;
@@ -89,6 +94,8 @@ export interface ApplyWayMapping {
   hex: string;
   /** Physical output channels (0-based) to apply this way's data to */
   channels: number[];
+  /** Way label used as the base name when embedding the sync hash into the channel name */
+  wayLabel?: string;
 }
 
 export interface ApplyToDeviceParams {
@@ -145,7 +152,7 @@ interface LibraryStore {
   setSelectedFileId: (fileId: string | null) => void;
   loadLibrary: () => Promise<void>;
   deleteLibraryFile: (fileId: string) => Promise<{ ok: boolean; error?: string }>;
-  saveToLibrary: (params: SaveToLibraryParams) => Promise<{ ok: boolean; error?: string }>;
+  saveToLibrary: (params: SaveToLibraryParams) => Promise<{ ok: boolean; savedId?: string; error?: string }>;
   applyToDevice: (params: ApplyToDeviceParams) => Promise<{ ok: boolean; results: ApplyWayResult[]; error?: string }>;
 }
 
@@ -236,7 +243,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
     set({ saving: true, error: null });
 
     try {
-      const { mac, brand, family, model, application, notes, wayMappings, onProgress } = params;
+      const { mac, brand, family, model, application, notes, wayMappings, onProgress, existingId } = params;
 
       if (wayMappings.length === 0) {
         throw new Error("At least one way mapping is required");
@@ -306,24 +313,28 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
         }
       };
 
-      // 3. POST to library API
+      // 3. Write to library API — PUT to update existing, POST to create new
       onProgress?.({ stage: "writing-library", current: wayMappings.length, total: wayMappings.length });
 
-      const postRes = await fetch("/api/library", {
-        method: "POST",
+      const isUpdate = Boolean(existingId);
+      const writeRes = await fetch(isUpdate ? `/api/library/${encodeURIComponent(existingId!)}` : "/api/library", {
+        method: isUpdate ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ profile })
       });
 
-      const postData = (await postRes.json()) as {
+      const writeData = (await writeRes.json()) as {
         success?: boolean;
         file?: LibraryFileEntry;
         error?: string;
       };
 
-      if (!postRes.ok || !postData.success) {
-        throw new Error(postData.error ?? `HTTP ${postRes.status}`);
+      if (!writeRes.ok || !writeData.success) {
+        throw new Error(writeData.error ?? `HTTP ${writeRes.status}`);
       }
+
+      // The committed id: for updates the id is preserved as existingId; for creates use idSlug.
+      const committedId = isUpdate ? existingId! : idSlug;
 
       // 4. Refresh the library list
       onProgress?.({ stage: "refreshing-library", current: wayMappings.length, total: wayMappings.length });
@@ -331,7 +342,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
       set({ saving: false });
       await get().loadLibrary();
 
-      return { ok: true };
+      return { ok: true, savedId: committedId };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to save to library";
       set({ saving: false, error: message });

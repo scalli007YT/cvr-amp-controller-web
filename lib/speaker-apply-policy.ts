@@ -85,6 +85,7 @@ export interface PostApplyActionDeps {
   noiseGateOut: (mac: string, channel: number, enabled: boolean) => Promise<void>;
   setTrimOut: (mac: string, channel: number, db: number) => Promise<void>;
   setBridgePair: (mac: string, pair: number, bridged: boolean) => Promise<void>;
+  setAllBridgePairs: (mac: string, pairs: Array<{ pair: number; bridged: boolean }>) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,19 +178,20 @@ export function buildPostApplyPlan(
     for (const action of policy.topologyActions.actions) {
       switch (action) {
         case "adjustBridgeMode": {
-          // Always reconcile all bridge pairs to match the config
+          // Send all bridge pair reconciliations as a single multi-step packet
           const total = context.totalOutputChannels ?? DEFAULT_OUTPUT_CHANNELS;
           const pairs = Math.floor(total / 2);
           const toEnable = new Set(context.bridgePairsToEnable ?? []);
-          for (let pair = 0; pair < pairs; pair++) {
-            const shouldBridge = toEnable.has(pair);
-            actions.push({
-              id: `bridge-pair-${pair}-${shouldBridge ? "on" : "off"}`,
-              phase: "topology",
-              label: `${shouldBridge ? "Enable" : "Disable"} bridge pair ${pair + 1}`,
-              run: () => deps.setBridgePair(context.mac, pair, shouldBridge)
-            });
-          }
+          const allPairs = Array.from({ length: pairs }, (_, pair) => ({
+            pair,
+            bridged: toEnable.has(pair)
+          }));
+          actions.push({
+            id: `bridge-pairs-reconcile`,
+            phase: "topology",
+            label: `Reconcile bridge pairs (${pairs} pair${pairs !== 1 ? "s" : ""})`,
+            run: () => deps.setAllBridgePairs(context.mac, allPairs)
+          });
           break;
         }
       }

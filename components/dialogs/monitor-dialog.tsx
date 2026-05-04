@@ -124,11 +124,17 @@ export function MonitorDialog({ nodeId, open, onOpenChange }: MonitorDialogProps
                   type="single"
                   variant="outline"
                   value={headroomType}
-                  onValueChange={(v) => { if (v) setHeadroomType(v as "rms" | "peak"); }}
+                  onValueChange={(v) => {
+                    if (v) setHeadroomType(v as "rms" | "peak");
+                  }}
                   className="justify-start"
                 >
-                  <ToggleGroupItem value="rms" className="px-3">RMS Limiter</ToggleGroupItem>
-                  <ToggleGroupItem value="peak" className="px-3">Peak Limiter</ToggleGroupItem>
+                  <ToggleGroupItem value="rms" className="px-3">
+                    RMS Limiter
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="peak" className="px-3">
+                    Peak Limiter
+                  </ToggleGroupItem>
                 </ToggleGroup>
               </div>
             )}

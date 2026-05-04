@@ -51,6 +51,7 @@ interface SpeakerConfigStore {
   toggleOutputChannel: (channel: number, scope?: string | null) => void;
   setOutputChannels: (channels: number[], scope?: string | null) => void;
   clearOutputChannels: (scope?: string | null) => void;
+  clearAllScope: (scope?: string | null) => void;
   splitReset: (scope?: string | null) => void;
   joinSelected: (scope?: string | null) => { ok: boolean; error?: string };
   bridgeSelected: (scope?: string | null) => { ok: boolean; error?: string };
@@ -254,6 +255,25 @@ export const useSpeakerConfigStore = create<SpeakerConfigStore>((set, get) => ({
       selectedOutputChannelsByScope: {
         ...state.selectedOutputChannelsByScope,
         [scopeKey]: []
+      }
+    }));
+  },
+
+  clearAllScope: (scope) => {
+    const scopeKey = toScopeKey(scope);
+
+    set((state) => ({
+      selectedOutputChannelsByScope: {
+        ...state.selectedOutputChannelsByScope,
+        [scopeKey]: []
+      },
+      channelGroupsByScope: {
+        ...state.channelGroupsByScope,
+        [scopeKey]: []
+      },
+      outputAssignmentsByScope: {
+        ...state.outputAssignmentsByScope,
+        [scopeKey]: {}
       }
     }));
   },

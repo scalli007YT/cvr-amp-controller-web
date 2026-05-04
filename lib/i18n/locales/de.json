@@ -301,6 +301,7 @@
         "wayNameLabel": "Way-Name",
         "wayIndex": "Way {index}",
         "saveToLibrary": "In Bibliothek speichern",
+        "updateInLibrary": "In Bibliothek aktualisieren",
         "saving": "Speichern\u2026",
         "close": "Schließen"
       },
@@ -331,6 +332,7 @@
       },
       "device": {
         "sectionTitle": "Lautsprecher-Modell",
+        "clearAll": "Alle Zuweisungen löschen",
         "colSpeakerModel": "Lautsprecher-Modell",
         "colWaysDescription": "Way-Beschreibung",
         "colPhysicalOutputs": "Physische Ausgänge",
@@ -351,6 +353,7 @@
         "bridge": "Bridge",
         "splitReset": "Trennen/Zurücksetzen",
         "applyAll": "Alle anwenden",
+        "checkSync": "Sync prüfen",
         "load": "Laden",
         "save": "Speichern",
         "deleteFromLibrary": "Aus Bibliothek löschen",

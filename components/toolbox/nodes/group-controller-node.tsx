@@ -408,28 +408,29 @@ export const GroupControllerNodeComponent = memo(function GroupControllerNodeCom
                           })()}
                         </td>
                       )}
-                      {mode === "mute" && (() => {
-                        const ch = getChannelParam(assignee);
-                        const muted = ch ? ((muteTarget ?? "output") === "input" ? ch.muteIn : ch.muteOut) : null;
-                        return (
-                          <td className="py-1 pl-2 text-right">
-                            {muted !== null ? (
-                              <button
-                                onClick={() => handleMuteToggleChannel(assignee.mac, assignee.channel, muted)}
-                                className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
-                                  muted
-                                    ? "bg-red-500/15 text-red-400 hover:bg-red-500/25"
-                                    : "bg-green-500/15 text-green-400 hover:bg-green-500/25"
-                                }`}
-                              >
-                                {muted ? "Muted" : "Active"}
-                              </button>
-                            ) : (
-                              <span className="text-[10px] text-muted-foreground">\u2014</span>
-                            )}
-                          </td>
-                        );
-                      })()}
+                      {mode === "mute" &&
+                        (() => {
+                          const ch = getChannelParam(assignee);
+                          const muted = ch ? ((muteTarget ?? "output") === "input" ? ch.muteIn : ch.muteOut) : null;
+                          return (
+                            <td className="py-1 pl-2 text-right">
+                              {muted !== null ? (
+                                <button
+                                  onClick={() => handleMuteToggleChannel(assignee.mac, assignee.channel, muted)}
+                                  className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                                    muted
+                                      ? "bg-red-500/15 text-red-400 hover:bg-red-500/25"
+                                      : "bg-green-500/15 text-green-400 hover:bg-green-500/25"
+                                  }`}
+                                >
+                                  {muted ? "Muted" : "Active"}
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground">\u2014</span>
+                              )}
+                            </td>
+                          );
+                        })()}
                       {mode === "delay" && (
                         <td className="py-1 pl-2 text-right font-mono whitespace-nowrap text-foreground">
                           {(() => {

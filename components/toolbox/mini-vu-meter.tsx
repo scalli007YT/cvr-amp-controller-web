@@ -32,7 +32,14 @@ function getTextColor(value: number, invert: boolean): string {
   return "text-green-400";
 }
 
-export function MiniVuMeter({ value, min = -100, max = 0, unit = "dB", label, invertColors = false }: MiniVuMeterProps) {
+export function MiniVuMeter({
+  value,
+  min = -100,
+  max = 0,
+  unit = "dB",
+  label,
+  invertColors = false
+}: MiniVuMeterProps) {
   const hasSignal = value !== null && value > min;
   const clampedValue = hasSignal ? Math.min(Math.max(value!, min), max) : min;
   const fillPct = hasSignal ? ((clampedValue - min) / (max - min)) * 100 : 0;

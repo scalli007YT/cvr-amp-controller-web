@@ -40,6 +40,8 @@ interface SpeakerConfigEditorDialogProps {
   onChange: (draft: SpeakerProfileDraft) => void;
   /** Called when the user clicks "Save to Library". Receives the current draft. */
   onSave?: (draft: SpeakerProfileDraft) => void;
+  /** When provided, the dialog is in "update" mode and shows "Update in Library" label. */
+  existingId?: string;
   saving?: boolean;
 }
 
@@ -56,6 +58,7 @@ export function SpeakerConfigEditorDialog({
   initialDraft,
   onChange,
   onSave,
+  existingId,
   saving = false
 }: SpeakerConfigEditorDialogProps) {
   const dict = useI18n().dialogs.speakerConfig.editor;
@@ -248,7 +251,7 @@ export function SpeakerConfigEditorDialog({
               }}
             >
               <Save className="h-3.5 w-3.5" />
-              {saving ? dict.saving : dict.saveToLibrary}
+              {saving ? dict.saving : existingId ? dict.updateInLibrary : dict.saveToLibrary}
             </Button>
           )}
           <DialogClose asChild>

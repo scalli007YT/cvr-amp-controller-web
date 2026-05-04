@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link2, Settings2, SplitSquareVertical, Upload } from "lucide-react";
+import { Link2, RotateCcw, Settings2, SplitSquareVertical, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { buildRowSegments, formatChannelList, toScopeKey, type RowSegment } from "@/lib/speaker-config";
@@ -12,6 +12,9 @@ import {
   type SpeakerApplyPolicy
 } from "@/lib/speaker-apply-policy";
 import { useAmpActions } from "@/hooks/useAmpActions";
+import { useAmpStore } from "@/stores/AmpStore";
+import { computeSyncHashFromParsed, embedHashInName, extractBaseNameFromName } from "@/lib/speaker-sync-hash";
+import { waitForFreshChannelData } from "@/lib/wait-for-fresh-channel-data";
 import {
   type LibraryFileEntry,
   useLibraryStore,
@@ -147,6 +150,8 @@ export function SpeakerModelDraft({ channelCount = 4, scope }: SpeakerDeviceDraf
   const [editorTargetChannel, setEditorTargetChannel] = useState(1);
   const [editorSegmentKey, setEditorSegmentKey] = useState<string | null>(null);
   const [editorDraftBySegment, setEditorDraftBySegment] = useState<Record<string, SpeakerProfileDraft>>({});
+  // When editing an existing assignment, store its current library id so saveToLibrary can PUT instead of POST.
+  const [editorExistingId, setEditorExistingId] = useState<string | null>(null);
 
   const libraryFiles = useLibraryStore((state) => state.files);
   const libraryHasLoaded = useLibraryStore((state) => state.hasLoaded);
@@ -164,6 +169,7 @@ export function SpeakerModelDraft({ channelCount = 4, scope }: SpeakerDeviceDraf
   const setActiveDraggedItem = useSpeakerConfigStore((state) => state.setActiveDraggedItem);
   const setOutputChannels = useSpeakerConfigStore((state) => state.setOutputChannels);
   const clearOutputChannels = useSpeakerConfigStore((state) => state.clearOutputChannels);
+  const clearAllScope = useSpeakerConfigStore((state) => state.clearAllScope);
   const assignItemToOutputs = useSpeakerConfigStore((state) => state.assignItemToOutputs);
   const hydrateScopeFromGlobalStore = useSpeakerConfigStore((state) => state.hydrateScopeFromGlobalStore);
   const persistScopeToGlobalStore = useSpeakerConfigStore((state) => state.persistScopeToGlobalStore);
@@ -177,7 +183,7 @@ export function SpeakerModelDraft({ channelCount = 4, scope }: SpeakerDeviceDraf
   const togglePostApplyTopologyAction = useSpeakerConfigStore((state) => state.togglePostApplyTopologyAction);
 
   // Amp actions for post-apply operations
-  const { muteOut, noiseGateOut, setTrimOut, setBridgePair } = useAmpActions();
+  const { muteOut, noiseGateOut, setTrimOut, setBridgePair, setAllBridgePairs, renameOutput } = useAmpActions();
   const selectedOutputChannels = selectedOutputChannelsByScope[scopeKey] ?? EMPTY_SELECTION;
   const outputAssignments = outputAssignmentsByScope[scopeKey] ?? EMPTY_ASSIGNMENTS;
   const channelGroups = channelGroupsByScope[scopeKey] ?? EMPTY_GROUPS;
@@ -325,9 +331,19 @@ export function SpeakerModelDraft({ channelCount = 4, scope }: SpeakerDeviceDraf
   const openEditorForSegment = (segment: RowSegment) => {
     const segmentKey = getSegmentKey(segment);
     const cachedDraft = editorDraftBySegment[segmentKey];
+    const draft = cachedDraft ?? deriveDraftForSegment(segment);
+
+    // Determine whether this is editing an existing library profile.
+    // If the segment's itemId resolves to a file in the library, treat it as an update.
+    const firstAssignment = Object.values(outputAssignments).find(
+      (a): a is SpeakerOutputAssignment => !!a && segment.channels.includes((a as SpeakerOutputAssignment).channel)
+    );
+    const existingFile = firstAssignment ? libraryFiles.find((f) => f.id === firstAssignment.itemId) : null;
+
     setEditorTargetChannel(segment.channels[0]);
     setEditorSegmentKey(segmentKey);
-    setEditorDraft(cachedDraft ?? deriveDraftForSegment(segment));
+    setEditorDraft(draft);
+    setEditorExistingId(existingFile?.id ?? null);
     setEditorOpen(true);
   };
 
@@ -479,7 +495,8 @@ export function SpeakerModelDraft({ channelCount = 4, scope }: SpeakerDeviceDraf
         if (wayData?.hex) {
           wayMappings.push({
             hex: wayData.hex,
-            channels: segment.channels.map((ch) => ch - 1) // 1-based → 0-based
+            channels: segment.channels.map((ch) => ch - 1), // 1-based → 0-based
+            wayLabel: linkedProfile.ways[0]?.label
           });
         }
       } else {
@@ -489,7 +506,8 @@ export function SpeakerModelDraft({ channelCount = 4, scope }: SpeakerDeviceDraf
           if (wayData?.hex && ch !== undefined) {
             wayMappings.push({
               hex: wayData.hex,
-              channels: [ch - 1] // 1-based → 0-based
+              channels: [ch - 1], // 1-based → 0-based
+              wayLabel: linkedProfile.ways[idx]?.label
             });
           }
         }
@@ -548,6 +566,27 @@ export function SpeakerModelDraft({ channelCount = 4, scope }: SpeakerDeviceDraf
           return;
         }
 
+        // Embed sync hash into output channel names after successful apply.
+        // Wait for the poller to deliver fresh params (stale data would produce wrong hash).
+        const wayLabelByChannel = new Map<number, string>(
+          wayMappings.flatMap((m) => m.channels.map((ch) => [ch, m.wayLabel ?? ""]))
+        );
+        try {
+          const freshParams = await waitForFreshChannelData(scope);
+          if (freshParams?.channels) {
+            for (const ch0 of allAppliedChannels0Based) {
+              const chData = freshParams.channels[ch0];
+              if (!chData) continue;
+              const hash = computeSyncHashFromParsed(chData);
+              const baseName = wayLabelByChannel.get(ch0) || extractBaseNameFromName(chData.outputName);
+              const newName = embedHashInName(baseName, hash);
+              await renameOutput(scope, ch0 as 0 | 1 | 2 | 3, newName);
+            }
+          }
+        } catch {
+          // Hash embedding is best-effort — don't fail the apply
+        }
+
         // Payload apply succeeded — run post-apply actions if enabled
         const hasPostApplyActions =
           applyPolicy.enabled &&
@@ -581,7 +620,8 @@ export function SpeakerModelDraft({ channelCount = 4, scope }: SpeakerDeviceDraf
           muteOut,
           noiseGateOut,
           setTrimOut,
-          setBridgePair
+          setBridgePair,
+          setAllBridgePairs
         });
 
         // Build final status message
@@ -604,7 +644,18 @@ export function SpeakerModelDraft({ channelCount = 4, scope }: SpeakerDeviceDraf
         }
       })();
     },
-    [scope, applying, applyToDevice, applyPolicy, muteOut, noiseGateOut, setTrimOut, setBridgePair]
+    [
+      scope,
+      applying,
+      applyToDevice,
+      applyPolicy,
+      muteOut,
+      noiseGateOut,
+      setTrimOut,
+      setBridgePair,
+      setAllBridgePairs,
+      renameOutput
+    ]
   );
 
   return (
@@ -625,95 +676,111 @@ export function SpeakerModelDraft({ channelCount = 4, scope }: SpeakerDeviceDraf
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold">{dict.device.sectionTitle}</h3>
 
-        <Popover>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                "flex h-7 w-7 items-center justify-center rounded-md border transition-colors",
-                postApplyEnabled
-                  ? "border-primary/30 bg-primary/5 text-primary hover:border-primary/60 hover:bg-primary/15"
-                  : "border-border/40 bg-muted/10 text-muted-foreground hover:border-border/60 hover:bg-muted/20"
-              )}
-              title="Post-apply settings"
-            >
-              <Settings2 className="h-3.5 w-3.5" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="w-64">
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <h4 className="text-sm font-medium">{dict.device.postApplyTitle}</h4>
-                <p className="text-xs text-muted-foreground">{dict.device.postApplyDescription}</p>
-              </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            className="flex h-7 w-7 items-center justify-center rounded-md border border-border/40 bg-muted/10 text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+            title={dict.device.clearAll ?? "Clear all"}
+            onClick={() => {
+              clearAllScope(scope);
+              void persistScopeToGlobalStore(scope);
+            }}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </button>
 
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="post-apply-enabled"
-                    checked={postApplyEnabled}
-                    onCheckedChange={(checked) => setPostApplyEnabled(checked === true)}
-                  />
-                  <Label htmlFor="post-apply-enabled" className="text-sm font-medium">
-                    {dict.device.postApplyEnable}
-                  </Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "flex h-7 w-7 items-center justify-center rounded-md border transition-colors",
+                  postApplyEnabled
+                    ? "border-primary/30 bg-primary/5 text-primary hover:border-primary/60 hover:bg-primary/15"
+                    : "border-border/40 bg-muted/10 text-muted-foreground hover:border-border/60 hover:bg-muted/20"
+                )}
+                title="Post-apply settings"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <h4 className="text-sm font-medium">{dict.device.postApplyTitle}</h4>
+                  <p className="text-xs text-muted-foreground">{dict.device.postApplyDescription}</p>
                 </div>
 
-                <div className={cn("space-y-2 pl-1", !postApplyEnabled && "opacity-50 pointer-events-none")}>
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {dict.device.postApplyChannelActionsLabel}
-                  </p>
-                  <div className="space-y-2 pl-2">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="post-apply-unmute"
-                        checked={postApplyChannelActions.includes("unmuteOut")}
-                        onCheckedChange={() => togglePostApplyChannelAction("unmuteOut")}
-                      />
-                      <Label htmlFor="post-apply-unmute" className="text-sm">
-                        {dict.device.postApplyUnmute}
-                      </Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="post-apply-gate"
-                        checked={postApplyChannelActions.includes("disableNoiseGateOut")}
-                        onCheckedChange={() => togglePostApplyChannelAction("disableNoiseGateOut")}
-                      />
-                      <Label htmlFor="post-apply-gate" className="text-sm">
-                        {dict.device.postApplyNoiseGate}
-                      </Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="post-apply-trim"
-                        checked={postApplyChannelActions.includes("resetTrimOut")}
-                        onCheckedChange={() => togglePostApplyChannelAction("resetTrimOut")}
-                      />
-                      <Label htmlFor="post-apply-trim" className="text-sm">
-                        {dict.device.postApplyTrim}
-                      </Label>
-                    </div>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="post-apply-enabled"
+                      checked={postApplyEnabled}
+                      onCheckedChange={(checked) => setPostApplyEnabled(checked === true)}
+                    />
+                    <Label htmlFor="post-apply-enabled" className="text-sm font-medium">
+                      {dict.device.postApplyEnable}
+                    </Label>
                   </div>
 
-                  <p className="text-xs font-medium text-muted-foreground pt-2">{dict.device.postApplyTopologyLabel}</p>
-                  <div className="space-y-2 pl-2">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="post-apply-bridge"
-                        checked={postApplyTopologyActions.includes("adjustBridgeMode")}
-                        onCheckedChange={() => togglePostApplyTopologyAction("adjustBridgeMode")}
-                      />
-                      <Label htmlFor="post-apply-bridge" className="text-sm">
-                        {dict.device.postApplyBridge}
-                      </Label>
+                  <div className={cn("space-y-2 pl-1", !postApplyEnabled && "opacity-50 pointer-events-none")}>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {dict.device.postApplyChannelActionsLabel}
+                    </p>
+                    <div className="space-y-2 pl-2">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="post-apply-unmute"
+                          checked={postApplyChannelActions.includes("unmuteOut")}
+                          onCheckedChange={() => togglePostApplyChannelAction("unmuteOut")}
+                        />
+                        <Label htmlFor="post-apply-unmute" className="text-sm">
+                          {dict.device.postApplyUnmute}
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="post-apply-gate"
+                          checked={postApplyChannelActions.includes("disableNoiseGateOut")}
+                          onCheckedChange={() => togglePostApplyChannelAction("disableNoiseGateOut")}
+                        />
+                        <Label htmlFor="post-apply-gate" className="text-sm">
+                          {dict.device.postApplyNoiseGate}
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="post-apply-trim"
+                          checked={postApplyChannelActions.includes("resetTrimOut")}
+                          onCheckedChange={() => togglePostApplyChannelAction("resetTrimOut")}
+                        />
+                        <Label htmlFor="post-apply-trim" className="text-sm">
+                          {dict.device.postApplyTrim}
+                        </Label>
+                      </div>
+                    </div>
+
+                    <p className="text-xs font-medium text-muted-foreground pt-2">
+                      {dict.device.postApplyTopologyLabel}
+                    </p>
+                    <div className="space-y-2 pl-2">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="post-apply-bridge"
+                          checked={postApplyTopologyActions.includes("adjustBridgeMode")}
+                          onCheckedChange={() => togglePostApplyTopologyAction("adjustBridgeMode")}
+                        />
+                        <Label htmlFor="post-apply-bridge" className="text-sm">
+                          {dict.device.postApplyBridge}
+                        </Label>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </PopoverContent>
-        </Popover>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
@@ -878,23 +945,12 @@ export function SpeakerModelDraft({ channelCount = 4, scope }: SpeakerDeviceDraf
         onOpenChange={setEditorOpen}
         initialDraft={editorDraft}
         saving={saving}
+        existingId={editorExistingId ?? undefined}
         onChange={(draft) => {
           setEditorDraft(draft);
           if (editorSegmentKey) {
             setEditorDraftBySegment((prev) => ({ ...prev, [editorSegmentKey]: draft }));
           }
-          const displayModel = [draft.brand, draft.model].filter(Boolean).join(" ").trim() || draft.id || "Speaker";
-          assignItemToOutputs({
-            startChannel: editorTargetChannel,
-            maxChannels: rowCount,
-            item: {
-              id: draft.id || displayModel,
-              model: displayModel,
-              ways: draft.ways.map((w) => w.label).join(" & "),
-              wayCount: Math.max(1, draft.ways.length)
-            },
-            scope
-          });
         }}
         onSave={(draft) => {
           if (!scope) return;
@@ -930,6 +986,7 @@ export function SpeakerModelDraft({ channelCount = 4, scope }: SpeakerDeviceDraf
             const outcome = await saveToLibrary({
               mac: scope,
               id: draft.id,
+              existingId: editorExistingId ?? undefined,
               brand: draft.brand,
               family: draft.family,
               model: draft.model,
@@ -950,12 +1007,31 @@ export function SpeakerModelDraft({ channelCount = 4, scope }: SpeakerDeviceDraf
               return;
             }
 
+            // Commit the assignment only after the library file is confirmed saved.
+            // Uses the server-side idSlug (not the raw draft.id) to guarantee the
+            // foreign key resolves to an actual file.
+            const committedId = outcome.savedId ?? draft.id ?? "speaker-profile";
+            const displayModel =
+              [draft.brand, draft.model].filter(Boolean).join(" ").trim() || committedId || "Speaker";
+            assignItemToOutputs({
+              startChannel: editorTargetChannel,
+              maxChannels: rowCount,
+              item: {
+                id: committedId,
+                model: displayModel,
+                ways: draft.ways.map((w) => w.label).join(" & "),
+                wayCount: Math.max(1, draft.ways.length)
+              },
+              scope
+            });
+
             toast.success(t.saveSuccessTitle, {
               id: toastId,
               description: t.saveSuccessDesc
                 .replace("{count}", String(wayMappings.length))
                 .replace("{s}", wayMappings.length === 1 ? "" : "s")
             });
+            setEditorOpen(false);
           })();
         }}
       />

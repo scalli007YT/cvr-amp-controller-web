@@ -301,6 +301,7 @@
         "wayNameLabel": "Way Name",
         "wayIndex": "Way {index}",
         "saveToLibrary": "Save to Library",
+        "updateInLibrary": "Update in Library",
         "saving": "Saving\u2026",
         "close": "Close"
       },
@@ -331,6 +332,7 @@
       },
       "device": {
         "sectionTitle": "Speaker Model",
+        "clearAll": "Clear all assignments",
         "colSpeakerModel": "Speaker Model",
         "colWaysDescription": "Ways Description",
         "colPhysicalOutputs": "Physical Outputs",
@@ -351,6 +353,7 @@
         "bridge": "Bridge",
         "splitReset": "Split/Reset",
         "applyAll": "Apply all",
+        "checkSync": "Check Sync",
         "load": "Load",
         "save": "Save",
         "deleteFromLibrary": "Delete from library",

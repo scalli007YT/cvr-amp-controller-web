@@ -65,15 +65,16 @@ function HeadroomRow({
     });
   }, [headroom]);
 
-  useEffect(() => () => { if (holdTimer.current) clearTimeout(holdTimer.current); }, []);
+  useEffect(
+    () => () => {
+      if (holdTimer.current) clearTimeout(holdTimer.current);
+    },
+    []
+  );
 
   const displayed = heldValue ?? headroom;
   const isOver = displayed !== null && displayed > 0;
-  const colorClass = displayed === null
-    ? "text-muted-foreground"
-    : isOver
-      ? "text-red-400"
-      : "text-green-400";
+  const colorClass = displayed === null ? "text-muted-foreground" : isOver ? "text-red-400" : "text-green-400";
 
   return (
     <div className="flex items-center gap-2">
@@ -173,7 +174,13 @@ export const MonitorNodeComponent = memo(function MonitorNodeComponent({ id, dat
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold">{label}</span>
             <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[9px] leading-none font-medium uppercase text-muted-foreground">
-              {metric === "vu" ? (vuTarget === "input" ? "In VU" : "Out VU") : metric === "headroom" ? `${headroomType.toUpperCase()} Headroom` : meta.label}
+              {metric === "vu"
+                ? vuTarget === "input"
+                  ? "In VU"
+                  : "Out VU"
+                : metric === "headroom"
+                  ? `${headroomType.toUpperCase()} Headroom`
+                  : meta.label}
             </span>
           </div>
           <Button

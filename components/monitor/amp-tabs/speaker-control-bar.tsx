@@ -37,7 +37,16 @@ import {
   type SpeakerApplyPolicy
 } from "@/lib/speaker-apply-policy";
 import { useAmpActions } from "@/hooks/useAmpActions";
+import { useAmpStore } from "@/stores/AmpStore";
 import { useI18n } from "@/components/layout/i18n-provider";
+import { waitForFreshChannelData } from "@/lib/wait-for-fresh-channel-data";
+import {
+  computeSyncHashFromParsed,
+  embedHashInName,
+  extractBaseNameFromName,
+  validateAllChannelsSync,
+  type ChannelSyncResult
+} from "@/lib/speaker-sync-hash";
 
 type QueuedApplyItem = {
   model: string;
@@ -110,7 +119,9 @@ function buildQueuedApplyItems(
           model: firstAssignment.model,
           channels,
           segmentType,
-          wayMappings: [{ hex: wayData.hex, channels: channels.map((channel) => channel - 1) }]
+          wayMappings: [
+            { hex: wayData.hex, channels: channels.map((channel) => channel - 1), wayLabel: profile.ways[0]?.label }
+          ]
         };
       }
 
@@ -130,7 +141,8 @@ function buildQueuedApplyItems(
 
         wayMappings.push({
           hex: wayData.hex,
-          channels: [assignment.channel - 1]
+          channels: [assignment.channel - 1],
+          wayLabel: assignment.wayLabel
         });
       }
 
@@ -188,7 +200,14 @@ export function SpeakerControlBar({ scope, channelCount = 4 }: SpeakerControlBar
   const [slFolderParsing, setSlFolderParsing] = useState(false);
 
   // Amp actions for post-apply operations
-  const { muteOut, noiseGateOut, setTrimOut, setBridgePair } = useAmpActions();
+  const { muteOut, noiseGateOut, setTrimOut, setBridgePair, setAllBridgePairs, renameOutput } = useAmpActions();
+
+  // Live sync status — derived from store data, recomputes on every poller tick
+  const liveChannels = useAmpStore((state) => state.amps.find((a) => a.mac === scope)?.channelParams?.channels ?? []);
+  const syncResults = useMemo(
+    () => (liveChannels.length > 0 ? validateAllChannelsSync(liveChannels) : null),
+    [liveChannels]
+  );
 
   // Build the post-apply policy from store state
   const applyPolicy = useMemo<SpeakerApplyPolicy>(
@@ -290,6 +309,31 @@ export function SpeakerControlBar({ scope, channelCount = 4 }: SpeakerControlBar
 
       appliedCount += 1;
 
+      // Embed sync hash into output channel names after successful apply.
+      // Wait for the poller to deliver fresh params (stale data would produce wrong hash).
+      const appliedChannels0Based = Array.from(new Set(item.wayMappings.flatMap((m) => m.channels))).sort(
+        (a, b) => a - b
+      );
+      // ch0 → way label lookup for use as hash base name
+      const wayLabelByChannel = new Map<number, string>(
+        item.wayMappings.flatMap((m) => m.channels.map((ch) => [ch, m.wayLabel ?? ""]))
+      );
+      try {
+        const freshParams = await waitForFreshChannelData(scope);
+        if (freshParams?.channels) {
+          for (const ch0 of appliedChannels0Based) {
+            const chData = freshParams.channels[ch0];
+            if (!chData) continue;
+            const hash = computeSyncHashFromParsed(chData);
+            const baseName = wayLabelByChannel.get(ch0) || extractBaseNameFromName(chData.outputName);
+            const newName = embedHashInName(baseName, hash);
+            await renameOutput(scope, ch0 as 0 | 1 | 2 | 3, newName);
+          }
+        }
+      } catch {
+        // Hash embedding is best-effort — don't fail the entire apply
+      }
+
       // Run post-apply actions for this item
       const allAppliedChannels0Based = Array.from(new Set(item.wayMappings.flatMap((m) => m.channels))).sort(
         (a, b) => a - b
@@ -315,7 +359,8 @@ export function SpeakerControlBar({ scope, channelCount = 4 }: SpeakerControlBar
         muteOut,
         noiseGateOut,
         setTrimOut,
-        setBridgePair
+        setBridgePair,
+        setAllBridgePairs
       });
 
       if (postApplyResult) {
@@ -615,6 +660,30 @@ export function SpeakerControlBar({ scope, channelCount = 4 }: SpeakerControlBar
             <Upload className="h-3.5 w-3.5" />
             {cb.applyAll}
           </Button>
+
+          {syncResults && (
+            <div className="mt-2 space-y-1">
+              {syncResults
+                .filter((r) => !!scopedAssignments[r.channel + 1])
+                .map((r) => (
+                  <div
+                    key={r.channel}
+                    className={`flex items-center justify-between rounded px-2 py-0.5 text-[10px] font-medium ${
+                      r.status === "synced"
+                        ? "bg-green-500/10 text-green-400"
+                        : r.status === "drifted"
+                          ? "bg-yellow-500/10 text-yellow-400"
+                          : "bg-muted/40 text-muted-foreground"
+                    }`}
+                  >
+                    <span>{r.outputName}</span>
+                    <span className="uppercase">
+                      {r.status === "unknown" ? "No Checksum" : r.status === "drifted" ? "Mismatch" : r.status}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
 
           <div className="my-3 border-t border-border/50 pt-3">
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">

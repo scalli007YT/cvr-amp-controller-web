@@ -62,6 +62,7 @@ interface AmpActionsHook {
   setAmpLock: (mac: string, locked: boolean) => Promise<void>;
   setAmpStandby: (mac: string, standby: boolean) => Promise<void>;
   setBridgePair: (mac: string, pair: BridgePair, bridged: boolean) => Promise<void>;
+  setAllBridgePairs: (mac: string, pairs: Array<{ pair: BridgePair; bridged: boolean }>) => Promise<void>;
   muteIn: (mac: string, channel: Channel, muted: boolean) => Promise<void>;
   setVolumeOut: (mac: string, channel: Channel, db: number) => Promise<void>;
   muteOut: (mac: string, channel: Channel, muted: boolean) => Promise<void>;
@@ -262,6 +263,25 @@ function createAmpActions(): AmpActionsHook {
 
   const setBridgePair = async (mac: string, pair: BridgePair, bridged: boolean) => {
     await sendSingle("useAmpActions.setBridgePair", mac, "bridgePair", pair, bridged);
+  };
+
+  const setAllBridgePairs = async (mac: string, pairs: Array<{ pair: BridgePair; bridged: boolean }>) => {
+    if (pairs.length === 0) return;
+    if (pairs.length === 1) {
+      await setBridgePair(mac, pairs[0].pair, pairs[0].bridged);
+      return;
+    }
+    await dispatch({
+      origin: "useAmpActions.setAllBridgePairs",
+      action: "bridgePair",
+      priority: "reliable",
+      targets: pairs.map(({ pair }) => ({ mac, channel: pair })),
+      endpoint: AMP_ACTIONS_ENDPOINT,
+      buildPayload: (target) => {
+        const entry = pairs.find((p) => p.pair === target.channel);
+        return { mac: target.mac, action: "bridgePair", channel: target.channel, value: entry?.bridged ?? false };
+      }
+    });
   };
 
   const muteIn = async (mac: string, channel: Channel, muted: boolean) => {
@@ -726,6 +746,7 @@ function createAmpActions(): AmpActionsHook {
     setAmpLock,
     setAmpStandby,
     setBridgePair,
+    setAllBridgePairs,
     muteIn,
     setVolumeOut,
     muteOut,
