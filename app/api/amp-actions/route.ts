@@ -49,6 +49,7 @@ import { ampController } from "@/lib/amp-controller";
 import { CvrAmpDevice, FuncCode } from "@/lib/amp-device";
 import { applySimulatedAction, isSimulatedMac } from "@/lib/simulated-amps";
 import { ampActionRequestSchema, type AmpActionRequest } from "@/lib/validation/amp-actions";
+import { parseStandbyFlag, shouldToggleStandby, STANDBY_TOGGLE_BODY } from "@/lib/standby";
 import { AMP_NAME_MAX_LENGTH, CHANNEL_NAME_MAX_LENGTH } from "@/lib/constants";
 import { FIR_MAX_TAPS, FIR_NAME_MAX_BYTES } from "@/lib/fir";
 
@@ -136,14 +137,30 @@ export async function POST(request: Request): Promise<Response> {
       }
 
       // -----------------------------------------------------------------------
-      // Set amp standby — FC=15 STANDBY_DATA, in_out_flag=0
-      // Wire body: 0x01 = standby, 0x00 = normal
-      // Captured original-app frame uses statusCode=0x00 for this command.
+      // Set amp standby — FC=15 STANDBY_DATA, in_out_flag=0, statusCode=0.
+      // Hardware-confirmed (capture 2026-08-13, FW 1.1.8 & 1.1.9): body 0x01
+      // TOGGLES standby (Run <-> Standby); body 0x00 is a no-op. There is no
+      // absolute set. So read the current state and only send the toggle when it
+      // differs from the requested target — otherwise the old "value?01:00" write
+      // could flip standby the wrong way or (for 0x00) do nothing at all.
       // -----------------------------------------------------------------------
       case "setAmpStandby": {
-        const payload = Buffer.from([value ? 0x01 : 0x00]);
-        await device.sendControl(FuncCode.STANDBY_DATA, 0, payload, 0 /* input/default */, 0, 0, 0 /* statusCode */);
-        break;
+        const desiredStandby = Boolean(value);
+        const currentBody = await ampController.requestFC(mac, FuncCode.STANDBY_DATA);
+        const currentStandby = parseStandbyFlag(currentBody);
+        const changed = shouldToggleStandby(currentStandby, desiredStandby);
+        if (changed) {
+          await device.sendControl(
+            FuncCode.STANDBY_DATA,
+            0,
+            Buffer.from(STANDBY_TOGGLE_BODY),
+            0 /* input/default */,
+            0,
+            0,
+            0 /* statusCode */
+          );
+        }
+        return Response.json({ ok: true, mac, action, channel, value, currentStandby, changed });
       }
 
       // -----------------------------------------------------------------------

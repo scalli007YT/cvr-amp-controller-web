@@ -39,6 +39,13 @@ Ground-Truth via **AmpCore-UI auf dem Mac** (laufende AmpCore.app serviert Next 
 - **AmpCore-Bug-Kandidat:** `app/api/amp-actions.ts` `setAmpStandby` nimmt absolute Semantik an (`value?0x01:0x00`, Kommentar „01=standby/00=normal"). Real ist es ein Toggle + `00` wirkungslos → erklärt „Steuerbefehle wirkungslos". Fix-Idee: vor dem Umschalten Ist-Zustand (FC15-Read) prüfen und nur toggeln, wenn Ziel≠Ist.
 - Sweep-Vorgeschichte (FC1/FC2, body00) blieb wirkungslos — konsistent mit Toggle-Semantik, nicht mit Auto-Standby-Timer.
 
+### Fix (Branch `feat/firmware-1.1.x-harmonization`)
+
+- `lib/standby.ts`: reine Helfer `parseStandbyFlag`, `shouldToggleStandby`, `STANDBY_TOGGLE_BODY`.
+- `app/api/amp-actions/route.ts` `setAmpStandby`: liest jetzt Ist-Zustand (`requestFC` FC15) und sendet den Toggle **nur wenn Ziel ≠ Ist**. Behebt „`00` wirkungslos" und „falsch geflippt".
+- **Tests:** `lib/standby.test.ts` (vitest neu eingeführt, `vitest.config.ts` mit `@`-Alias). TypeScript-Typecheck der Fix-Dateien fehlerfrei. **`pnpm test`-Lauf steht noch aus** (npm-Registry beim Setup zeitweise nicht erreichbar → vitest-Install/Lockfile nachziehen).
+- **Live-Verifikation offen:** Dev-Build mit Fix starten, „Standby" zweimal in Folge → idempotent (kein Flip zurück), `00`/Ziel=Ist → kein Paket.
+
 ## Presets (FuncCode 59 = SAVE_RECALL) — Struktur
 
 Body(34): `[0]=mode [1]=slot [2..33]=32-Byte-ASCII-Name`.
