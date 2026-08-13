@@ -179,9 +179,16 @@ export async function POST(request: Request): Promise<Response> {
       // Wire body: 0x00=muted, 0x01=unmuted
       // -----------------------------------------------------------------------
       case "muteIn": {
+        // Safety-critical: a mute that silently drops (packet lost on WiFi) would
+        // leave the input live while the UI briefly shows muted, then "jump back"
+        // to unmuted on the next poll. Confirm the amp actually took it.
         const payload = Buffer.from([value ? 0x00 : 0x01]);
-        await device.sendControl(FuncCode.MUTE, channel, payload, 0 /* input */);
-        break;
+        const want = Boolean(value);
+        const verified = await applyVerifiedControl(
+          () => device.sendControl(FuncCode.MUTE, channel, payload, 0 /* input */),
+          (c) => c.muteIn === want
+        );
+        return Response.json({ ok: true, mac, action, channel, value, verified });
       }
 
       // -----------------------------------------------------------------------
@@ -204,9 +211,15 @@ export async function POST(request: Request): Promise<Response> {
       // Wire body: 0x00=muted, 0x01=unmuted
       // -----------------------------------------------------------------------
       case "muteOut": {
+        // Safety-critical (see muteIn): confirm the output mute actually landed
+        // instead of fire-and-forget, so it can't silently revert to unmuted.
         const payload = Buffer.from([value ? 0x00 : 0x01]);
-        await device.sendControl(FuncCode.MUTE, channel, payload, 1 /* Output */);
-        break;
+        const want = Boolean(value);
+        const verified = await applyVerifiedControl(
+          () => device.sendControl(FuncCode.MUTE, channel, payload, 1 /* Output */),
+          (c) => c.muteOut === want
+        );
+        return Response.json({ ok: true, mac, action, channel, value, verified });
       }
 
       // -----------------------------------------------------------------------

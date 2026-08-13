@@ -98,7 +98,9 @@ Das ist die Muster-Lösung für Phase B (Inhalts-Verifikation + gezielter Retry)
 
 **Ausgeweitet (2026-08-13):** RMS- und Peak-Limiter-**Apply** (`rmsLimiterOut`/`peakLimiterOut`, Voll-Payload-Pfad) nutzen jetzt denselben selbst-heilenden Helper `applyVerifiedControl` (senden → FC=27-Threshold zurücklesen → bei Abweichung nachsenden, bis 3 Runden). Font-unabhängig testbar wie EQ.
 
-**Bewusst NICHT umgestellt: Live-Regler** (Mute/Gain/Delay/Trim pro Knopfdreh). Synchrones Rücklesen nach jedem Regler-Event würde die UI träge machen. Der richtige Weg dafür ist **ACK-bestätigte Zustellung** über den persistenten Controller-Pfad (der Amp ACKt Control-Writes bereits, `sendControl` ignoriert das ACK nur) statt Fire-and-Forget vom ephemeren Socket — als eigener, größerer Schritt (Phase C, mit Blick auf Latenz/Contention). Einzelverlust ist im Alltag selten und für den Nutzer sichtbar/wiederholbar; der EQ-/Limiter-**Batch-Apply** war der katastrophale Fall und ist gelöst.
+**Mute jetzt bestätigt gesendet** (`muteIn`/`muteOut`, `applyVerifiedControl`): setzen → FC=27 zurücklesen → nachsenden, bis der Amp den Zustand wirklich hat. Grund (Hagen, priorisiert): **Sicherheit vor Tempo** — eine still verlorene Stummschaltung lässt den Kanal laut, während die UI kurz „mute" zeigt und beim nächsten Poll „zurückspringt". Der kleine Bestätigungs-Moment ist gewollt. (Verifiziert: nach Set bleibt „muted", kein Zurückspringen.)
+
+**Noch fire-and-forget: schnelle Live-Regler** (Gain/Delay/Trim pro Knopfdreh) — dort wäre synchrones Rücklesen bei jedem Event träge. Der richtige Weg ist **ACK-bestätigte Zustellung** über den persistenten Controller-Pfad (der Amp ACKt Control-Writes bereits, `sendControl` ignoriert das ACK nur) statt Fire-and-Forget vom ephemeren Socket — als eigener Schritt (Phase C). Bei Bedarf lässt sich `applyVerifiedControl` aber auch auf weitere sicherheitskritische Einzelbefehle ziehen.
 
 ## Bezug zu bereits Gefundenem
 
