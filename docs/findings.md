@@ -49,6 +49,29 @@ Body(34): `[0]=mode [1]=slot [2..33]=32-Byte-ASCII-Name`.
 - Beispiel 1.1.9 Slot 0: Query `04 00 00…`, Response `04 00 "Null" 00…` → Slot 0 leer.
 - **Für 1.1.8/1.1.9-Vergleich fehlt noch FC59 vom 1.1.8-Amp** (im Fenster nicht gepollt) sowie ein gezielter Store/Recall. **Store NICHT ohne Freigabe** (überschreibt gespeicherte Presets).
 
+## Firmware-Divergenz 1.1.8 vs 1.1.9 — FC27-Kanalzahl (2026-08-13) ⚠️ ROOT CAUSE
+
+**Symptom 1 (1.1.9 zeigt Input immer „mute") — gelöst/belegt.**
+
+FC27 (SYNC/Channel-Data) Gesamtlänge unterscheidet sich je Firmware:
+| FW | FC27-Länge | `floor(len/515)` | trailerBase | muteIn @ tb+132 |
+|----|-----------:|-----------------:|------------:|-----------------|
+| 1.1.8 | 2232 | **4** ✓ | 2060 | `[1,1,1,1]` unmuted ✓ |
+| 1.1.9 | 2687 | **5** ✗ | 2575 | **OOB → Default `true` (muted)** |
+
+- 1.1.9 hat einen **größeren Trailer** (627 statt 172 B; u. a. neues `locked`-Feld). Per-Kanal bleibt 515.
+- `parseFC27Channels` (`lib/parse-channel-data.ts:321`) leitet `channelCount = floor(buffer.length/515)` ab → auf 1.1.9 fälschlich **5** (sind 4-Kanal-Amps). Dadurch verrutscht `trailerBase`; der muteIn-Read (tb+132) liegt außerhalb → Zeile 333 Default `true` → **immer mute**.
+- Beleg: bei korrektem `channelCount=4` (trailerBase 2060) steht muteIn = `[1,1,1,1]` (real unmuted).
+- **Tragweite:** betrifft **alle** trailer-relativen Felder auf 1.1.9 (analogMatrix, Flow-/DD-Priority, Rotary-Lock via `parseFC27RotaryLock:369` — gleicher Bug) und erzeugt einen **Phantom-5.-Kanal** → erklärt diverse „falsche Monitoring-Werte".
+
+**Fix:** Kanalzahl **nicht** aus der FC27-Länge ableiten, sondern die autoritative `Output_chx` aus FC=0-Discovery nutzen. Der Code hat sie bereits (`hooks/useAmpPoller.ts:184`, `updateAmpChannelCount`), reicht sie aber nicht in `parseFC27Channels`/`parseFC27RotaryLock`. → beide Funktionen um `channelCount`-Parameter erweitern und Aufrufer (`hooks/useAmpChannelData.ts:81`) die autoritative Zahl übergeben lassen.
+
+**Symptom 2 (Preset von 1.1.8 lädt nicht auf 1.1.9 → Fehler) — starker Verdacht, Repro ausstehend.**
+
+- „Presets" = Speaker-Profile aus `storage/speaker-library/*.json`, angewandt auf Kanäle (Speaker-Config-Apply, FC=57 + EQ/Filter). Der 1.1.9-Amp trägt bereits ein Assignment (`speaker-profile-5` „ANLAGENHAGEN AH7").
+- Hypothese: derselbe FC27-`channelCount=5`-Bug korrumpiert die Kanalstruktur des 1.1.9 → der Apply/Vergleich läuft auf einem Phantom-5-Kanal-Layout auf → Fehler. Sehr wahrscheinlich mit dem FC27-Fix mit-behoben.
+- **Exakter Fehlertext noch nicht erfasst** — Reproduktion nötig (verändert DSP-Settings des 1.1.9-Amps → Freigabe von Hagen).
+
 ## Nächste geplante Experimente
 
 1. Längeres Aktiv-Capture (≥60 s) mit sauberem Wake→Run→(Standby) je Amp, beide Firmwares parallel dokumentiert → Output-State-Bytes & etwaige Layout-Divergenz bestätigen.
