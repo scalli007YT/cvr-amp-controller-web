@@ -94,7 +94,11 @@ Konkreter Schmerzpunkt (Hagen): Input-EQ Copy&Paste übernimmt oft nur teilweise
 
 **Fix** (`app/api/amp-actions/route.ts`, `eqBlock`): nach dem Apply wird der Kanal via FC=27 **zurückgelesen**, pro Band Typ/Freq/Gain/Q gegen die Vorgabe verglichen, und **nur die nicht angekommenen Bänder** gezielt nachgesendet — bis zu 4 Runden. Die Retries passieren automatisch im Handler statt durch erneutes Pasten. eqIn/eqOut liegen im Kanal-Body → korrekt lesbar unabhängig vom Trailer-Kanalzahl-Thema.
 
-Das ist die Muster-Lösung für Phase B (Inhalts-Verifikation + gezielter Retry). Als Nächstes auf weitere Fire-and-Forget-Writes (Limiter, Gain/Delay, Source) ausweiten.
+Das ist die Muster-Lösung für Phase B (Inhalts-Verifikation + gezielter Retry).
+
+**Ausgeweitet (2026-08-13):** RMS- und Peak-Limiter-**Apply** (`rmsLimiterOut`/`peakLimiterOut`, Voll-Payload-Pfad) nutzen jetzt denselben selbst-heilenden Helper `applyVerifiedControl` (senden → FC=27-Threshold zurücklesen → bei Abweichung nachsenden, bis 3 Runden). Font-unabhängig testbar wie EQ.
+
+**Bewusst NICHT umgestellt: Live-Regler** (Mute/Gain/Delay/Trim pro Knopfdreh). Synchrones Rücklesen nach jedem Regler-Event würde die UI träge machen. Der richtige Weg dafür ist **ACK-bestätigte Zustellung** über den persistenten Controller-Pfad (der Amp ACKt Control-Writes bereits, `sendControl` ignoriert das ACK nur) statt Fire-and-Forget vom ephemeren Socket — als eigener, größerer Schritt (Phase C, mit Blick auf Latenz/Contention). Einzelverlust ist im Alltag selten und für den Nutzer sichtbar/wiederholbar; der EQ-/Limiter-**Batch-Apply** war der katastrophale Fall und ist gelöst.
 
 ## Bezug zu bereits Gefundenem
 

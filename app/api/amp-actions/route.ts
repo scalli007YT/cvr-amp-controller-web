@@ -49,7 +49,7 @@ import { ampController } from "@/lib/amp-controller";
 import { CvrAmpDevice, FuncCode } from "@/lib/amp-device";
 import { applySimulatedAction, isSimulatedMac } from "@/lib/simulated-amps";
 import { ampActionRequestSchema, type AmpActionRequest } from "@/lib/validation/amp-actions";
-import { parseFC27Channels } from "@/lib/parse-channel-data";
+import { parseFC27Channels, type ChannelData } from "@/lib/parse-channel-data";
 import { AMP_NAME_MAX_LENGTH, CHANNEL_NAME_MAX_LENGTH } from "@/lib/constants";
 import { FIR_MAX_TAPS, FIR_NAME_MAX_BYTES } from "@/lib/fir";
 
@@ -123,6 +123,32 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const device = new CvrAmpDevice(ip);
+
+  // Self-healing send for single "apply" writes: fire the (fire-and-forget)
+  // control, then read the channel back (FC=27) and re-send if the expected value
+  // didn't land — same idea as eqBlock, for writes that otherwise drop silently on
+  // WiFi. Only used for apply-style writes (not live per-knob controls, which must
+  // stay snappy). Returns whether the value was confirmed.
+  const applyVerifiedControl = async (
+    send: () => Promise<void>,
+    check: (chan: ChannelData) => boolean,
+    rounds = 3
+  ): Promise<boolean> => {
+    await send();
+    for (let r = 0; r < rounds; r++) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      let hex: string;
+      try {
+        hex = (await ampController.requestFC27(mac, 0)).toString("hex");
+      } catch {
+        return true; // verification unavailable — don't spin
+      }
+      const chan = parseFC27Channels(hex)[channel];
+      if (!chan || check(chan)) return true;
+      await send();
+    }
+    return false;
+  };
 
   try {
     switch (action) {
@@ -223,7 +249,14 @@ export async function POST(request: Request): Promise<Response> {
           payload.writeFloatLE(body.thresholdVrms, 3);
           payload.writeUInt8(value ? 0x00 : 0x01, 7); // 0=enabled, 1=bypassed
 
-          await device.sendControl(FuncCode.RMS_LIMITER, channel, payload, 1 /* Output */);
+          const thr = body.thresholdVrms;
+          const verified = await applyVerifiedControl(
+            () => device.sendControl(FuncCode.RMS_LIMITER, channel, payload, 1 /* Output */),
+            (c) =>
+              typeof c.rmsLimiter?.thresholdVrms === "number" &&
+              Math.abs(c.rmsLimiter.thresholdVrms - thr) <= Math.max(0.05, Math.abs(thr) * 0.02)
+          );
+          return Response.json({ ok: true, mac, action, channel, value, verified });
         } else {
           const payload = Buffer.from([value ? 0x00 : 0x01]);
           await device.sendControl(FuncCode.RMS_BYPASS, channel, payload, 1 /* Output */);
@@ -248,7 +281,14 @@ export async function POST(request: Request): Promise<Response> {
           payload.writeFloatLE(body.thresholdVp, 4);
           payload.writeUInt8(value ? 0x00 : 0x01, 8); // 0=enabled, 1=bypassed
 
-          await device.sendControl(FuncCode.PEAK_LIMITER, channel, payload, 1 /* Output */);
+          const thr = body.thresholdVp;
+          const verified = await applyVerifiedControl(
+            () => device.sendControl(FuncCode.PEAK_LIMITER, channel, payload, 1 /* Output */),
+            (c) =>
+              typeof c.peakLimiter?.thresholdVp === "number" &&
+              Math.abs(c.peakLimiter.thresholdVp - thr) <= Math.max(0.05, Math.abs(thr) * 0.02)
+          );
+          return Response.json({ ok: true, mac, action, channel, value, verified });
         } else {
           const payload = Buffer.from([value ? 0x00 : 0x01]);
           await device.sendControl(FuncCode.PEAK_BYPASS, channel, payload, 1 /* Output */);
