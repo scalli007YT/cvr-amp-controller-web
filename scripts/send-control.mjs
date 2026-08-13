@@ -113,8 +113,23 @@ async function main() {
       await sendOnce(ip, CMDS["standby-off"]()); await wait(hold);
     }
     console.log("# sequence done");
+  } else if (mode === "steps") {
+    // Run a JSON list of steps with per-step waits (for RE candidate sweeps).
+    // JSON: [{ip,fc,chx,body(hex),inout,status,segment,link,label,waitMs}]
+    const { readFileSync } = await import("fs");
+    const steps = JSON.parse(readFileSync(arg("file"), "utf8"));
+    for (const s of steps) {
+      console.log(`# STEP ${s.label ?? ""}`);
+      await sendOnce(s.ip, {
+        functionCode: s.fc, chx: s.chx ?? 0, body: Buffer.from(s.body ?? "", "hex"),
+        inOutFlag: s.inout ?? 0, statusCode: s.status ?? 1,
+        segment: s.segment ?? 0, link: s.link ?? 0,
+      });
+      await wait(s.waitMs ?? 6000);
+    }
+    console.log("# steps done");
   } else {
-    console.log("modes: send | seq-standby");
+    console.log("modes: send | seq-standby | steps");
   }
 }
 main().catch((e) => { console.error(e); process.exit(1); });
