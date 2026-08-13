@@ -29,11 +29,15 @@ Body = 92 Bytes (Frame 115 = 10 NetHdr + 10 StructHdr + 92 Body + 3 Checksum).
 - **Offen/auffällig:** Body `00` („standby-off" laut API) bringt die Amps **nicht** zurück nach Standby(1) — Wake funktioniert, das Zurücksetzen in Standby verhält sich anders als der API-Kommentar. Muss noch sauber reverse-engineert werden (evtl. `FC=1 AUTO_STANDBY` oder Timeout-basiert). **Mögliche Fehlerquelle im Control-Pfad.**
 - **Firmware-Hinweis (unbestätigt):** 1.1.8 belegte in Fault/Run-Übergängen zusätzliche Bytes @56–63; 1.1.9-Capture war am Fensterende abgeschnitten. Braucht längeres Aktiv-Capture zur Bestätigung.
 
-## Standby-Restore-Sweep (2026-08-13)
+## Standby ist ein TOGGLE (2026-08-13, gelöst) ⚠️
 
-An `.73` (1.1.8) getestet, alle ohne Wirkung (Amp blieb `[8,8,8,8]` Run):
-`FC15 body00 st1`, `FC1 body01 st1`, `FC1 body00 st1`, `FC1 body01 st0`, `FC15 body00 st0 out`.
-→ **Standby lässt sich (bei diesen Modellen) nicht per einfachem Netzbefehl erzwingen.** Zusammen mit den Codes `FC1 AUTO_STANDBY` / `FC2 AUTO_STANDBY_TIME` deutet alles auf **timer-basiertes Auto-Standby**: Amp döst nach Inaktivität selbst ein; Wecken (FC15 body01) resetet den Timer. Ground-Truth-Capture (Standby-Taste in Original-App/Frontpanel) würde den echten Entry-Befehl liefern — noch offen.
+Ground-Truth via **AmpCore-UI auf dem Mac** (laufende AmpCore.app serviert Next auf :3000; von Claude über Browser gesteuert → Befehl geht Mac→Amp, voll capturebar).
+
+- Gesendeter Befehl (UI „Standby amp"): **`FC=15, statusCode=0, body=01`** — identische Bytes für beide Firmwares.
+- Wirkung: `[8,8,8,8] Run → [1,1,1,1] Standby` bei **beiden** Amps. Kein 1.1.8/1.1.9-Unterschied.
+- **Kernbefund:** `FC15 body01` **schaltet Standby um (Toggle)**, es setzt nicht absolut. Beleg: derselbe Befehl brachte vorher Standby→Run, jetzt Run→Standby. `body00` ist ein No-Op → deshalb liefen die früheren „standby-off"-Versuche ins Leere.
+- **AmpCore-Bug-Kandidat:** `app/api/amp-actions.ts` `setAmpStandby` nimmt absolute Semantik an (`value?0x01:0x00`, Kommentar „01=standby/00=normal"). Real ist es ein Toggle + `00` wirkungslos → erklärt „Steuerbefehle wirkungslos". Fix-Idee: vor dem Umschalten Ist-Zustand (FC15-Read) prüfen und nur toggeln, wenn Ziel≠Ist.
+- Sweep-Vorgeschichte (FC1/FC2, body00) blieb wirkungslos — konsistent mit Toggle-Semantik, nicht mit Auto-Standby-Timer.
 
 ## Presets (FuncCode 59 = SAVE_RECALL) — Struktur
 
