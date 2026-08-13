@@ -57,6 +57,32 @@ Alles über **einen** persistenten UDP-Socket (`lib/amp-controller.ts`), Ziel-Po
 **Phase D — Umsetzen & unter realen Bedingungen verifizieren.**
 - Fixes iterativ, jeder gegen echte Hardware (beide Firmwares) + WLAN und Wired gemessen, gegen die Zielmetriken aus Phase A.
 
+## Phase-A-Messergebnisse (2026-08-13, WLAN, installierte App mit normalem Polling)
+
+Werkzeug: `scripts/measure-transport.py` (+ Wireshark-Analyse). 20× FC=57-Write (2,4 kB / 6 Fragmente) je Amp.
+
+**1. Zwei Sende-Pfade mit gegensätzlichen Schwächen — zentrale Erkenntnis:**
+- **ACK-getakteter Pfad** (`ampController.sendFC`, für FC=57 Speaker-Data, FIR): zuverlässig (100 % Erfolg nach ACK-Fix), aber **langsam**.
+- **Fire-and-Forget-Pfad** (`CvrAmpDevice.sendControl`, für die meisten kleinen Befehle: Mute/Gain/Delay/EQ-Bänder): ephemerer Socket, **kein ACK, kein Retry, keine Prüfung** — sendet und schließt nach ~20 ms. Schnell, aber **verliert Pakete still** (unentdeckbar). Ein EQ-Apply = ~30 solcher Befehle in Folge.
+
+**2. Der ACK-Pfad ist langsam — nicht wegen Loss, sondern wegen Contention:**
+| | Erfolg | Wall median | Wall p90 | ACK-Latenz/Fragment median | ACK max |
+|---|---|---|---|---|---|
+| 1.1.8 | 20/20 | 762 ms | 2578 ms | 22 ms | 3149 ms |
+| 1.1.9 | 20/20 | **2700 ms** | 2869 ms | **7 ms** | 3139 ms |
+- Die Amps **ACKen schnell** (7–22 ms median). Ein reiner Send wäre ~150 ms + fixes 500-ms-`sleep` nach jedem Write (`app/api/amp-speaker-data`).
+- Aber Wall = 2,7 s (1.1.9) → **~2 s Warten**: `sendFC` läuft über `_runIpSerial(ip)` — **denselben** Serial-Queue wie das Polling (`requestFC`/`requestFC27`). Writes warten hinter dem laufenden Poll. Der 1.1.9-FC27-Read ist größer (6 vs 5 Fragmente) → hält den Queue länger → 1.1.9 systematisch langsamer.
+- **Tail-Stalls ~3,1 s** (ACK max) vereinzelt → WLAN-Loss / Amp mit FC27-Reassembly beschäftigt.
+- **Hochrechnung:** ein realer Apply mit vielen Ways/Kanälen × ~2,7 s pro ACK-Write + 30 unverifizierte Fire-and-Forget-Befehle = zig Sekunden, mit stillen Teilfehlern → genau „dauert lange / nimmt nicht / falsch".
+
+**3. Fire-and-Forget-Loss (1.1.9, benignes WLAN, 400 ms Abstand):** 20/20 korrekt. Kein Loss im guten Moment — aber ohne jedes Sicherheitsnetz; Risiko bei Bursts/schlechtem WLAN bleibt.
+
+**Geschärfte Prioritäten aus Phase A:**
+1. **Contention entschärfen (größter Hebel für „langsam"):** Polling während Writes drosseln/pausieren; Write-Priorität im `_runIpSerial`; fixes 500-ms-`sleep` überdenken (durch echte Verifikation ersetzen).
+2. **Fire-and-Forget absichern (größter Hebel für „nimmt nicht / falsch"):** kritische kleine Writes über einen verifizierten Pfad (ACK oder Read-back+Vergleich) statt blind senden.
+3. **Inhalts-Verifikation** (Byte/Checksumme, nicht Länge) für Batch-Applies, standardmäßig an.
+4. **Wired vs WLAN** gegenmessen (Hagen: Mac per Kabel ins Amp-Netz), um WLAN-Anteil an Tail-Stalls zu quantifizieren.
+
 ## Bezug zu bereits Gefundenem
 
 Der FC=57-ACK-Fix (siehe `findings.md`) war ein Einzelfall dieses Themas (falsch verworfenes ACK → Timeout). Diese Spezifikation adressiert die **systemische** Zuverlässigkeit, nicht nur den Einzelfall.
