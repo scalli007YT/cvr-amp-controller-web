@@ -98,9 +98,11 @@ Das ist die Muster-Lösung für Phase B (Inhalts-Verifikation + gezielter Retry)
 
 **Ausgeweitet (2026-08-13):** RMS- und Peak-Limiter-**Apply** (`rmsLimiterOut`/`peakLimiterOut`, Voll-Payload-Pfad) nutzen jetzt denselben selbst-heilenden Helper `applyVerifiedControl` (senden → FC=27-Threshold zurücklesen → bei Abweichung nachsenden, bis 3 Runden). Font-unabhängig testbar wie EQ.
 
-**Mute jetzt bestätigt gesendet** (`muteIn`/`muteOut`, `applyVerifiedControl`): setzen → FC=27 zurücklesen → nachsenden, bis der Amp den Zustand wirklich hat. Grund (Hagen, priorisiert): **Sicherheit vor Tempo** — eine still verlorene Stummschaltung lässt den Kanal laut, während die UI kurz „mute" zeigt und beim nächsten Poll „zurückspringt". Der kleine Bestätigungs-Moment ist gewollt. (Verifiziert: nach Set bleibt „muted", kein Zurückspringen.)
+**Alle Tuning-Regler bestätigt gesendet** (`applyVerifiedControl`): setzen → FC=27 zurücklesen → nachsenden, bis der Amp den Wert wirklich hat (bis 3 Runden). Grund (Hagen, klar priorisiert): **Sicherheit vor Tempo** — „ich stelle etwas ein und weiß nicht ob's passiert ist" macht die Software beim Messen wertlos. Der kleine Bestätigungs-Moment ist gewollt (Frontend kann dazu einen kurzen Lade-/Pending-Zustand zeigen und `verified:false` als Warnung).
 
-**Noch fire-and-forget: schnelle Live-Regler** (Gain/Delay/Trim pro Knopfdreh) — dort wäre synchrones Rücklesen bei jedem Event träge. Der richtige Weg ist **ACK-bestätigte Zustellung** über den persistenten Controller-Pfad (der Amp ACKt Control-Writes bereits, `sendControl` ignoriert das ACK nur) statt Fire-and-Forget vom ephemeren Socket — als eigener Schritt (Phase C). Bei Bedarf lässt sich `applyVerifiedControl` aber auch auf weitere sicherheitskritische Einzelbefehle ziehen.
+Abgedeckt & an echter Hardware verifiziert (`verified=true` + unabhängiges Rücklesen): `muteIn/muteOut`, `volumeOut/volumeIn`, `outputTrim`, `delayIn/delayOut`, `invertPolarityOut`, `noiseGateOut`, `powerModeOut`, `sourceType`, `eqBandType/Freq/Gain/Q`, `crossoverEnabled/crossoverFreq`, `firBypass`, `eqBlock`, `rmsLimiterOut/peakLimiterOut`. Alle Response enthält jetzt `verified`.
+
+Noch offen (seltener/kein FC=27-Feld direkt): `setAmpLock` (Lock-Readback separat), `bridgePair`, `matrixGain/matrixActive`, `sourceDelay/sourceTrim`, `analogType`, `backupConfig`, `renameAmp/Input/Output`, `firData`. `setAmpStandby` hat bereits korrekte absolute Logik. Bei Bedarf mit demselben Muster nachrüstbar.
 
 ## Bezug zu bereits Gefundenem
 
