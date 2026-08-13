@@ -124,11 +124,12 @@ export async function POST(request: Request): Promise<Response> {
 
   const device = new CvrAmpDevice(ip);
 
-  // Self-healing send for single "apply" writes: fire the (fire-and-forget)
-  // control, then read the channel back (FC=27) and re-send if the expected value
-  // didn't land — same idea as eqBlock, for writes that otherwise drop silently on
-  // WiFi. Only used for apply-style writes (not live per-knob controls, which must
-  // stay snappy). Returns whether the value was confirmed.
+  // Confirmed send: fire the (fire-and-forget) control, then read the channel back
+  // (FC=27) and re-send until the expected value is actually present. Returns true
+  // only when the amp confirmed the change. If it can NEVER be confirmed (value
+  // didn't land, or read-back keeps failing) it returns false — the caller then
+  // reports a real error, so an action that didn't actually push is never silently
+  // treated as "ok". Certainty over speed (per requirement).
   const applyVerifiedControl = async (
     send: () => Promise<void>,
     check: (chan: ChannelData) => boolean,
@@ -137,18 +138,37 @@ export async function POST(request: Request): Promise<Response> {
     await send();
     for (let r = 0; r < rounds; r++) {
       await new Promise((resolve) => setTimeout(resolve, 200));
-      let hex: string;
+      let confirmed = false;
       try {
-        hex = (await ampController.requestFC27(mac, 0)).toString("hex");
+        const hex = (await ampController.requestFC27(mac, 0)).toString("hex");
+        const chan = parseFC27Channels(hex)[channel];
+        confirmed = !!chan && check(chan);
       } catch {
-        return true; // verification unavailable — don't spin
+        confirmed = false; // couldn't read back -> not confirmed, retry
       }
-      const chan = parseFC27Channels(hex)[channel];
-      if (!chan || check(chan)) return true;
+      if (confirmed) return true;
       await send();
     }
     return false;
   };
+
+  // Turn a verification result into a response. When the amp did NOT confirm the
+  // change, return a real HTTP error so the UI surfaces a failure instead of a
+  // silent "ok" — an action that didn't actually push must report an error.
+  const respondVerified = (verified: boolean): Response =>
+    verified
+      ? Response.json({ ok: true, mac, action, channel, value, verified: true })
+      : Response.json(
+          {
+            error: `"${action}" (Kanal ${channel}) konnte nicht bestätigt werden — der Amp hat die Änderung nicht übernommen. Bitte erneut versuchen.`,
+            mac,
+            action,
+            channel,
+            value,
+            verified: false
+          },
+          { status: 502 }
+        );
 
   try {
     switch (action) {
@@ -188,7 +208,7 @@ export async function POST(request: Request): Promise<Response> {
           () => device.sendControl(FuncCode.MUTE, channel, payload, 0 /* input */),
           (c) => c.muteIn === want
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -206,7 +226,7 @@ export async function POST(request: Request): Promise<Response> {
           () => device.sendControl(FuncCode.VOL, channel, payload, 0 /* input */),
           (c) => Math.abs(c.volumeOut - want) <= 0.15
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -223,7 +243,7 @@ export async function POST(request: Request): Promise<Response> {
           () => device.sendControl(FuncCode.MUTE, channel, payload, 1 /* Output */),
           (c) => c.muteOut === want
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -238,7 +258,7 @@ export async function POST(request: Request): Promise<Response> {
           () => device.sendControl(FuncCode.PHASE, channel, payload, 1 /* Output */),
           (c) => c.invertedOut === want
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -254,7 +274,7 @@ export async function POST(request: Request): Promise<Response> {
           () => device.sendControl(FuncCode.NOISE_GATE, channel, payload, 1 /* Output */),
           (c) => c.noiseGateOut === want
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -281,7 +301,7 @@ export async function POST(request: Request): Promise<Response> {
               typeof c.rmsLimiter?.thresholdVrms === "number" &&
               Math.abs(c.rmsLimiter.thresholdVrms - thr) <= Math.max(0.05, Math.abs(thr) * 0.02)
           );
-          return Response.json({ ok: true, mac, action, channel, value, verified });
+          return respondVerified(verified);
         } else {
           const payload = Buffer.from([value ? 0x00 : 0x01]);
           await device.sendControl(FuncCode.RMS_BYPASS, channel, payload, 1 /* Output */);
@@ -313,7 +333,7 @@ export async function POST(request: Request): Promise<Response> {
               typeof c.peakLimiter?.thresholdVp === "number" &&
               Math.abs(c.peakLimiter.thresholdVp - thr) <= Math.max(0.05, Math.abs(thr) * 0.02)
           );
-          return Response.json({ ok: true, mac, action, channel, value, verified });
+          return respondVerified(verified);
         } else {
           const payload = Buffer.from([value ? 0x00 : 0x01]);
           await device.sendControl(FuncCode.PEAK_BYPASS, channel, payload, 1 /* Output */);
@@ -364,7 +384,7 @@ export async function POST(request: Request): Promise<Response> {
           () => device.sendControl(FuncCode.SOURCE_SELECT, channel, payload, 0 /* input */),
           (c) => c.sourceTypeCode === want
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -435,7 +455,7 @@ export async function POST(request: Request): Promise<Response> {
           () => device.sendControl(FuncCode.DELAY, channel, payload, 0 /* input */),
           (c) => Math.abs(c.delayIn - want) <= 0.05
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -450,7 +470,7 @@ export async function POST(request: Request): Promise<Response> {
           () => device.sendControl(FuncCode.DELAY, channel, payload, 1 /* Output */),
           (c) => Math.abs(c.delayOut - want) <= 0.05
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -466,7 +486,7 @@ export async function POST(request: Request): Promise<Response> {
           () => device.sendControl(FuncCode.VOL, channel, payload, 1 /* Output */),
           (c) => Math.abs(c.trimOut - want) <= 0.15
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -485,7 +505,7 @@ export async function POST(request: Request): Promise<Response> {
           () => device.sendControl(POWER_MODE_FUNC_CODE, channel, payload, 1 /* Output */),
           (c) => c.powerMode === want
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -520,7 +540,7 @@ export async function POST(request: Request): Promise<Response> {
             return !!b && b.bypass === !want; // enabled => not bypassed
           }
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -544,7 +564,7 @@ export async function POST(request: Request): Promise<Response> {
             return !!b && Math.abs(b.freq - want) <= Math.max(1, want * 0.02);
           }
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -634,7 +654,20 @@ export async function POST(request: Request): Promise<Response> {
           await device.commitCrossover();
         }
 
-        return Response.json({ ok: true, mac, action, channel, verified: remaining.length === 0, remainingBands: remaining });
+        if (remaining.length > 0) {
+          return Response.json(
+            {
+              error: `EQ nicht vollständig übernommen — ${remaining.length} Band/Bänder fehlen (Kanal ${channel}). Bitte erneut versuchen.`,
+              mac,
+              action,
+              channel,
+              verified: false,
+              remainingBands: remaining
+            },
+            { status: 502 }
+          );
+        }
+        return Response.json({ ok: true, mac, action, channel, verified: true });
       }
 
       // -----------------------------------------------------------------------
@@ -656,7 +689,7 @@ export async function POST(request: Request): Promise<Response> {
             return !!b && (wantBypass ? b.bypass === true : b.bypass === false && b.type === wantType);
           }
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -676,7 +709,7 @@ export async function POST(request: Request): Promise<Response> {
             return !!b && Math.abs(b.freq - want) <= Math.max(1, want * 0.02);
           }
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -698,7 +731,7 @@ export async function POST(request: Request): Promise<Response> {
             return !!b && Math.abs(b.gain - want) <= 0.25;
           }
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -718,7 +751,7 @@ export async function POST(request: Request): Promise<Response> {
             return !!b && Math.abs(b.q - want) <= 0.1;
           }
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
@@ -788,7 +821,7 @@ export async function POST(request: Request): Promise<Response> {
           () => device.sendControl(FuncCode.FIR_BYPASS, channel, payload, 1 /* Output */),
           (c) => c.firBypassed === !want // enabled => not bypassed
         );
-        return Response.json({ ok: true, mac, action, channel, value, verified });
+        return respondVerified(verified);
       }
 
       // -----------------------------------------------------------------------
