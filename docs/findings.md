@@ -22,22 +22,25 @@ Body = 92 Bytes (Frame 115 = 10 NetHdr + 10 StructHdr + 92 Body + 3 Checksum).
 **Output-State-Codes** (aus `stores/AmpStore.ts` `getOutputStateLabel`, hardware-bestätigt):
 `0=Normal, 1=Standby, 2=Fault, 3=Open, 4=Overload, 5=Clip, 6=Dcp, 7=PowerEr, 8=Run, 9=Temp, 10=Limit, 11=Sleep`.
 
-## Standby/Wake-Test (2026-08-13)
+## Standby = ABSOLUTES Setzen (2026-08-13, verifiziert) ✅
 
-- Gesendet: `FC=15 (STANDBY_DATA)`, statusCode 0, Body `01` bzw. `00` (exakt wie AmpCore, siehe `app/api/amp-actions/route.ts`).
-- **Beobachtet (1.1.8):** Output-States `[1,1,1,1]`(Standby) → `[2,2,2,2]`(Fault, transient) → `[8,8,8,8]`(Run) nach Body `01`.
-- **Offen/auffällig:** Body `00` („standby-off" laut API) bringt die Amps **nicht** zurück nach Standby(1) — Wake funktioniert, das Zurücksetzen in Standby verhält sich anders als der API-Kommentar. Muss noch sauber reverse-engineert werden (evtl. `FC=1 AUTO_STANDBY` oder Timeout-basiert). **Mögliche Fehlerquelle im Control-Pfad.**
-- **Firmware-Hinweis (unbestätigt):** 1.1.8 belegte in Fault/Run-Übergängen zusätzliche Bytes @56–63; 1.1.9-Capture war am Fensterende abgeschnitten. Braucht längeres Aktiv-Capture zur Bestätigung.
+`FC=15 STANDBY_DATA`, statusCode 0:
+- **`body=01` → Standby setzen**, **`body=00` → Run setzen (wecken)**. **Absolut, KEIN Toggle.**
 
-## Standby ist ein TOGGLE (2026-08-13, gelöst) ⚠️
+**Sauberer Beleg** (`captures/baseline/standby_semantics_2026-08-13`, Amp .73/1.1.8, @52-Verlauf):
+`Standby[1] → body00 → [2] → [8]Run → body00 (bleibt Run) → body01 → [1]Standby → body01 (bleibt Standby)`.
+Transienter `[2]` (Fault-Label) ist nur der Anfahr-Übergang, kein echter Fehler.
 
-Ground-Truth via **AmpCore-UI auf dem Mac** (laufende AmpCore.app serviert Next auf :3000; von Claude über Browser gesteuert → Befehl geht Mac→Amp, voll capturebar).
+**Der ursprüngliche AmpCore-Code ist korrekt** (`setAmpStandby: value?0x01:0x00`). Es gibt hier **keinen** Bug.
 
-- Gesendeter Befehl (UI „Standby amp"): **`FC=15, statusCode=0, body=01`** — identische Bytes für beide Firmwares.
-- Wirkung: `[8,8,8,8] Run → [1,1,1,1] Standby` bei **beiden** Amps. Kein 1.1.8/1.1.9-Unterschied.
-- **Kernbefund:** `FC15 body01` **schaltet Standby um (Toggle)**, es setzt nicht absolut. Beleg: derselbe Befehl brachte vorher Standby→Run, jetzt Run→Standby. `body00` ist ein No-Op → deshalb liefen die früheren „standby-off"-Versuche ins Leere.
-- **AmpCore-Bug-Kandidat:** `app/api/amp-actions.ts` `setAmpStandby` nimmt absolute Semantik an (`value?0x01:0x00`, Kommentar „01=standby/00=normal"). Real ist es ein Toggle + `00` wirkungslos → erklärt „Steuerbefehle wirkungslos". Fix-Idee: vor dem Umschalten Ist-Zustand (FC15-Read) prüfen und nur toggeln, wenn Ziel≠Ist.
-- Sweep-Vorgeschichte (FC1/FC2, body00) blieb wirkungslos — konsistent mit Toggle-Semantik, nicht mit Auto-Standby-Timer.
+### Korrektur einer früheren Fehleinschätzung (wichtig, dokumentiert)
+
+Eine vorherige Notiz behauptete „Standby ist ein Toggle" und „Amps hängen in Standby fest". **Beides war falsch:**
+- `[8,8,8,8]` wurde als „festhängendes Standby" **fehlgelesen** — `8 = Run` (normal). Die Amps liefen also, hingen nie fest.
+- Die beobachtete Wirkung „Standby→Run" kam vom `body00`-Befehl, nicht von `body01`; im selben Testlauf lagen beide dicht beieinander → verwechselt.
+- Ein daraufhin gebauter „Fix" (read-then-toggle) war entsprechend falsch (sendete immer `body01`) und wurde **revertiert**.
+
+Lehre fürs Projekt: Semantik nur aus **isolierten** Einzelbefehlen ableiten (ein Kommando, dann beobachten), nie aus dicht gestaffelten Sequenzen.
 
 ## Presets (FuncCode 59 = SAVE_RECALL) — Struktur
 
