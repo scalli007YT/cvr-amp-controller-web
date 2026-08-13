@@ -61,11 +61,44 @@ def decode_body(body):
     }
 
 
+def timeline(pcap):
+    """Per amp: collapse consecutive identical HEARTBEAT bodies, print transitions
+    with epoch time so control commands can be aligned to state changes."""
+    ts = tshark_bin()
+    for ip, (model, fw) in AMP_INFO.items():
+        rows = subprocess.run(
+            [ts, "-r", pcap, "-Y", f"ip.src=={ip} && udp.srcport==45455",
+             "-T", "fields", "-e", "frame.time_epoch", "-e", "udp.payload"],
+            capture_output=True, text=True).stdout.strip().splitlines()
+        print(f"===== {model} FW {fw} ({ip}) — heartbeat transitions =====")
+        last = None
+        for line in rows:
+            if not line or "\t" not in line:
+                continue
+            t, payload = line.split("\t", 1)
+            b = bytes.fromhex(payload.replace(":", ""))
+            if len(b) < 12 or b[10] != 0x55 or b[11] != 6:
+                continue
+            body = b[20:len(b) - 3]
+            sig = (list(body[52:56]), list(body[88:92]),
+                   [f(body, 4 * i) for i in range(5)],
+                   [f(body, 20 + 4 * i) for i in range(4)],   # outV legacy
+                   [f(body, 36 + 4 * i) for i in range(4)])    # outI legacy
+            if sig != last:
+                print(f"  t={float(t):.2f}  states@52={sig[0]} @88={sig[1]} "
+                      f"temps={sig[2]} outV@20={sig[3]} outI@36={sig[4]}")
+                last = sig
+        print()
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
         sys.exit(1)
     pcap = sys.argv[1]
+    if "--timeline" in sys.argv[2:]:
+        timeline(pcap)
+        return
     all_hb = "--all-heartbeats" in sys.argv[2:]
     ts = tshark_bin()
 
