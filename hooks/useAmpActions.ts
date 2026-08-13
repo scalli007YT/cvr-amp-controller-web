@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { ampActionRequestSchema } from "@/lib/validation/amp-actions";
+import { useActionPending } from "@/stores/ActionPendingStore";
 import {
   MATRIX_GAIN_MAX_DB,
   MATRIX_GAIN_MIN_DB,
@@ -194,6 +195,10 @@ export function useAmpActions(): AmpActionsHook {
       extra?: Record<string, unknown>,
       opts?: { suppressToast?: boolean; throwOnError?: boolean }
     ) => {
+      // Mark an action in flight so the UI can show a loading indicator until the
+      // amp has confirmed it (the backend now reads back and only returns once
+      // the change is verified or has failed).
+      useActionPending.getState().begin();
       try {
         const res = await fetch("/api/amp-actions", {
           method: "POST",
@@ -217,6 +222,8 @@ export function useAmpActions(): AmpActionsHook {
           throw err instanceof Error ? err : new Error(msg);
         }
         return false;
+      } finally {
+        useActionPending.getState().end();
       }
     },
     []
