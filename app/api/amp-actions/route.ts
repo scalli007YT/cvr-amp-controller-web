@@ -49,6 +49,7 @@ import { ampController } from "@/lib/amp-controller";
 import { CvrAmpDevice, FuncCode } from "@/lib/amp-device";
 import { applySimulatedAction, isSimulatedMac } from "@/lib/simulated-amps";
 import { ampActionRequestSchema, type AmpActionRequest } from "@/lib/validation/amp-actions";
+import { parseFC27Channels } from "@/lib/parse-channel-data";
 import { AMP_NAME_MAX_LENGTH, CHANNEL_NAME_MAX_LENGTH } from "@/lib/constants";
 import { FIR_MAX_TAPS, FIR_NAME_MAX_BYTES } from "@/lib/fir";
 
@@ -454,47 +455,93 @@ export async function POST(request: Request): Promise<Response> {
       }
 
       // -----------------------------------------------------------------------
-      // Full 10-band EQ apply job — writes HP, EQ1-8, LP in sequence.
-      // This path intentionally applies the whole block to avoid partial-state
-      // drift across linked channels when users edit rapidly.
+      // Full 10-band EQ apply job — writes HP, EQ1-8, LP.
+      // The per-band writes are fire-and-forget (no ACK), so on WiFi/contention a
+      // burst of ~30 packets drops some silently → EQ only partially applied (the
+      // classic "copy-paste EQ takes 2-3 tries" symptom). This path now self-heals:
+      // after applying it reads the channel back (FC=27) and re-sends only the
+      // bands that did not land, up to a few rounds — the retries happen here
+      // automatically instead of the user re-pasting.
       // -----------------------------------------------------------------------
       case "eqBlock": {
         const inOutFlag = body.target === "input" ? 0 : 1;
+        const bands = body.bands;
 
-        for (let idx = 0; idx < body.bands.length; idx++) {
-          const band = body.bands[idx];
-
+        const sendBand = async (idx: number): Promise<void> => {
+          const band = bands[idx];
           if (idx === 0 || idx === 9) {
             const kind = idx === 0 ? "hp" : "lp";
-
             const typePayload = Buffer.from([getCrossoverTypeByte(kind, !band.bypass, band.type)]);
             await device.sendControl(FuncCode.FILTER_TYPE, channel, typePayload, inOutFlag, getCrossoverLink(), idx);
-
             const freqPayload = Buffer.alloc(4);
             freqPayload.writeFloatLE(band.freq, 0);
             await device.sendControl(FuncCode.FILTER_FREQ, channel, freqPayload, inOutFlag, getCrossoverLink(), idx);
-            continue;
+            return;
           }
-
           const typeByte = band.bypass ? 255 - band.type : band.type;
-          const typePayload = Buffer.from([typeByte]);
-          await device.sendControl(FuncCode.FILTER_TYPE, channel, typePayload, inOutFlag, 0, idx);
-
+          await device.sendControl(FuncCode.FILTER_TYPE, channel, Buffer.from([typeByte]), inOutFlag, 0, idx);
           const freqPayload = Buffer.alloc(4);
           freqPayload.writeFloatLE(band.freq, 0);
           await device.sendControl(FuncCode.FILTER_FREQ, channel, freqPayload, inOutFlag, 0, idx);
-
           const gainPayload = Buffer.alloc(4);
           gainPayload.writeFloatLE(band.gain, 0);
           await device.sendControl(FuncCode.FILTER_GAIN, channel, gainPayload, inOutFlag, 0, idx);
-
           const qPayload = Buffer.alloc(4);
           qPayload.writeFloatLE(band.q, 0);
           await device.sendControl(FuncCode.FILTER_Q, channel, qPayload, inOutFlag, 0, idx);
+        };
+
+        // Read the channel back and return the band indices that don't match yet.
+        // eqIn/eqOut live in the per-channel body, so they parse correctly even if
+        // the trailer-derived channel count would be off.
+        const findMismatchedBands = async (): Promise<number[]> => {
+          let hex: string;
+          try {
+            hex = (await ampController.requestFC27(mac, 0)).toString("hex");
+          } catch {
+            return []; // verification unavailable — don't spin
+          }
+          const chan = parseFC27Channels(hex)[channel];
+          const readback = inOutFlag === 0 ? chan?.eqIn : chan?.eqOut;
+          if (!chan || !Array.isArray(readback) || readback.length < bands.length) return [];
+          const mism: number[] = [];
+          for (let idx = 0; idx < bands.length; idx++) {
+            const want = bands[idx];
+            const got = readback[idx];
+            const isXover = idx === 0 || idx === 9;
+            let ok: boolean;
+            if (want.bypass) {
+              ok = got?.bypass === true;
+            } else {
+              ok =
+                !!got &&
+                got.bypass === false &&
+                got.type === want.type &&
+                Math.abs(got.freq - want.freq) <= Math.max(1, want.freq * 0.02) &&
+                (isXover || Math.abs(got.gain - want.gain) <= 0.25) &&
+                (isXover || Math.abs(got.q - want.q) <= 0.1);
+            }
+            if (!ok) mism.push(idx);
+          }
+          return mism;
+        };
+
+        // Round 1: apply everything.
+        for (let idx = 0; idx < bands.length; idx++) await sendBand(idx);
+        await device.commitCrossover();
+
+        // Self-healing rounds: re-send only what didn't land.
+        const maxRounds = 4;
+        let remaining: number[] = [];
+        for (let round = 0; round < maxRounds; round++) {
+          await new Promise((resolve) => setTimeout(resolve, 200)); // let writes settle before read
+          remaining = await findMismatchedBands();
+          if (remaining.length === 0) break;
+          for (const idx of remaining) await sendBand(idx);
+          await device.commitCrossover();
         }
 
-        await device.commitCrossover();
-        break;
+        return Response.json({ ok: true, mac, action, channel, verified: remaining.length === 0, remainingBands: remaining });
       }
 
       // -----------------------------------------------------------------------

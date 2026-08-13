@@ -83,6 +83,19 @@ Werkzeug: `scripts/measure-transport.py` (+ Wireshark-Analyse). 20× FC=57-Write
 3. **Inhalts-Verifikation** (Byte/Checksumme, nicht Länge) für Batch-Applies, standardmäßig an.
 4. **Wired vs WLAN** gegenmessen (Hagen: Mac per Kabel ins Amp-Netz), um WLAN-Anteil an Tail-Stalls zu quantifizieren.
 
+## Erster umgesetzter Fix: selbst-heilender EQ-Apply (2026-08-13) ✅
+
+Konkreter Schmerzpunkt (Hagen): Input-EQ Copy&Paste übernimmt oft nur teilweise, erst beim 2./3. Mal komplett. Gemessen (`scripts/measure-eq-loss.mjs`, EQ anwenden → FC=27 zurücklesen → gelandete Bänder zählen, 15×):
+
+| | vorher (fire-and-forget) | nach Fix (self-healing) |
+|---|---|---|
+| 1.1.8 | 6/15 voll (Ø 7,1/8) | **15/15 (Ø 8,0/8)** |
+| 1.1.9 | **0/15 voll (Ø 5,3/8)** | **15/15 (Ø 8,0/8)** |
+
+**Fix** (`app/api/amp-actions/route.ts`, `eqBlock`): nach dem Apply wird der Kanal via FC=27 **zurückgelesen**, pro Band Typ/Freq/Gain/Q gegen die Vorgabe verglichen, und **nur die nicht angekommenen Bänder** gezielt nachgesendet — bis zu 4 Runden. Die Retries passieren automatisch im Handler statt durch erneutes Pasten. eqIn/eqOut liegen im Kanal-Body → korrekt lesbar unabhängig vom Trailer-Kanalzahl-Thema.
+
+Das ist die Muster-Lösung für Phase B (Inhalts-Verifikation + gezielter Retry). Als Nächstes auf weitere Fire-and-Forget-Writes (Limiter, Gain/Delay, Source) ausweiten.
+
 ## Bezug zu bereits Gefundenem
 
 Der FC=57-ACK-Fix (siehe `findings.md`) war ein Einzelfall dieses Themas (falsch verworfenes ACK → Timeout). Diese Spezifikation adressiert die **systemische** Zuverlässigkeit, nicht nur den Einzelfall.
