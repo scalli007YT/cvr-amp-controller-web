@@ -68,13 +68,19 @@ FC27 (SYNC/Channel-Data) Gesamtlänge unterscheidet sich je Firmware:
 - **Belegt (echte Daten, echte Funktion):** 1.1.9 muteIn `[true×5] → [false×4]`; 1.1.8 unverändert `[false×4]`. Type-Check sauber.
 - **End-to-End (Dev-Build gegen echte Daten):** 1.1.9-Input-Mute-Buttons im UI im `unmuted`-Zustand (kein persistenter Destructive-Style). ✅
 
-**Symptom 2 (Preset-Apply auf 1.1.9 → Fehler) — reproduziert, aber ANDERE Ursache.**
+**Symptom 2 (Speaker-Preset-Apply auf 1.1.9 → „completed with errors") — GEFIXT ✅.**
 
-- „Presets" = Speaker-Profile (`storage/speaker-library/`), Apply via „Apply all" im Speaker-Config-Tab. Der 1.1.9 trägt `ANLAGENHAGEN AH7`.
-- **Reproduziert (mit FC27-Fix aktiv):** Apply schlägt fehl — Toast „Applied 0, failed 1". Server-Log: **`POST /api/amp-presets/current` → 500 nach 4,2 s** (Timeout beim FC59-„aktuelles Preset lesen" *während* des Apply).
-- **NICHT der FC27-Bug:** direkt aufgerufen liefert `/api/amp-presets/current` für beide Amps sauber `"Null"`. Der 500 tritt nur unter Apply-Contention auf. → **eigenständiges Problem** (FC59-Read-Timeout während Apply; evtl. 1.1.9-spezifisches FC59-Timing oder Apply-Nebenläufigkeit). Braucht separate RE.
-- Offen: ob dies exakt Hagens „1.1.8-Preset auf 1.1.9"-Fall ist (Speaker-Apply vs. anderer Preset-Flow) → mit Hagen die genauen Schritte abgleichen.
-- Amp danach zurück in Standby; lokale Speaker-Preset-Dateien nachweislich unverändert (Prüfsummen).
+Reproduziert (= Hagens exakter Ablauf: Speaker auf Ausgang ziehen → Apply). Apply sendet FC=57 SPEAKER_DATA fragmentiert via `ampController.sendFC` mit **ACK-getakteter** Fragmentierung (`/api/amp-speaker-data`).
+
+**Root Cause (Byte-belegt): FC=57-ACK-Format divergiert je Firmware.**
+- Mac sendet Fragment (dataState=0). Amp ACKt header-only mit `dataState=1`.
+- **1.1.8-ACK:** `packetsCount=1, packetsLastlen=0` → matcht AmpCores `genericMatch (1/1/0)`. ✅
+- **1.1.9-ACK:** `packetsCount=0, packetsLastlen=450` → matcht **weder** strict noch generic → verworfen → Fragment-Retry → „ACK timed out … attempt=3" → `sent:false` → Apply „failed 1".
+- Direktvergleich (gleicher Blob): 1.1.8 `sent=True` (frameAttempts=1), 1.1.9 „ACK timed out". (Der zuvor gesehene `/api/amp-presets/current`-500 war nur ein paralleler Read-Timeout während der Apply-Contention, nicht die Ursache.)
+
+**Fix (`lib/amp-controller.ts` `_onPacket`):** Ein **header-only Paket mit `dataState=1` ist ein reines ACK** — packetsCount/lastlen sind je Firmware inkonsistent und taugen nicht zur Korrelation. Da Fragmente strikt sequenziell gesendet werden (immer nur eins in-flight), reicht `raw.length === NETWORK_HEADER_LEN` als ACK-Match. strict/generic bleiben als schnelle Pfade.
+
+**Verifiziert (echte Hardware):** FC=57-Send an 1.1.9 danach `sent=True, frameAttempts=1`; 1.1.8 unverändert. UI „Apply all" auf 1.1.9: Toast „Queued speaker configs applied — Applied 1 item(s)" (vorher „completed with errors"). Lokale Speaker-Preset-Dateien nachweislich unverändert (Prüfsummen).
 
 ## Nächste geplante Experimente
 
