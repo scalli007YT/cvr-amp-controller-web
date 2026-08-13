@@ -64,13 +64,17 @@ FC27 (SYNC/Channel-Data) Gesamtlänge unterscheidet sich je Firmware:
 - Beleg: bei korrektem `channelCount=4` (trailerBase 2060) steht muteIn = `[1,1,1,1]` (real unmuted).
 - **Tragweite:** betrifft **alle** trailer-relativen Felder auf 1.1.9 (analogMatrix, Flow-/DD-Priority, Rotary-Lock via `parseFC27RotaryLock:369` — gleicher Bug) und erzeugt einen **Phantom-5.-Kanal** → erklärt diverse „falsche Monitoring-Werte".
 
-**Fix:** Kanalzahl **nicht** aus der FC27-Länge ableiten, sondern die autoritative `Output_chx` aus FC=0-Discovery nutzen. Der Code hat sie bereits (`hooks/useAmpPoller.ts:184`, `updateAmpChannelCount`), reicht sie aber nicht in `parseFC27Channels`/`parseFC27RotaryLock`. → beide Funktionen um `channelCount`-Parameter erweitern und Aufrufer (`hooks/useAmpChannelData.ts:81`) die autoritative Zahl übergeben lassen.
+**Fix (UMGESETZT + verifiziert):** Kanalzahl **nicht** aus der FC27-Länge ableiten, sondern die autoritative `Output_chx` aus FC=0-Discovery nutzen. `resolveFC27ChannelCount()` neu in `lib/parse-channel-data.ts`; `parseFC27Channels`/`parseFC27RotaryLock` nehmen die autoritative Zahl; `hooks/useAmpChannelData.ts` reicht `amp.output_chx` durch.
+- **Belegt (echte Daten, echte Funktion):** 1.1.9 muteIn `[true×5] → [false×4]`; 1.1.8 unverändert `[false×4]`. Type-Check sauber.
+- **End-to-End (Dev-Build gegen echte Daten):** 1.1.9-Input-Mute-Buttons im UI im `unmuted`-Zustand (kein persistenter Destructive-Style). ✅
 
-**Symptom 2 (Preset von 1.1.8 lädt nicht auf 1.1.9 → Fehler) — starker Verdacht, Repro ausstehend.**
+**Symptom 2 (Preset-Apply auf 1.1.9 → Fehler) — reproduziert, aber ANDERE Ursache.**
 
-- „Presets" = Speaker-Profile aus `storage/speaker-library/*.json`, angewandt auf Kanäle (Speaker-Config-Apply, FC=57 + EQ/Filter). Der 1.1.9-Amp trägt bereits ein Assignment (`speaker-profile-5` „ANLAGENHAGEN AH7").
-- Hypothese: derselbe FC27-`channelCount=5`-Bug korrumpiert die Kanalstruktur des 1.1.9 → der Apply/Vergleich läuft auf einem Phantom-5-Kanal-Layout auf → Fehler. Sehr wahrscheinlich mit dem FC27-Fix mit-behoben.
-- **Exakter Fehlertext noch nicht erfasst** — Reproduktion nötig (verändert DSP-Settings des 1.1.9-Amps → Freigabe von Hagen).
+- „Presets" = Speaker-Profile (`storage/speaker-library/`), Apply via „Apply all" im Speaker-Config-Tab. Der 1.1.9 trägt `ANLAGENHAGEN AH7`.
+- **Reproduziert (mit FC27-Fix aktiv):** Apply schlägt fehl — Toast „Applied 0, failed 1". Server-Log: **`POST /api/amp-presets/current` → 500 nach 4,2 s** (Timeout beim FC59-„aktuelles Preset lesen" *während* des Apply).
+- **NICHT der FC27-Bug:** direkt aufgerufen liefert `/api/amp-presets/current` für beide Amps sauber `"Null"`. Der 500 tritt nur unter Apply-Contention auf. → **eigenständiges Problem** (FC59-Read-Timeout während Apply; evtl. 1.1.9-spezifisches FC59-Timing oder Apply-Nebenläufigkeit). Braucht separate RE.
+- Offen: ob dies exakt Hagens „1.1.8-Preset auf 1.1.9"-Fall ist (Speaker-Apply vs. anderer Preset-Flow) → mit Hagen die genauen Schritte abgleichen.
+- Amp danach zurück in Standby; lokale Speaker-Preset-Dateien nachweislich unverändert (Prüfsummen).
 
 ## Nächste geplante Experimente
 
