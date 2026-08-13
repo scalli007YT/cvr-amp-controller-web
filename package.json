@@ -17,9 +17,7 @@
     "electron:make:mac": "electron-forge make --platform darwin",
     "electron:publish:branch": "node -e \"const v='v'+require('./package.json').version; const {execSync}=require('child_process'); execSync('git tag -f '+v,{stdio:'inherit'}); execSync('git push origin '+v+' -f',{stdio:'inherit'}); console.log('Retagged '+v)\"",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
@@ -66,7 +64,6 @@
     "rcedit": "^5.0.2",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^4.1.10",
     "wait-on": "^9.0.4"
   }
 }
